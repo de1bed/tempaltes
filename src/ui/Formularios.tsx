@@ -1,6 +1,6 @@
 import { dinero, miles, num, pct } from '../lib/formato'
-import type { BonosData, FeedbakData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
-import { PORTADAS } from '../lib/imagenes'
+import type { BonosData, ContratoLicenciaData, FeedbakData, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
+import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
 import { Area, Fecha, Fila, Lista, Numero, Opciones, Seccion, Texto } from './campos'
 
@@ -14,6 +14,20 @@ const TRATAMIENTOS = [
   ['Estimado', 'Estimado'],
   ['Estimados', 'Estimados'],
 ] as const
+
+/** Portada Treve o sin portada, con miniaturas como en Feedbak. */
+function SelectorPortada({ valor, onCambio }: { valor: boolean; onCambio: (v: boolean) => void }) {
+  return (
+    <div className="portadas dos">
+      <button type="button" className={valor ? 'portada activa' : 'portada'} onClick={() => onCambio(true)} aria-pressed={valor}>
+        <img src={IMG.treveCover} alt="Portada Treve" />
+      </button>
+      <button type="button" className={valor ? 'portada' : 'portada activa'} onClick={() => onCambio(false)} aria-pressed={!valor}>
+        <span>Sin portada</span>
+      </button>
+    </div>
+  )
+}
 
 function Destinatario<T extends { contacto: string; empresa: string; fecha: string }>({ d, set, ciudad }: Props<T> & { ciudad?: boolean }) {
   const dd = d as T & { ciudad?: string; puesto?: string; cargo?: string; tratamiento?: string; idioma?: string }
@@ -154,6 +168,7 @@ export function FormServicios({ d, set }: Props<ServiciosData>) {
   return (
     <>
       <Seccion titulo="Portada">
+        <SelectorPortada valor={d.conPortada} onCambio={(v) => set({ conPortada: v })} />
         <Texto label="Título de la portada" value={d.tituloPortada} onChange={(v) => set({ tituloPortada: v })} />
       </Seccion>
       <Destinatario d={d} set={set} ciudad />
@@ -211,6 +226,7 @@ export function FormPayroll({ d, set }: Props<PayrollData>) {
   return (
     <>
       <Seccion titulo="Portada">
+        <SelectorPortada valor={d.conPortada} onCambio={(v) => set({ conPortada: v })} />
         <Texto label="Título (puesto)" value={d.tituloPortada} onChange={(v) => set({ tituloPortada: v })} />
         <Texto label="Cliente en portada" value={d.clientePortada} onChange={(v) => set({ clientePortada: v })} placeholder="TREVE – 33 Threads" />
       </Seccion>
@@ -240,6 +256,7 @@ export function FormGmm({ d, set }: Props<GmmData>) {
   return (
     <>
       <Seccion titulo="Portada">
+        <SelectorPortada valor={d.conPortada} onCambio={(v) => set({ conPortada: v })} />
         <Texto label="Cliente en portada" value={d.clientePortada} onChange={(v) => set({ clientePortada: v })} placeholder="TREVE – 33 Threads" />
       </Seccion>
       <Destinatario d={d} set={set} />
@@ -283,6 +300,7 @@ export function FormBonos({ d, set }: Props<BonosData>) {
   return (
     <>
       <Seccion titulo="Portada">
+        <SelectorPortada valor={d.conPortada} onCambio={(v) => set({ conPortada: v })} />
         <Texto label="Título" value={d.tituloPortada} onChange={(v) => set({ tituloPortada: v })} />
         <Texto label="Cliente en portada" value={d.clientePortada} onChange={(v) => set({ clientePortada: v })} placeholder="TREVE – 33 Threads" />
       </Seccion>
@@ -324,6 +342,7 @@ export function FormReclutamiento({ d, set }: Props<ReclutamientoData>) {
   return (
     <>
       <Seccion titulo="Portada">
+        <SelectorPortada valor={d.conPortada} onCambio={(v) => set({ conPortada: v })} />
         <Texto label="Título (posición)" value={d.tituloPortada} onChange={(v) => set({ tituloPortada: v })} />
       </Seccion>
       <Destinatario d={d} set={set} ciudad />
@@ -375,6 +394,10 @@ function TextosHaats<T extends HaatsMensualData | HaatsHorasData>({ d, set }: Pr
 export function FormHaatsMensual({ d, set }: Props<HaatsMensualData>) {
   return (
     <>
+      <Seccion titulo="Portada">
+        <SelectorPortada valor={d.conPortada} onCambio={(v) => set({ conPortada: v })} />
+        {d.conPortada && <small className="nota">El título de la portada es el nombre del servicio.</small>}
+      </Seccion>
       <Destinatario d={d} set={set} ciudad />
       <Seccion titulo="Servicio">
         <Area label="Introducción" value={d.intro} filas={4} onChange={(v) => set({ intro: v })} ayuda="Un párrafo por línea." />
@@ -405,6 +428,10 @@ export function FormHaatsMensual({ d, set }: Props<HaatsMensualData>) {
 export function FormHaatsHoras({ d, set }: Props<HaatsHorasData>) {
   return (
     <>
+      <Seccion titulo="Portada">
+        <SelectorPortada valor={d.conPortada} onCambio={(v) => set({ conPortada: v })} />
+        {d.conPortada && <small className="nota">El título de la portada es el nombre del servicio.</small>}
+      </Seccion>
       <Destinatario d={d} set={set} ciudad />
       <Seccion titulo="Servicio">
         <Area label="Introducción" value={d.intro} filas={4} onChange={(v) => set({ intro: v })} ayuda="Un párrafo por línea." />
@@ -427,6 +454,85 @@ export function FormHaatsHoras({ d, set }: Props<HaatsHorasData>) {
         <Texto label="Nota de precios" value={d.notaPrecios} onChange={(v) => set({ notaPrecios: v })} />
       </Seccion>
       <TextosHaats d={d} set={set} />
+    </>
+  )
+}
+
+/* ───────── Contratos ───────── */
+
+const AYUDA_CUERPO =
+  'Una línea por párrafo. "## " = cláusula (se numera sola), "### " = subtítulo, "- " = inciso a), b)… Las hojas se reparten solas.'
+
+export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
+  return (
+    <>
+      <Seccion titulo="Contrato">
+        <Fila>
+          <Texto label="Número de contrato" value={d.numero} onChange={(v) => set({ numero: v })} />
+          <Opciones
+            label="Vigencia inicial"
+            value={d.vigencia}
+            onChange={(v) => set({ vigencia: v })}
+            opciones={[
+              ['anual', 'Anual (12 meses)'],
+              ['semestral', 'Semestral (6 meses)'],
+            ]}
+          />
+        </Fila>
+        <Fecha label="Fecha de inicio" value={d.fecha} onChange={(v) => set({ fecha: v })} />
+        <small className="nota">La fecha de renovación se calcula con la vigencia.</small>
+      </Seccion>
+      <Seccion titulo="Cliente">
+        <Texto label="Razón social del cliente" value={d.empresa} onChange={(v) => set({ empresa: v })} placeholder="APTIV Services México S. de R.L. de C.V." />
+        <Texto label="Representante legal del cliente" value={d.contacto} onChange={(v) => set({ contacto: v })} />
+        <Texto label="Testigo del cliente" value={d.testigoCliente} onChange={(v) => set({ testigoCliente: v })} />
+      </Seccion>
+      <Seccion titulo="Proveedor" abierta={false}>
+        <Texto label="Razón social" value={d.proveedor} onChange={(v) => set({ proveedor: v })} />
+        <Texto label="Representante legal" value={d.firmante} onChange={(v) => set({ firmante: v })} />
+        <Texto label="Testigo del proveedor" value={d.testigoProveedor} onChange={(v) => set({ testigoProveedor: v })} />
+      </Seccion>
+      <Seccion titulo="Texto del contrato" abierta={false}>
+        <Area label="Título" value={d.titulo} filas={4} onChange={(v) => set({ titulo: v })} ayuda="{cliente}, {proveedor} y {representanteProveedor} se sustituyen." />
+        <Area label="Cláusulas" value={d.cuerpo} filas={16} onChange={(v) => set({ cuerpo: v })} ayuda={`${AYUDA_CUERPO} {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`} />
+      </Seccion>
+    </>
+  )
+}
+
+export function FormNda({ d, set }: Props<NdaData>) {
+  return (
+    <>
+      <Seccion titulo="Contrato">
+        <Fecha label="Fecha de entrada en vigencia" value={d.fecha} onChange={(v) => set({ fecha: v })} />
+      </Seccion>
+      <Seccion titulo="Cliente">
+        <Texto label="Razón social del cliente" value={d.empresa} onChange={(v) => set({ empresa: v })} />
+        <Texto label="Representante legal del cliente" value={d.contacto} onChange={(v) => set({ contacto: v })} />
+        <Texto label="Dirección del cliente" value={d.direccionCliente} onChange={(v) => set({ direccionCliente: v })} />
+      </Seccion>
+      <Seccion titulo="Proveedor" abierta={false}>
+        <Texto label="Razón social" value={d.proveedor} onChange={(v) => set({ proveedor: v })} />
+        <Texto label="Representantes responsables" value={d.representantesProveedor} onChange={(v) => set({ representantesProveedor: v })} />
+        <Texto label="Dirección" value={d.direccionProveedor} onChange={(v) => set({ direccionProveedor: v })} />
+        <Fila>
+          <Texto label="Firma por el proveedor" value={d.firmante} onChange={(v) => set({ firmante: v })} />
+          <Texto label="Testigo" value={d.testigo} onChange={(v) => set({ testigo: v })} />
+        </Fila>
+      </Seccion>
+      <Seccion titulo="Texto del contrato" abierta={false}>
+        <Fila>
+          <Texto label="Título" value={d.titulo} onChange={(v) => set({ titulo: v })} />
+          <Texto label="Subtítulo" value={d.subtitulo} onChange={(v) => set({ subtitulo: v })} />
+        </Fila>
+        <Area
+          label="Cláusulas"
+          value={d.cuerpo}
+          filas={16}
+          onChange={(v) => set({ cuerpo: v })}
+          ayuda={`${AYUDA_CUERPO} {cliente}, {representante}, {proveedor}, {direccionCliente} y {fecha} se sustituyen.`}
+        />
+      </Seccion>
     </>
   )
 }

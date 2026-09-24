@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { contarHojas, ligar, type Ligado } from '../lib/edicion'
-import { dinero, fechaEs, fechaEn, miles, num, primerNombre, traductor } from '../lib/formato'
+import { dinero, fechaEs, fechaEn, mesAnioEn, mesAnioEs, miles, num, primerNombre, traductor } from '../lib/formato'
 import { IMG } from '../lib/imagenes'
 import type { HaatsHorasData, HaatsMensualData, Idioma } from '../lib/modelo'
 import { Editable, Lineas, Secciones } from './Editable'
-import { Aprobacion } from './Staffvia'
+import { Aprobacion, Portada } from './Staffvia'
 
 type Datos = HaatsMensualData | HaatsHorasData
 
@@ -50,6 +50,14 @@ function Haats<T extends Datos>({ d, set, tabla }: { d: T; set: (p: Partial<T>) 
 
   return (
     <>
+      {d.conPortada && (
+        <Portada
+          kicker={t('Cotización', 'Quote')}
+          titulo={<Editable {...c$('tituloTabla')} placeholder={t('Nombre del servicio', 'Service name')} />}
+          cliente={<Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />}
+          mes={d.idioma === 'es' ? mesAnioEs(d.fecha) : mesAnioEn(d.fecha)}
+        />
+      )}
       <Hoja>
         <div className="fecha">
           <Editable {...c$('ciudad')} placeholder={t('Ciudad', 'City')} />

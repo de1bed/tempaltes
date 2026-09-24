@@ -1,3 +1,4 @@
+import { createContext } from 'react'
 /** Utilidades para la edición directa sobre la vista previa (ver src/doc/Editable.tsx). */
 
 export interface Ligado {
@@ -44,3 +45,6 @@ export function enfocar(id: string, final = true) {
 export function contarHojas(texto: string): number {
   return texto.split('\n').filter((l) => l.trim() === '---').length + 1
 }
+
+/** Verdadero dentro de la copia invisible que usa Paginado para medir: ahí no se ponen ids. */
+export const EnMedidor = createContext(false)

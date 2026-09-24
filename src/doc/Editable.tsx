@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from 'react'
+import { useContext, useLayoutEffect, useRef, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from 'react'
 import { flushSync } from 'react-dom'
-import { cursorAl, enfocar, posicionCursor, type Ligado } from '../lib/edicion'
+import { cursorAl, EnMedidor, enfocar, posicionCursor, type Ligado } from '../lib/edicion'
 import { rellenar } from '../lib/modelo'
 
 /**
@@ -25,6 +25,7 @@ interface EditableProps extends Ligado {
 export function Editable({ valor, onCambio, mostrar, placeholder, id, className, style, onEnter, onBorrarVacio }: EditableProps) {
   const ref = useRef<HTMLSpanElement>(null)
   const enfocado = useRef(false)
+  const medidor = useContext(EnMedidor)
   const texto = mostrar ?? valor
   const ultimo = useRef({ valor, texto })
 
@@ -59,7 +60,7 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
   return (
     <span
       ref={ref}
-      id={id}
+      id={medidor ? undefined : id}
       className={className ? `editable ${className}` : 'editable'}
       style={style}
       contentEditable
@@ -254,4 +255,25 @@ export function Secciones({
       ))}
     </>
   )
+}
+
+/** Una línea de un texto multilínea, editable (Enter la parte, Retroceso en vacío la quita). */
+export function LineaEditable({
+  items,
+  i,
+  onCambio,
+  id,
+  vars,
+  prefijo = '',
+  placeholder,
+}: {
+  items: string[]
+  i: number
+  onCambio: (texto: string) => void
+  id: string
+  vars?: Record<string, string>
+  prefijo?: string
+  placeholder: string
+}) {
+  return <Editable {...linea(items, i, (l) => onCambio(l.join('\n')), id, vars, prefijo)} placeholder={placeholder} />
 }

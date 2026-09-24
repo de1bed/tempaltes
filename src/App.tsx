@@ -1,13 +1,30 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Feedbak } from './doc/Feedbak'
+import { ContratoLicencia, Nda } from './doc/Contratos'
 import { HaatsHoras, HaatsMensual } from './doc/Haats'
 import { Bonos, Gmm, Payroll, Reclutamiento, Servicios } from './doc/Staffvia'
 import { hoyISO } from './lib/formato'
 import { cambiarIdioma, datosIniciales, PLANTILLAS, type Datos, type Idioma, type PlantillaId } from './lib/modelo'
 import { PRODUCTOS } from './lib/tabuladores'
-import { FormBonos, FormFeedbak, FormGmm, FormHaatsHoras, FormHaatsMensual, FormPayroll, FormReclutamiento, FormServicios } from './ui/Formularios'
+import {
+  FormBonos,
+  FormFeedbak,
+  FormGmm,
+  FormHaatsHoras,
+  FormHaatsMensual,
+  FormLicencia,
+  FormNda,
+  FormPayroll,
+  FormReclutamiento,
+  FormServicios,
+} from './ui/Formularios'
 
 const CLAVE = 'cotizador:v1'
+
+const GRUPOS = [
+  { tipo: 'cotizacion', titulo: 'Cotizaciones' },
+  { tipo: 'contrato', titulo: 'Contratos' },
+] as const
 
 interface Estado {
   plantilla: PlantillaId
@@ -58,6 +75,10 @@ function nombreArchivo(e: Estado): string {
       return `${cot} HAATS ${e.datos.haatsMensual.tituloTabla} - ${empresa} - ${fecha}`
     case 'haatsHoras':
       return `${cot} HAATS ${e.datos.haatsHoras.tituloTabla} - ${empresa} - ${fecha}`
+    case 'licencia':
+      return `${es ? 'Contrato' : 'Agreement'} Feedbak ${e.datos.licencia.numero} - ${empresa} - ${fecha}`
+    case 'nda':
+      return `NDA Feedbak - ${empresa} - ${fecha}`
   }
 }
 
@@ -78,8 +99,8 @@ export default function App() {
   }, [estado])
 
   // Marca las hojas cuyo contenido no cabe (se cortaría al imprimir).
-  useLayoutEffect(() => {
-    const hojas = vistaRef.current?.querySelectorAll<HTMLElement>('.page')
+  const revisarDesbordes = useCallback(() => {
+    const hojas = vistaRef.current?.querySelectorAll<HTMLElement>('.page:not(.medidor)')
     if (!hojas) return
     const malas: number[] = []
     hojas.forEach((hoja, i) => {
@@ -94,7 +115,25 @@ export default function App() {
       if (excede) malas.push(i + 1)
     })
     setDesbordadas((prev) => (prev.join() === malas.join() ? prev : malas))
-  }, [estado, zoom])
+  }, [])
+
+  useLayoutEffect(revisarDesbordes, [estado, zoom, revisarDesbordes])
+
+  // Los contratos se reparten en hojas después de medir; al cambiar las hojas se vuelve a revisar.
+  useEffect(() => {
+    const vista = vistaRef.current
+    if (!vista) return
+    let cuadro = 0
+    const observador = new MutationObserver(() => {
+      cancelAnimationFrame(cuadro)
+      cuadro = requestAnimationFrame(revisarDesbordes)
+    })
+    observador.observe(vista, { childList: true, subtree: true })
+    return () => {
+      observador.disconnect()
+      cancelAnimationFrame(cuadro)
+    }
+  }, [revisarDesbordes])
 
   function set<K extends PlantillaId>(k: K) {
     return (parcial: Partial<Datos[K]>) =>
@@ -126,20 +165,25 @@ export default function App() {
         </header>
 
         <nav className="plantillas" aria-label="Plantilla">
-          {PLANTILLAS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={p.id === plantilla ? 'plantilla activa' : 'plantilla'}
-              style={{ borderLeftColor: p.color }}
-              onClick={() => setEstado((e) => ({ ...e, plantilla: p.id }))}
-              aria-pressed={p.id === plantilla}
-            >
-              <span className="plantilla-meta">
-                {p.marca} · {datos[p.id].idioma.toUpperCase()}
-              </span>
-              <span>{p.nombre}</span>
-            </button>
+          {GRUPOS.map((g) => (
+            <div key={g.tipo} className="grupo">
+              <div className="grupo-titulo">{g.titulo}</div>
+              {PLANTILLAS.filter((p) => p.tipo === g.tipo).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={p.id === plantilla ? 'plantilla activa' : 'plantilla'}
+                  style={{ borderLeftColor: p.color }}
+                  onClick={() => setEstado((e) => ({ ...e, plantilla: p.id }))}
+                  aria-pressed={p.id === plantilla}
+                >
+                  <span className="plantilla-meta">
+                    {p.marca} · {datos[p.id].idioma.toUpperCase()}
+                  </span>
+                  <span>{p.nombre}</span>
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -173,6 +217,8 @@ export default function App() {
           {plantilla === 'reclutamiento' && <FormReclutamiento d={datos.reclutamiento} set={set('reclutamiento')} />}
           {plantilla === 'haatsMensual' && <FormHaatsMensual d={datos.haatsMensual} set={set('haatsMensual')} />}
           {plantilla === 'haatsHoras' && <FormHaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
+          {plantilla === 'licencia' && <FormLicencia d={datos.licencia} set={set('licencia')} />}
+          {plantilla === 'nda' && <FormNda d={datos.nda} set={set('nda')} />}
         </form>
       </aside>
 
@@ -231,6 +277,8 @@ export default function App() {
           {plantilla === 'reclutamiento' && <Reclutamiento d={datos.reclutamiento} set={set('reclutamiento')} />}
           {plantilla === 'haatsMensual' && <HaatsMensual d={datos.haatsMensual} set={set('haatsMensual')} />}
           {plantilla === 'haatsHoras' && <HaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
+          {plantilla === 'licencia' && <ContratoLicencia d={datos.licencia} set={set('licencia')} />}
+          {plantilla === 'nda' && <Nda d={datos.nda} set={set('nda')} />}
         </div>
       </main>
     </div>

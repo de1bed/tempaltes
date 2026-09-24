@@ -1,4 +1,4 @@
-# Cotizador · Treve / Feedbak / Staffvia
+# Cotizador · Treve / Feedbak / Staffvia / HAATS
 
 Mini app para generar cotizaciones en PDF a partir de un formulario. Se llenan los datos del cliente a la izquierda, la vista previa se actualiza en vivo a la derecha y **Descargar PDF** abre el diálogo de impresión (guardar como PDF, tamaño A4) con el nombre del archivo ya puesto.
 
@@ -32,7 +32,16 @@ Los textos resaltados de la vista previa se editan con un clic: contacto, empres
 - Los precios que calcula el tabulador de Feedbak no se editan: salen del tabulador fijo.
 - El resaltado y los textos guía solo se ven en pantalla; no salen en el PDF.
 
-Feedbak permite elegir entre 3 portadas o ninguna. Staffvia usa la portada Treve con título, cliente y mes.
+Feedbak permite elegir entre 3 portadas o ninguna. Staffvia y HAATS permiten la portada Treve (con título, cliente y mes) o ninguna.
+
+## Contratos
+
+En el menú, la sección **Contratos** tiene el contrato de licencia y servicios de Feedbak y el contrato de confidencialidad (NDA). Funcionan igual que las cotizaciones (formulario, edición en la hoja, español/inglés, PDF), con dos diferencias:
+
+- **Las hojas se reparten solas**: el texto se mide y se acomoda en hojas A4; un título de cláusula nunca queda solo al final de una hoja. El pie lleva "Página X de N" y, en el contrato, el número de contrato.
+- **Formato del texto**: `## ` cláusula (se numera sola), `### ` subtítulo, `- ` inciso a), b)…, cualquier otra línea es un párrafo. `{cliente}`, `{proveedor}`, `{vigencia}`, `{inicio}`, `{renovacion}`, `{representante}`, `{fecha}`, etc. se llenan con el formulario. La fecha de renovación se calcula con la vigencia (anual o semestral).
+
+Los textos de los contratos están en `src/lib/contratos.ts`.
 
 ## Tabuladores Feedbak
 

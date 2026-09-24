@@ -20,7 +20,7 @@ import { type BonosData,
   type ReclutamientoData, type GmmData, type Idioma, type PayrollData, type ServiciosData } from '../lib/modelo'
 
 
-function Portada(p: { kicker: string; titulo: ReactNode; cliente: ReactNode; sub?: ReactNode; mes: string; normal?: boolean }) {
+export function Portada(p: { kicker: string; titulo: ReactNode; cliente: ReactNode; sub?: ReactNode; mes: string; normal?: boolean }) {
   return (
     <section className="page sv-cover">
       <div className="box">
@@ -196,12 +196,14 @@ export function Servicios({ d, set }: { d: ServiciosData; set: (p: Partial<Servi
 
   return (
     <>
-      <Portada
-        kicker={t('Cotización', 'Quote')}
-        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Título', 'Title')} />}
-        cliente={<Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />}
-        mes={mesAnio(d.idioma, d.fecha)}
-      />
+      {d.conPortada && (
+        <Portada
+          kicker={t('Cotización', 'Quote')}
+          titulo={<Editable {...c$('tituloPortada')} placeholder={t('Título', 'Title')} />}
+          cliente={<Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />}
+          mes={mesAnio(d.idioma, d.fecha)}
+        />
+      )}
       <Hoja>
         <Encabezado linea={<LugarFecha idioma={d.idioma} ciudad={c$('ciudad')} iso={d.fecha} />} d={d} c$={c$} />
         <Lineas {...c$('intro')} como="p" id="intro" className="letter" vars={{ empresa: d.empresa }} placeholder={t('Párrafo', 'Paragraph')} />
@@ -282,12 +284,14 @@ export function Payroll({ d, set }: { d: PayrollData; set: (p: Partial<PayrollDa
 
   return (
     <>
-      <Portada
-        kicker={t('Cotización de servicios de nómina', 'Payroll services quote')}
-        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Puesto', 'Position')} />}
-        cliente={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
-        mes={mesAnio(d.idioma, d.fecha)}
-      />
+      {d.conPortada && (
+        <Portada
+          kicker={t('Cotización de servicios de nómina', 'Payroll services quote')}
+          titulo={<Editable {...c$('tituloPortada')} placeholder={t('Puesto', 'Position')} />}
+          cliente={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
+          mes={mesAnio(d.idioma, d.fecha)}
+        />
+      )}
       <Hoja>
         <Encabezado linea={<LugarFecha idioma={d.idioma} ciudad={c$('ciudad')} iso={d.fecha} />} d={d} c$={c$} />
         <Lineas {...c$('intro')} como="p" id="intro" className="letter" vars={vars} placeholder={t('Párrafo', 'Paragraph')} />
@@ -407,14 +411,16 @@ export function Gmm({ d, set }: { d: GmmData; set: (p: Partial<GmmData>) => void
 
   return (
     <>
-      <Portada
-        kicker={t('Cotización', 'Quote')}
-        titulo={t('Seguro de Gastos Médicos Mayores y Menores', 'Medical Major & Minor Insurance')}
-        normal
-        cliente={clientePortada}
-        sub={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
-        mes={mesAnio(d.idioma, d.fecha)}
-      />
+      {d.conPortada && (
+        <Portada
+          kicker={t('Cotización', 'Quote')}
+          titulo={t('Seguro de Gastos Médicos Mayores y Menores', 'Medical Major & Minor Insurance')}
+          normal
+          cliente={clientePortada}
+          sub={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
+          mes={mesAnio(d.idioma, d.fecha)}
+        />
+      )}
       {paginas.map((grupo, p) => (
         <Hoja key={p}>
           {p === 0 && (
@@ -481,12 +487,14 @@ export function Bonos({ d, set }: { d: BonosData; set: (p: Partial<BonosData>) =
 
   return (
     <>
-      <Portada
-        kicker={t('Cotización de servicios de nómina', 'Payroll services quotation')}
-        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Título', 'Title')} />}
-        cliente={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
-        mes={mesAnio(d.idioma, d.fecha)}
-      />
+      {d.conPortada && (
+        <Portada
+          kicker={t('Cotización de servicios de nómina', 'Payroll services quotation')}
+          titulo={<Editable {...c$('tituloPortada')} placeholder={t('Título', 'Title')} />}
+          cliente={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
+          mes={mesAnio(d.idioma, d.fecha)}
+        />
+      )}
       {paginas.map((grupo, p) => {
         const ultima = p === paginas.length - 1
         return (
@@ -594,12 +602,14 @@ export function Reclutamiento({ d, set }: { d: ReclutamientoData; set: (p: Parti
 
   return (
     <>
-      <Portada
-        kicker={t('Cotización de reclutamiento', 'Recruitment quote')}
-        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Posición', 'Position')} />}
-        cliente={<Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />}
-        mes={mesAnio(d.idioma, d.fecha)}
-      />
+      {d.conPortada && (
+        <Portada
+          kicker={t('Cotización de reclutamiento', 'Recruitment quote')}
+          titulo={<Editable {...c$('tituloPortada')} placeholder={t('Posición', 'Position')} />}
+          cliente={<Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />}
+          mes={mesAnio(d.idioma, d.fecha)}
+        />
+      )}
       <Hoja>
         <Encabezado linea={<LugarFecha idioma={d.idioma} ciudad={c$('ciudad')} iso={d.fecha} />} d={d} c$={c$} cargo={c$('cargo')} />
         <Lineas {...c$('intro')} como="p" id="intro" className="letter" vars={vars} placeholder={t('Párrafo', 'Paragraph')} />

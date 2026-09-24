@@ -1,5 +1,8 @@
 import { hoyISO } from './formato'
+import { LICENCIA, NDA, type ContratoLicenciaData, type NdaData } from './contratos'
 import type { Moneda, ProductoFeedbak } from './tabuladores'
+
+export type { ContratoLicenciaData, NdaData } from './contratos'
 
 /** Campos numéricos se guardan como texto (tal cual se escriben) y se convierten al renderizar. */
 
@@ -47,6 +50,8 @@ export interface Servicio {
 }
 
 export interface ServiciosData extends Base {
+  /** Portada Treve al inicio del documento. */
+  conPortada: boolean
   tituloPortada: string
   ciudad: string
   intro: string
@@ -61,6 +66,8 @@ export interface ServiciosData extends Base {
 }
 
 export interface PayrollData extends Base {
+  /** Portada Treve al inicio del documento. */
+  conPortada: boolean
   tituloPortada: string
   clientePortada: string
   ciudad: string
@@ -85,6 +92,8 @@ export interface EmpleadoGmm {
 }
 
 export interface GmmData extends Base {
+  /** Portada Treve al inicio del documento. */
+  conPortada: boolean
   clientePortada: string
   inicio: string
   fin: string
@@ -100,6 +109,8 @@ export interface EmpleadoBono {
 }
 
 export interface BonosData extends Base {
+  /** Portada Treve al inicio del documento. */
+  conPortada: boolean
   tituloPortada: string
   clientePortada: string
   ciudad: string
@@ -122,6 +133,8 @@ export interface FilaHoras {
 }
 
 interface HaatsBase extends Base {
+  /** Portada Treve al inicio del documento. */
+  conPortada: boolean
   ciudad: string
   cargo: string
   intro: string
@@ -148,6 +161,8 @@ export interface Posicion {
 }
 
 export interface ReclutamientoData extends Base {
+  /** Portada Treve al inicio del documento. */
+  conPortada: boolean
   tituloPortada: string
   ciudad: string
   cargo: string
@@ -168,20 +183,26 @@ export interface Datos {
   reclutamiento: ReclutamientoData
   haatsMensual: HaatsMensualData
   haatsHoras: HaatsHorasData
+  licencia: ContratoLicenciaData
+  nda: NdaData
 }
 
 export type PlantillaId = keyof Datos
 
-export const PLANTILLAS: { id: PlantillaId; marca: string; nombre: string; color: string }[] = [
-  { id: 'feedbak', marca: 'Feedbak', nombre: 'Licenciamiento Mi Kiosko / Checador', color: '#6FC08D' },
-  { id: 'servicios', marca: 'Staffvia', nombre: 'Servicios y trámites', color: '#8FA86A' },
-  { id: 'payroll', marca: 'Staffvia', nombre: 'Nómina (payroll)', color: '#123A5A' },
-  { id: 'gmm', marca: 'Staffvia', nombre: 'Gastos médicos (GMM)', color: '#F2A72C' },
-  { id: 'bonos', marca: 'Staffvia', nombre: 'Bonos', color: '#E2601A' },
-  { id: 'estudios', marca: 'Staffvia', nombre: 'Estudios con precio especial', color: '#5E8C9A' },
-  { id: 'reclutamiento', marca: 'Staffvia', nombre: 'Reclutamiento', color: '#2F6F4E' },
-  { id: 'haatsMensual', marca: 'HAATS', nombre: 'Servicio especializado mensual', color: '#8B0B7A' },
-  { id: 'haatsHoras', marca: 'HAATS', nombre: 'Tiempo extra por horas', color: '#1B944B' },
+export type TipoDocumento = 'cotizacion' | 'contrato'
+
+export const PLANTILLAS: { id: PlantillaId; marca: string; nombre: string; color: string; tipo: TipoDocumento }[] = [
+  { id: 'feedbak', marca: 'Feedbak', nombre: 'Licenciamiento Mi Kiosko / Checador', color: '#6FC08D', tipo: 'cotizacion' },
+  { id: 'servicios', marca: 'Staffvia', nombre: 'Servicios y trámites', color: '#8FA86A', tipo: 'cotizacion' },
+  { id: 'payroll', marca: 'Staffvia', nombre: 'Nómina (payroll)', color: '#123A5A', tipo: 'cotizacion' },
+  { id: 'gmm', marca: 'Staffvia', nombre: 'Gastos médicos (GMM)', color: '#F2A72C', tipo: 'cotizacion' },
+  { id: 'bonos', marca: 'Staffvia', nombre: 'Bonos', color: '#E2601A', tipo: 'cotizacion' },
+  { id: 'estudios', marca: 'Staffvia', nombre: 'Estudios con precio especial', color: '#5E8C9A', tipo: 'cotizacion' },
+  { id: 'reclutamiento', marca: 'Staffvia', nombre: 'Reclutamiento', color: '#2F6F4E', tipo: 'cotizacion' },
+  { id: 'haatsMensual', marca: 'HAATS', nombre: 'Servicio especializado mensual', color: '#8B0B7A', tipo: 'cotizacion' },
+  { id: 'haatsHoras', marca: 'HAATS', nombre: 'Tiempo extra por horas', color: '#1B944B', tipo: 'cotizacion' },
+  { id: 'licencia', marca: 'Feedbak', nombre: 'Contrato de licencia y servicios', color: '#0B4C5E', tipo: 'contrato' },
+  { id: 'nda', marca: 'Feedbak', nombre: 'Contrato de confidencialidad (NDA)', color: '#6FC08D', tipo: 'contrato' },
 ]
 
 /* ───────── Textos editables con versión en cada idioma ───────── */
@@ -634,6 +655,8 @@ const TEXTOS: { [K in PlantillaId]: Textos<Datos[K]> } = {
   reclutamiento: RECLUTAMIENTO,
   haatsMensual: HAATS_MENSUAL,
   haatsHoras: HAATS_HORAS,
+  licencia: LICENCIA,
+  nda: NDA,
 }
 
 /**
@@ -679,6 +702,7 @@ export function datosIniciales(): Datos {
       ...FEEDBAK.es,
     },
     servicios: {
+      conPortada: true,
       ...comun,
       idioma: 'es',
       ciudad: 'Tijuana, Baja California',
@@ -694,6 +718,7 @@ export function datosIniciales(): Datos {
       ...SERVICIOS.es,
     },
     payroll: {
+      conPortada: true,
       ...comun,
       idioma: 'en',
       tituloPortada: 'Dealer Service Representative',
@@ -712,6 +737,7 @@ export function datosIniciales(): Datos {
       ...PAYROLL.en,
     },
     gmm: {
+      conPortada: true,
       ...comun,
       idioma: 'en',
       clientePortada: 'TREVE – ',
@@ -723,6 +749,7 @@ export function datosIniciales(): Datos {
       ...GMM.en,
     },
     bonos: {
+      conPortada: true,
       ...comun,
       idioma: 'en',
       clientePortada: 'TREVE – ',
@@ -735,6 +762,7 @@ export function datosIniciales(): Datos {
       ...BONOS.en,
     },
     estudios: {
+      conPortada: true,
       ...comun,
       idioma: 'es',
       ciudad: 'Tijuana, Baja California',
@@ -754,6 +782,7 @@ export function datosIniciales(): Datos {
       ...ESTUDIOS.es,
     },
     reclutamiento: {
+      conPortada: true,
       ...comun,
       idioma: 'es',
       ciudad: 'Tijuana, Baja California',
@@ -767,6 +796,7 @@ export function datosIniciales(): Datos {
       ...RECLUTAMIENTO.es,
     },
     haatsMensual: {
+      conPortada: false,
       ...comun,
       tratamiento: 'Estimado',
       idioma: 'es',
@@ -786,6 +816,7 @@ export function datosIniciales(): Datos {
       ...HAATS_MENSUAL.es,
     },
     haatsHoras: {
+      conPortada: false,
       ...comun,
       tratamiento: 'Estimado',
       idioma: 'es',
@@ -799,6 +830,39 @@ export function datosIniciales(): Datos {
       notaPrecios: '',
       secciones: '',
       ...HAATS_HORAS.es,
+    },
+    licencia: {
+      idioma: 'es',
+      fecha: hoy,
+      empresa: '',
+      contacto: '',
+      tratamiento: '',
+      firmante: 'JESÚS RAFAEL RAMÍREZ GÓMEZ',
+      proveedor: 'HSR SERVICIOS S. DE R.L. DE C.V.',
+      numero: 'FEED-CON-26-0001',
+      vigencia: 'anual',
+      testigoCliente: '',
+      testigoProveedor: '',
+      titulo: '',
+      cuerpo: '',
+      ...LICENCIA.es,
+    },
+    nda: {
+      idioma: 'es',
+      fecha: hoy,
+      empresa: '',
+      contacto: '',
+      tratamiento: '',
+      firmante: 'RAFAEL RAMÍREZ',
+      proveedor: 'HSR SERVICIOS S. DE R.L. DE C.V.',
+      representantesProveedor: 'Raquel Salas Tovar o Jesús Rafael Ramírez Gómez',
+      direccionProveedor: 'Blvd. Gral. Rodolfo Sánchez Taboada #10488, Int. 601-B, Zona Urbana Río Tijuana, C.P. 22010, Tijuana, Baja California',
+      direccionCliente: '',
+      testigo: '',
+      titulo: '',
+      subtitulo: '',
+      cuerpo: '',
+      ...NDA.es,
     },
   }
 }

@@ -127,6 +127,39 @@
 .haats table.sign td:first-child { background: #F6F1F7; width: 26%; }
 .haats .accent { color: #4B1661; }
 
+/* ───────── Contratos ───────── */
+.contrato { color: #1B2B30; padding: 112px 80px 96px; }
+.contrato .content { display: block; }
+.contrato .logo-feedbak {
+  position: absolute; top: 34px; left: 72px; width: 218px; height: 46px;
+  background: url(../assets/fb-header.png) no-repeat; background-size: 560px auto; background-position: -36px -36px;
+}
+.contrato .linea-sup { position: absolute; top: 90px; left: 80px; right: 80px; height: 2px; background: linear-gradient(90deg, #0B4C5E 0%, #0B4C5E 55%, #6FC08D 100%); }
+.contrato .pie {
+  position: absolute; bottom: 40px; left: 80px; right: 80px; display: flex; justify-content: space-between; gap: 16px;
+  padding-top: 8px; border-top: 1px solid #D3E5DB; font-size: 9px; color: #5A6B70;
+}
+.contrato [data-bloque] { padding-bottom: 7px; }
+.contrato .titulo-doc { margin: 0; padding-bottom: 8px; font-size: 12px; font-weight: 700; line-height: 1.55; color: #0B4C5E; text-align: justify; }
+.contrato .clausula { padding-top: 8px; font-size: 11.5px; font-weight: 700; color: #0B4C5E; }
+.contrato .subclausula { padding-top: 4px; font-size: 10.5px; font-weight: 600; color: #0B4C5E; }
+.contrato .parrafo { margin: 0; font-size: 10px; line-height: 1.6; color: #2C3A3F; text-align: justify; }
+.contrato .inciso { display: flex; gap: 8px; padding-left: 16px; font-size: 10px; line-height: 1.6; color: #2C3A3F; text-align: justify; }
+.contrato .inciso .letra { flex: none; width: 16px; font-weight: 600; color: #0B4C5E; }
+.contrato .firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 64px 56px; padding-top: 56px; }
+.contrato .firma { padding-top: 6px; border-top: 1px solid #0B4C5E; text-align: center; font-size: 10px; }
+.contrato .firma-nombre { font-weight: 700; color: #0B4C5E; text-transform: uppercase; }
+.contrato .firma-detalle { margin-top: 2px; font-size: 9.5px; color: #5A6B70; }
+.contrato .nda-encabezado { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; }
+.contrato .nda-titulo { font-size: 15px; font-weight: 700; color: #0B4C5E; text-align: center; letter-spacing: 0.3px; }
+.contrato .nda-subtitulo { font-size: 10.5px; font-weight: 500; color: #5A6B70; text-align: center; }
+.contrato .nda-datos { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; font-size: 10.5px; }
+.contrato .nda-datos strong { color: #0B4C5E; font-weight: 600; }
+
+/* Copia invisible con la que Paginado mide los bloques */
+.page.medidor { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
+@media print { .page.medidor { display: none; } }
+
 /* ───────── Edición directa en la hoja (solo en pantalla) ───────── */
 @media screen {
   .page .editable { border-radius: 2px; outline: 1px dashed transparent; outline-offset: 1px; cursor: text; transition: outline-color 0.12s, background-color 0.12s; }
