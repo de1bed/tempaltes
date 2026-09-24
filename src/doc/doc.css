@@ -91,6 +91,42 @@
 .sv .small { font-size: 11px; color: #3C4E5A; }
 .sv .signature { font-size: 12px; font-weight: 600; color: #123A5A; border-top: 1px solid #8FA86A; padding-top: 6px; width: 220px; margin-top: 16px; }
 
+/* Subpuntos y notas dentro de listas con secciones */
+.page ul li.sub { margin-left: 18px; list-style-type: circle; }
+.page ul li.nota { list-style: none; margin-left: -16px; font-size: 0.95em; color: #5C6C77; }
+
+/* ───────── HAATS ───────── */
+.haats {
+  color: #2A2230;
+  padding: 150px 86px 200px;
+  background: #fff url(../assets/haats-fondo.png) center bottom / cover no-repeat;
+}
+.haats .logo { position: absolute; top: 40px; right: 72px; width: 150px; mix-blend-mode: multiply; }
+.haats .content { gap: 12px; }
+.haats .fecha { text-align: right; font-size: 11.5px; color: #4B1661; }
+.haats .destinatario { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; line-height: 1.4; font-weight: 600; color: #2A2230; }
+.haats .destinatario > div:first-child { color: #4B1661; }
+.haats .saludo { font-size: 12.5px; font-weight: 600; color: #4B1661; }
+.haats .letter p { font-size: 11.5px; line-height: 1.6; text-align: justify; }
+.haats table { font-size: 11px; }
+.haats td { padding: 6px 10px; border: 1px solid #E2D6E6; background: rgba(255, 255, 255, 0.92); text-align: center; }
+.haats th { padding: 7px 10px; font-weight: 600; text-align: center; }
+.haats th.titulo { background: #4B1661; color: #fff; border: 1px solid #4B1661; font-size: 12px; letter-spacing: 0.2px; }
+.haats th.cab { background: #1B944B; color: #fff; border: 1px solid #1B944B; font-size: 10.5px; }
+.haats tr.total td { background: #F4ECF6; font-weight: 600; }
+.haats .strong { font-weight: 700; color: #4B1661; }
+.haats .note { font-size: 9.5px; font-weight: 600; text-align: center; color: #5E5566; margin-top: -6px; }
+.haats .h-sec { font-size: 12px; font-weight: 700; color: #8B0B7A; letter-spacing: 0.4px; margin: 4px 0 6px; }
+.haats ul.terms { margin: 0 0 12px; font-size: 10.5px; line-height: 1.55; color: #3D3446; gap: 4px; text-align: justify; }
+.haats ul.terms li::marker { color: #1B944B; }
+.haats .cierre { font-size: 11px; color: #3D3446; margin-top: 6px; }
+.haats .firma { margin-top: 26px; padding-top: 6px; width: 230px; border-top: 1px solid #1B944B; font-size: 12px; font-weight: 700; color: #4B1661; }
+.haats .firma-puesto { font-size: 11px; font-weight: 600; color: #5E5566; }
+.haats table.sign { width: 74%; font-size: 10.5px; }
+.haats table.sign td { padding: 7px 10px; text-align: left; background: #fff; }
+.haats table.sign td:first-child { background: #F6F1F7; width: 26%; }
+.haats .accent { color: #4B1661; }
+
 /* ───────── Edición directa en la hoja (solo en pantalla) ───────── */
 @media screen {
   .page .editable { border-radius: 2px; outline: 1px dashed transparent; outline-offset: 1px; cursor: text; transition: outline-color 0.12s, background-color 0.12s; }

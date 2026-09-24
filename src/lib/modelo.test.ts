@@ -20,3 +20,16 @@ describe('cambiarIdioma', () => {
     expect(en.tituloPortada).toBe('Employer Registration Certificate Filing')
   })
 })
+
+describe('todas las plantillas', () => {
+  const inicial = datosIniciales()
+  for (const id of Object.keys(inicial) as (keyof typeof inicial)[]) {
+    it(`${id}: ida y vuelta de idioma conserva los textos`, () => {
+      const d = inicial[id]
+      const otro = d.idioma === 'es' ? 'en' : 'es'
+      const traducido = cambiarIdioma(id, d, otro)
+      expect(traducido.idioma).toBe(otro)
+      expect(cambiarIdioma(id, traducido, d.idioma)).toEqual(d)
+    })
+  }
+})

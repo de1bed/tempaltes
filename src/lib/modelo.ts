@@ -42,6 +42,8 @@ export interface Servicio {
   cantidad: string
   descripcion: string
   precio: string
+  /** Precio especial por volumen; vacío = sin precio especial. */
+  precioEspecial?: string
 }
 
 export interface ServiciosData extends Base {
@@ -50,6 +52,8 @@ export interface ServiciosData extends Base {
   intro: string
   servicios: Servicio[]
   iva: string
+  /** Solicitudes mínimas para el precio especial. Vacío = sin columna de precio especial. */
+  minimoEspecial?: string
   notaPrecios: string
   detalle: string
   notas: string
@@ -104,12 +108,66 @@ export interface BonosData extends Base {
   terminos: string
 }
 
+export interface PeriodoHaats {
+  periodo: string
+  mensualidad: string
+  precioHora: string
+  credito: string
+}
+
+export interface FilaHoras {
+  horas: string
+  turno: string
+  precioHora: string
+}
+
+interface HaatsBase extends Base {
+  ciudad: string
+  cargo: string
+  intro: string
+  tituloTabla: string
+  notaPrecios: string
+  /** "## " = título de sección, "---" = salto de hoja. */
+  secciones: string
+  firmantePuesto: string
+}
+
+export interface HaatsMensualData extends HaatsBase {
+  periodos: PeriodoHaats[]
+}
+
+export interface HaatsHorasData extends HaatsBase {
+  filas: FilaHoras[]
+}
+
+export interface Posicion {
+  posicion: string
+  modalidad: string
+  precioRegular: string
+  precioPromo: string
+}
+
+export interface ReclutamientoData extends Base {
+  tituloPortada: string
+  ciudad: string
+  cargo: string
+  intro: string
+  posiciones: Posicion[]
+  notaPrecios: string
+  /** "## " = título de sección, "- " = subpunto, "---" = salto de hoja. */
+  secciones: string
+}
+
 export interface Datos {
   feedbak: FeedbakData
   servicios: ServiciosData
   payroll: PayrollData
   gmm: GmmData
   bonos: BonosData
+  estudios: ServiciosData
+  reclutamiento: ReclutamientoData
+  haatsMensual: HaatsMensualData
+  haatsHoras: HaatsHorasData
 }
 
 export type PlantillaId = keyof Datos
@@ -120,6 +178,10 @@ export const PLANTILLAS: { id: PlantillaId; marca: string; nombre: string; color
   { id: 'payroll', marca: 'Staffvia', nombre: 'Nómina (payroll)', color: '#123A5A' },
   { id: 'gmm', marca: 'Staffvia', nombre: 'Gastos médicos (GMM)', color: '#F2A72C' },
   { id: 'bonos', marca: 'Staffvia', nombre: 'Bonos', color: '#E2601A' },
+  { id: 'estudios', marca: 'Staffvia', nombre: 'Estudios con precio especial', color: '#5E8C9A' },
+  { id: 'reclutamiento', marca: 'Staffvia', nombre: 'Reclutamiento', color: '#2F6F4E' },
+  { id: 'haatsMensual', marca: 'HAATS', nombre: 'Servicio especializado mensual', color: '#8B0B7A' },
+  { id: 'haatsHoras', marca: 'HAATS', nombre: 'Tiempo extra por horas', color: '#1B944B' },
 ]
 
 /* ───────── Textos editables con versión en cada idioma ───────── */
@@ -345,12 +407,233 @@ Exchange rate to be applied at the invoice issuing date.`,
   },
 }
 
+
+const ESTUDIOS: Textos<ServiciosData> = {
+  es: {
+    tituloPortada: 'Comprobaciones domiciliarias y cartas de antecedentes no penales',
+    intro:
+      'Agradecemos su atención y la oportunidad de colaborar con ustedes. Presentamos nuestra propuesta de servicios derivado de su solicitud, la cual se desglosa a continuación:',
+    notaPrecios: '** Precios por persona/servicio. Precios en pesos mexicanos más IVA',
+    detalle: `Revisión de antecedentes penales
+Entrega de reporte de revisión
+*El tiempo de respuesta máximo para la entrega de información será de 10 días hábiles
+Visita a domicilio para toma de fotografías.
+Fotografías del domicilio del colaborador.
+*El tiempo de respuesta máximo para la entrega de información será de 10 días hábiles
+*Estos servicios solo se aplican a la ciudad de Tijuana.`,
+    notas: '',
+    terminos: `Se requiere un anticipo del 50% del monto total de los estudios.
+Anticipo no reembolsable. En caso de que se cancele el servicio, el monto pagado se mantendrá como un saldo a favor del cliente.
+Crédito a 28 (veintiocho) días naturales a partir de la entrega de la factura. En caso de falta de pago total o parcial dentro de dicho plazo, se generará un interés moratorio del 10% (diez por ciento) mensual sobre el saldo vencido.
+Precios más IVA.
+En el caso de las comprobaciones domiciliarias, el precio abarca área o la ciudad de Tijuana únicamente, en caso de requerirlo en otra área, será necesaria una nueva cotización.
+El precio especial unitario se aplicará únicamente a solicitudes de {minimo} personas o más, siempre que se soliciten en una sola requisición.
+Cualquier servicio adicional diverso a los expresamente señalados en el presente documento, serán motivo de una cotización adicional y deberá ser facturado de manera independiente, previo acuerdo con el cliente.`,
+  },
+  en: {
+    tituloPortada: 'Home verifications and criminal background letters',
+    intro:
+      'Thank you for your attention and for the opportunity to work with you. Based on your request, we are pleased to present our service proposal, detailed below:',
+    notaPrecios: '** Prices per person/service. Prices in Mexican pesos plus VAT.',
+    detalle: `Criminal background check
+Delivery of the review report
+*The maximum response time to deliver the information is 10 business days
+Home visit to take photographs.
+Photographs of the employee’s home.
+*The maximum response time to deliver the information is 10 business days
+*These services apply only to the city of Tijuana.`,
+    notas: '',
+    terminos: `A 50% advance payment of the total amount is required.
+The advance payment is non-refundable. If the service is cancelled, the amount paid will remain as a credit in the client’s favor.
+Credit of 28 (twenty-eight) calendar days from delivery of the invoice. If full or partial payment is not made within that period, a late-payment interest of 10% (ten percent) per month will be charged on the past-due balance.
+Prices plus VAT.
+For home verifications, the price covers the Tijuana area only; if required in another area, a new quote will be needed.
+The special unit price applies only to requests for {minimo} or more people submitted in a single requisition.
+Any additional service not expressly stated in this document will be quoted separately and invoiced independently, subject to prior agreement with the client.`,
+  },
+}
+
+const RECLUTAMIENTO: Textos<ReclutamientoData> = {
+  es: {
+    tituloPortada: 'Ayudante general',
+    cargo: 'Recursos Humanos',
+    intro: `Agradecemos su atención y la oportunidad de colaborar con su empresa. Presentamos a continuación nuestra propuesta de servicios de reclutamiento, enfocada en atraer y seleccionar talento alineado a sus requerimientos, contribuyendo al logro de sus objetivos operativos.
+A continuación, dejamos a su consideración la cotización para la posición de {posicion} en la siguiente modalidad:`,
+    notaPrecios: '** Precios por persona. Precios en pesos mexicanos más IVA',
+    secciones: `## Descripción del servicio:
+Propuesta contratada con garantía: Todo personal que pase la entrevista, sea aceptado/contratado por el cliente y permanezca activo durante 5 días naturales (a partir de su primer día de ingreso) será facturado.
+## Términos y condiciones:
+La vigencia de la cotización será por 7 días naturales.
+Crédito de 20 días naturales.
+Toda factura será remitida semanalmente y será pagadera dentro de los 20 (veinte) días naturales a partir del día de la emisión de la factura. En el supuesto de que el monto total de la factura entregada y no objetada por “El Cliente”, o cualquier porción de dicha factura no sea pagada a “El Proveedor” dentro del término de 20 (veinte) días naturales antes citado, conllevará un cargo de interés moratorio del 10% (diez por ciento) mensual sobre el saldo vencido pagadero por “El Cliente” a “El Proveedor” en conjunto con la suerte principal consignada en la factura respectiva.
+En el caso de que el cliente cancele el requerimiento del servicio, deberá avisar con 24 horas de anticipación, en caso contrario, se realizará un cargo por servicios de $980.00 + IVA, para todo el personal procesado, aunque no se realice la contratación.
+Esta cotización no incluye servicio de transporte.
+Este precio está definido de acuerdo con el perfil, ubicación de la planta, actividades a realizar, salario, procesos operativos y de reclutamiento definidos, por lo que en caso de que se presente algún cambio, será necesario la reevaluación del precio final.
+Cualquier servicio adicional diverso a los expresamente señalados en el presente documento, tales como reportes especiales, equipo de protección personal, botas, cascos, caretas, cubre bocas, cofias, gorros, guantes, herramientas, etc.; serán motivo de una ulterior cotización y facturados de manera independiente, previo acuerdo con el cliente.
+No incluye trámite de carta de antecedentes no penales. En caso de que el cliente requiera este trámite, será necesaria una cotización adicional.
+---
+## Cotización en modalidad de contratado con garantía, incluye:
+Reclutamiento
+Expediente con documentación básica
+Solicitud genérica o del cliente
+Doping de 3 parámetros
+## Turnos y salarios:
+Lunes a jueves, 07:00 a.m. a 17:00 p.m. y viernes 07:00 a.m. a 15:00 p.m.
+Lunes a jueves, 19:00 p.m. a 5:30 a.m.
+Lunes a viernes, 21:30 p.m. a 6:00 a.m.
+## Salario:
+Salario base $3,094 + $241 en vales, $2,845 netos
+## Datos de reclutamiento y perfil:
+Puesto: Auxiliar general
+Vacantes: 10 a 15 personas a confirmar por el cliente (los precios mostrados en esta cotización son en pesos mexicanos, unitarios y por persona)
+Edad: 18 a 45 años
+Género: Masculino
+Escolaridad: Primaria terminada
+Experiencia: No se requiere experiencia. Buena movilidad, esfuerzo físico (proactivos).
+Documentación:
+- INE
+- NSS
+- Acta de nacimiento
+- RFC
+- CURP
+- Comprobante de domicilio
+---
+## Prestaciones:
+De ley
+Comedor subsidiado
+Vales de despensa`,
+  },
+  en: {
+    tituloPortada: 'General helper',
+    cargo: 'Human Resources',
+    intro: `Thank you for your attention and for the opportunity to work with your company. Below is our recruitment services proposal, focused on attracting and selecting talent aligned with your requirements and contributing to your operational goals.
+For your consideration, please find below the quote for the {posicion} position under the following modality:`,
+    notaPrecios: '** Prices per person. Prices in Mexican pesos plus VAT.',
+    secciones: `## Service description:
+Guaranteed-hire proposal: every person who passes the interview, is accepted/hired by the client and remains active for 5 calendar days (from their first day) will be invoiced.
+## Terms and conditions:
+This quote is valid for 7 calendar days.
+Credit of 20 calendar days.
+All invoices will be issued weekly and are payable within 20 (twenty) calendar days from the invoice date. If the total amount of an invoice delivered and not disputed by “The Client”, or any portion of it, is not paid to “The Provider” within the 20 (twenty) calendar days mentioned above, a late-payment interest of 10% (ten percent) per month will be charged on the past-due balance payable by “The Client” to “The Provider”, together with the principal amount stated on the respective invoice.
+If the client cancels the service request, it must give 24 hours’ notice; otherwise, a service charge of $980.00 + VAT will apply for all processed personnel, even if no hiring takes place.
+This quote does not include transportation.
+This price is based on the defined profile, plant location, activities, salary, and operating and recruitment processes; if any of these change, the final price will need to be reassessed.
+Any additional service not expressly stated in this document, such as special reports, personal protective equipment, boots, helmets, face shields, face masks, hairnets, caps, gloves, tools, etc., will require a separate quote and will be invoiced independently, subject to prior agreement with the client.
+Criminal background letters are not included. If the client requires them, an additional quote will be needed.
+---
+## The guaranteed-hire modality includes:
+Recruitment
+File with basic documentation
+Generic or client application form
+3-panel drug test
+## Shifts and schedules:
+Monday to Thursday, 7:00 a.m. to 5:00 p.m., and Friday 7:00 a.m. to 3:00 p.m.
+Monday to Thursday, 7:00 p.m. to 5:30 a.m.
+Monday to Friday, 9:30 p.m. to 6:00 a.m.
+## Salary:
+Base salary $3,094 + $241 in vouchers, $2,845 net
+## Recruitment details and profile:
+Position: General helper
+Openings: 10 to 15 people, to be confirmed by the client (prices in this quote are in Mexican pesos, per unit and per person)
+Age: 18 to 45 years
+Gender: Male
+Education: Completed elementary school
+Experience: No experience required. Good mobility, physical effort (proactive).
+Documents:
+- INE (voter ID)
+- NSS (social security number)
+- Birth certificate
+- RFC (tax ID)
+- CURP
+- Proof of address
+---
+## Benefits:
+Statutory benefits
+Subsidized cafeteria
+Grocery vouchers`,
+  },
+}
+
+const HAATS_INTRO = {
+  es: 'Nos es muy grato saludarles y agradecerles ampliamente la oportunidad que cada año nos brindan de seguir adelante con nuestra relación/alianza de negocio, la cual ha sido exitosa y satisfactoria para ambas partes durante los últimos años. Por lo cual presentamos nuestra propuesta de:',
+  en: 'It is a great pleasure to greet you and thank you for the opportunity you give us each year to continue our business relationship and alliance, which has been successful and satisfying for both parties in recent years. We are therefore pleased to present our proposal for:',
+}
+
+const HAATS_TERMINOS = {
+  es: [
+    'Toda factura remitida será pagadera dentro de los 30 días de crédito acordados. En el supuesto de que el monto total de la factura entregada y no objetada por “El Cliente”, o cualquier porción de dicha factura no sea pagada a “El Proveedor” dentro del término de los días de crédito acordados antes citado, conllevará un cargo de interés moratorio del 10% (diez por ciento) mensual sobre el saldo vencido pagadero por “El Cliente” a “El Proveedor” en conjunto con la suerte principal consignada en la factura respectiva.',
+    'Facturación en Pesos Moneda Nacional.',
+    'En caso de que el cliente requiera apoyo de tiempo extra por parte de algún integrante del equipo, aplica costo adicional con el mismo valor del precio por hora por festivo laborado.',
+    'Cualquier servicio adicional diverso a los expresamente señalados en el presente documento, tales como reportes especiales, servicio de transporte, equipo de protección personal, herramientas, etc.; serán motivo de una nueva cotización y facturados de manera independiente, previo acuerdo con el cliente.',
+    'Cliente no podrá contactar a personal del Proveedor para trabajo en su plantilla. En caso de requerir la contratación directa del equipo de enfermería, tendrá que manejarse una cotización por la transferencia de personal.',
+  ],
+  en: [
+    'Every invoice issued is payable within the 30 agreed credit days. If the total amount of an invoice delivered and not disputed by “The Client”, or any portion of it, is not paid to “The Provider” within the agreed credit days, a late-payment interest of 10% (ten percent) per month will be charged on the past-due balance payable by “The Client” to “The Provider”, together with the principal amount stated on the respective invoice.',
+    'Invoicing in Mexican Pesos.',
+    'If the client requires overtime support from any team member, an additional charge applies at the same rate as the hourly price for a worked holiday.',
+    'Any additional service not expressly stated in this document, such as special reports, transportation, personal protective equipment, tools, etc., will require a new quote and will be invoiced separately, subject to prior agreement with the client.',
+    'The Client may not recruit the Provider’s personnel for its own workforce. If the Client wishes to hire the nursing team directly, a personnel transfer quote will be required.',
+  ],
+}
+const HAATS_FACTURACION_EU = {
+  es: 'Ofrecemos facturación en Estados Unidos a través de nuestro corporativo, brindando mayor flexibilidad y facilidad para nuestros clientes internacionales, si lo desea, puede solicitar esta opción para optimizar sus procesos y reducir gastos.',
+  en: 'We offer invoicing in the United States through our corporate office, providing greater flexibility for our international clients. You may request this option to streamline your processes and reduce costs.',
+}
+const HAATS_INCLUYE = (es: boolean, cobertura: string, personal: string, nomina: string) =>
+  (es
+    ? [cobertura, personal, '1 equipo celular para la plantilla.', '1 reloj checador.', 'Uniforme para personal fijo con logo de HAATS.', 'Completa administración y atención en los asuntos laborales del personal.', nomina, 'Incluye finiquito.', 'Responsabilidad y pago de todas las obligaciones patronales: IMSS, Infonavit e impuestos.', 'Protección legal-laboral.', 'Incluye el reclutamiento, filtro y preselección de las posiciones a ingresar por este servicio (cuando se requiera).']
+    : [cobertura, personal, '1 mobile phone for the team.', '1 time clock.', 'Uniforms with the HAATS logo for full-time staff.', 'Full administration and handling of the staff’s labor matters.', nomina, 'Severance pay included.', 'Responsibility for and payment of all employer obligations: IMSS, Infonavit and taxes.', 'Legal and labor protection.', 'Includes recruitment, screening and pre-selection for the positions covered by this service (when required).']
+  ).join('\n')
+const HAATS_ADICIONALES = {
+  es: `El personal del Proveedor se ajustará a los procesos internos del Cliente, apoyándose en instalaciones, formatos y herramientas que el Cliente le provea. Por lo cual, es responsabilidad del Cliente proveer las herramientas que se lleguen a necesitar para el desarrollo de las actividades y responsabilidad del Proveedor el cuidado y administración de las mismas.
+Los servicios profesionales de enfermería objeto de la presente cotización serán prestados directamente a Usted por personal debidamente autorizado para el ejercicio de su profesión. El profesionista asignado será el único responsable sanitario de los servicios de enfermería y cuidado de la salud que sean requeridos por el cliente, por lo que TREVE no asume ni asumirá ninguna responsabilidad derivada de las recomendaciones, cuidados o acciones realizadas por el personal de enfermería asignado al cliente, quien deberá verificar que dichos servicios se lleven a cabo de conformidad con lo establecido en la NOM-019-SSA3-2013.`,
+  en: `The Provider’s staff will follow the Client’s internal processes, using the facilities, forms and tools provided by the Client. The Client is therefore responsible for providing the tools needed to carry out the activities, and the Provider is responsible for their care and management.
+The professional nursing services in this quote will be provided directly to you by staff duly authorized to practice their profession. The assigned professional will be solely responsible, from a health standpoint, for the nursing and healthcare services required by the client; therefore, TREVE does not and will not assume any liability arising from the recommendations, care or actions of the nursing staff assigned to the client, who must ensure that these services are performed in accordance with Mexican standard NOM-019-SSA3-2013.`,
+}
+
+function seccionesHaats(idioma: Idioma, mensual: boolean): string {
+  const es = idioma === 'es'
+  const terminos = [...HAATS_TERMINOS[idioma], ...(mensual ? [HAATS_FACTURACION_EU[idioma]] : [])].join('\n')
+  const incluye = mensual
+    ? HAATS_INCLUYE(es, es ? 'Personal las 24 horas, 7 días de la semana.' : '24/7 staffing.', es ? '2 enfermeros fijos (uno por turno).' : '2 full-time nurses (one per shift).', es ? 'Pago de nómina semanal, incluyendo cuotas patronales.' : 'Weekly payroll, including employer contributions.')
+    : HAATS_INCLUYE(es, es ? 'Personal las 12 horas.' : '12-hour staffing.', es ? '1 enfermero fijo (uno por turno).' : '1 full-time nurse (one per shift).', es ? 'Pago de nómina, incluyendo cuotas patronales.' : 'Payroll, including employer contributions.')
+  return [
+    es ? '## TÉRMINOS Y CONDICIONES:' : '## TERMS AND CONDITIONS:',
+    terminos,
+    '---',
+    es ? '## COTIZACIÓN INCLUYE:' : '## THIS QUOTE INCLUDES:',
+    incluye,
+    es ? '## ADICIONALES' : '## ADDITIONAL TERMS',
+    HAATS_ADICIONALES[idioma],
+  ].join('\n')
+}
+
+function textosHaats(mensual: boolean): Textos<HaatsBase> {
+  const t = (idioma: Idioma): Partial<HaatsBase> => ({
+    cargo: idioma === 'es' ? 'Recursos Humanos' : 'Human Resources',
+    intro: HAATS_INTRO[idioma],
+    tituloTabla: mensual
+      ? idioma === 'es' ? 'Servicio Especializado de Enfermería' : 'Specialized Nursing Service'
+      : idioma === 'es' ? 'Servicio de enfermería por tiempo extra por horas' : 'Overtime nursing service by the hour',
+    notaPrecios: idioma === 'es' ? 'Precios en Pesos + IVA' : 'Prices in Mexican Pesos + VAT',
+    secciones: seccionesHaats(idioma, mensual),
+    firmante: idioma === 'es' ? 'Ejecutivo de Cuenta' : 'Account Executive',
+  })
+  return { es: t('es'), en: t('en') }
+}
+const HAATS_MENSUAL = textosHaats(true) as Textos<HaatsMensualData>
+const HAATS_HORAS = textosHaats(false) as Textos<HaatsHorasData>
+
 const TEXTOS: { [K in PlantillaId]: Textos<Datos[K]> } = {
   feedbak: FEEDBAK,
   servicios: SERVICIOS,
   payroll: PAYROLL,
   gmm: GMM,
   bonos: BONOS,
+  estudios: ESTUDIOS,
+  reclutamiento: RECLUTAMIENTO,
+  haatsMensual: HAATS_MENSUAL,
+  haatsHoras: HAATS_HORAS,
 }
 
 /**
@@ -450,6 +733,72 @@ export function datosIniciales(): Datos {
       intro: '',
       terminos: '',
       ...BONOS.en,
+    },
+    estudios: {
+      ...comun,
+      idioma: 'es',
+      ciudad: 'Tijuana, Baja California',
+      servicios: [
+        { cantidad: '6', descripcion: 'Comprobaciones domiciliarias', precio: '650', precioEspecial: '477' },
+        { cantidad: '8', descripcion: 'Cartas de antecedentes no penales', precio: '849', precioEspecial: '465' },
+      ],
+      iva: '16',
+      minimoEspecial: '20',
+      firmante: 'Customer Services',
+      tituloPortada: '',
+      intro: '',
+      notaPrecios: '',
+      detalle: '',
+      notas: '',
+      terminos: '',
+      ...ESTUDIOS.es,
+    },
+    reclutamiento: {
+      ...comun,
+      idioma: 'es',
+      ciudad: 'Tijuana, Baja California',
+      posiciones: [{ posicion: 'Ayudantes generales', modalidad: 'Contratado garantía 5 días', precioRegular: '2530', precioPromo: '2145' }],
+      firmante: 'Customer Service',
+      tituloPortada: '',
+      cargo: '',
+      intro: '',
+      notaPrecios: '',
+      secciones: '',
+      ...RECLUTAMIENTO.es,
+    },
+    haatsMensual: {
+      ...comun,
+      tratamiento: 'Estimado',
+      idioma: 'es',
+      ciudad: 'Tijuana, B.C.',
+      periodos: [
+        { periodo: '17 de junio al 17 de julio', mensualidad: '105996.34', precioHora: '210.90', credito: '30 días' },
+        { periodo: '17 de julio al 17 de agosto', mensualidad: '105996.34', precioHora: '210.90', credito: '30 días' },
+        { periodo: '17 de agosto al 17 de septiembre', mensualidad: '105996.34', precioHora: '210.90', credito: '30 días' },
+      ],
+      firmantePuesto: 'Customer Service',
+      firmante: '',
+      cargo: '',
+      intro: '',
+      tituloTabla: '',
+      notaPrecios: '',
+      secciones: '',
+      ...HAATS_MENSUAL.es,
+    },
+    haatsHoras: {
+      ...comun,
+      tratamiento: 'Estimado',
+      idioma: 'es',
+      ciudad: 'Tijuana, B.C.',
+      filas: [{ horas: '288', turno: 'Diurno y nocturno', precioHora: '157.25' }],
+      firmantePuesto: 'Customer Service',
+      firmante: '',
+      cargo: '',
+      intro: '',
+      tituloTabla: '',
+      notaPrecios: '',
+      secciones: '',
+      ...HAATS_HORAS.es,
     },
   }
 }

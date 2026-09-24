@@ -90,25 +90,39 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
 
 type Linea = Pick<EditableProps, 'id' | 'valor' | 'mostrar' | 'onCambio' | 'onEnter' | 'onBorrarVacio'>
 
+const TITULO = '## '
+const SUB = '- '
+const SALTO = '---'
+
+/** Tipo de línea en textos con secciones. Las notas ("*…") conservan su asterisco visible. */
+function tipoLinea(l: string): 'titulo' | 'sub' | 'nota' | 'salto' | 'punto' {
+  if (l.startsWith(TITULO)) return 'titulo'
+  if (l.startsWith(SUB)) return 'sub'
+  if (l.trim() === SALTO) return 'salto'
+  if (l.startsWith('*')) return 'nota'
+  return 'punto'
+}
+
 /**
  * Props de edición para la línea `i` de un texto multilínea: escribir la
  * actualiza, Enter la parte en dos y Retroceso en vacío la quita.
- * `prefijo` (p. ej. "## ") se guarda pero no se muestra.
+ * `prefijo` (p. ej. "## ") se guarda pero no se muestra. Tras un título, Enter
+ * abre un punto normal; tras un subpunto, otro subpunto.
  */
 function linea(items: string[], i: number, guardar: (l: string[]) => void, id: string, vars?: Record<string, string>, prefijo = ''): Linea {
   const valor = items[i].slice(prefijo.length)
+  const esTitulo = prefijo === TITULO
   return {
     id: `${id}-${i}`,
     valor,
     mostrar: vars ? rellenar(valor, vars) : undefined,
     onCambio: (v) => guardar(items.map((x, j) => (j === i ? prefijo + v : x))),
     onEnter: (pos, el) => {
-      // Enter parte el punto en dos, como en un procesador de texto. En un título, abre un punto debajo.
-      const antes = prefijo ? valor : valor.slice(0, pos)
-      const despues = prefijo ? '' : valor.slice(pos)
+      const antes = esTitulo ? valor : valor.slice(0, pos)
+      const despues = esTitulo ? '' : valor.slice(pos)
       el.textContent = antes
       // Se renderiza en el acto para mover el cursor antes de la siguiente tecla.
-      flushSync(() => guardar([...items.slice(0, i), prefijo + antes, despues, ...items.slice(i + 1)]))
+      flushSync(() => guardar([...items.slice(0, i), prefijo + antes, (esTitulo ? '' : prefijo) + despues, ...items.slice(i + 1)]))
       enfocar(`${id}-${i + 1}`, false)
     },
     onBorrarVacio:
@@ -121,7 +135,7 @@ function linea(items: string[], i: number, guardar: (l: string[]) => void, id: s
   }
 }
 
-/** Texto multilínea (un párrafo o un punto por línea), editable punto por punto. */
+/** Texto multilínea (un párrafo o un punto por línea), editable punto por punto. En listas, "*…" es una nota sin viñeta. */
 export function Lineas({
   valor,
   onCambio,
@@ -143,11 +157,14 @@ export function Lineas({
   const Tag = como
   const guardar = (nuevos: string[]) => onCambio(nuevos.join('\n'))
 
-  const lista = items.map((l, i) => (
-    <Tag key={i} className={l.trim() ? undefined : 'vacio'}>
-      <Editable {...linea(items, i, guardar, id, vars)} placeholder={placeholder} />
-    </Tag>
-  ))
+  const lista = items.map((l, i) => {
+    const clases = [l.trim() ? '' : 'vacio', como === 'li' && l.startsWith('*') ? 'nota' : ''].filter(Boolean).join(' ')
+    return (
+      <Tag key={i} className={clases || undefined}>
+        <Editable {...linea(items, i, guardar, id, vars)} placeholder={placeholder} />
+      </Tag>
+    )
+  })
 
   if (como === 'li')
     return (
@@ -162,35 +179,51 @@ export function Lineas({
   )
 }
 
-const TITULO = '## '
-
 /**
- * Términos por secciones: las líneas que empiezan con "## " son títulos y las
- * demás, puntos. Muestra solo las secciones [desde, hasta) para repartirlas
- * entre hojas; todas editan el mismo texto.
+ * Texto por secciones. Formato de cada línea:
+ *   "## Título"  título de sección
+ *   "- texto"    subpunto
+ *   "*texto"     nota sin viñeta
+ *   "---"        salto de hoja
+ *   otra         punto con viñeta
+ * `hoja` elige el tramo entre saltos; `desde`/`hasta` recortan secciones dentro de él.
+ * Todas las hojas editan el mismo texto.
  */
 export function Secciones({
   valor,
   onCambio,
   id,
   vars,
-  desde,
+  hoja = 0,
+  desde = 0,
   hasta,
   placeholder,
   placeholderTitulo,
+  claseTitulo = 'h-sec',
+  claseLista = 'terms',
 }: Ligado & {
   id: string
   vars?: Record<string, string>
-  desde: number
+  hoja?: number
+  desde?: number
   hasta?: number
   placeholder: string
   placeholderTitulo: string
+  claseTitulo?: string
+  claseLista?: string
 }) {
   const items = valor.split('\n')
   const guardar = (nuevos: string[]) => onCambio(nuevos.join('\n'))
   const secciones: { titulo: number | null; puntos: number[] }[] = []
+  let tramo = 0
   items.forEach((l, i) => {
-    if (l.startsWith(TITULO)) secciones.push({ titulo: i, puntos: [] })
+    const tipo = tipoLinea(l)
+    if (tipo === 'salto') {
+      tramo++
+      return
+    }
+    if (tramo !== hoja) return
+    if (tipo === 'titulo') secciones.push({ titulo: i, puntos: [] })
     else if (secciones.length === 0) secciones.push({ titulo: null, puntos: [i] })
     else secciones[secciones.length - 1].puntos.push(i)
   })
@@ -198,19 +231,23 @@ export function Secciones({
   return (
     <>
       {secciones.slice(desde, hasta).map((s) => (
-        <div key={s.titulo ?? `s${s.puntos[0]}`}>
+        <div key={s.titulo ?? `s${s.puntos[0]}`} className="seccion-doc">
           {s.titulo !== null && (
-            <div className={items[s.titulo].slice(TITULO.length).trim() ? 'h-sec' : 'h-sec vacio'}>
+            <div className={items[s.titulo].slice(TITULO.length).trim() ? claseTitulo : `${claseTitulo} vacio`}>
               <Editable {...linea(items, s.titulo, guardar, id, vars, TITULO)} placeholder={placeholderTitulo} />
             </div>
           )}
           {s.puntos.length > 0 && (
-            <ul className="terms">
-              {s.puntos.map((i) => (
-                <li key={i} className={items[i].trim() ? undefined : 'vacio'}>
-                  <Editable {...linea(items, i, guardar, id, vars)} placeholder={placeholder} />
-                </li>
-              ))}
+            <ul className={claseLista}>
+              {s.puntos.map((i) => {
+                const tipo = tipoLinea(items[i])
+                const vacio = !items[i].replace(SUB, '').trim()
+                return (
+                  <li key={i} className={[tipo === 'sub' ? 'sub' : '', tipo === 'nota' ? 'nota' : '', vacio ? 'vacio' : ''].filter(Boolean).join(' ') || undefined}>
+                    <Editable {...linea(items, i, guardar, id, vars, tipo === 'sub' ? SUB : '')} placeholder={placeholder} />
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

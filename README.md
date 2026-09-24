@@ -13,6 +13,10 @@ Todas se generan en **español o inglés** con el selector "Idioma del documento
 | Staffvia · Nómina (payroll) | Captura semanal; mensual y cuota de servicio calculados |
 | Staffvia · Gastos médicos (GMM) | Captura manual por empleado |
 | Staffvia · Bonos | Captura por empleado; totales calculados |
+| Staffvia · Estudios con precio especial | Precio normal y precio especial por volumen: con N solicitudes o más se cobra el especial |
+| Staffvia · Reclutamiento | Posiciones con precio regular y de promoción; condiciones y perfil por secciones |
+| HAATS · Servicio especializado mensual | Mensualidad, precio por hora festivo y días de crédito por periodo |
+| HAATS · Tiempo extra por horas | Costo = horas × precio por hora, con total si hay varias filas |
 
 Al cambiar de idioma, los textos editables (introducción, términos, notas…) que siguen igual al original se traducen solos; los que ya editaste se quedan como los dejaste. Los textos de cada idioma están en `src/lib/modelo.ts`.
 
@@ -23,6 +27,7 @@ Los textos resaltados de la vista previa se editan con un clic: contacto, empres
 - Los montos muestran su valor sin formato al editarlos y con formato al salir.
 - En introducción y términos, `{empresa}`, `{puesto}` o `{fee}` aparecen como tales mientras se edita y se sustituyen al salir.
 - En listas (términos, detalle, notas), **Enter** agrega un punto nuevo y **Retroceso** en un punto vacío lo quita.
+- En Reclutamiento, HAATS y los términos de Feedbak el texto va por secciones: `## ` es título de sección, `- ` subpunto, una línea que empieza con `*` es una nota sin viñeta y `---` es un salto de hoja.
 - En Feedbak también se editan la carta, el título, la nota de montos y todos los términos. En los términos, las líneas que empiezan con `## ` son títulos de sección; `{moneda}` y `{precioAdmin}` se llenan con el tabulador.
 - Los precios que calcula el tabulador de Feedbak no se editan: salen del tabulador fijo.
 - El resaltado y los textos guía solo se ven en pantalla; no salen en el PDF.

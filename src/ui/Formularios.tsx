@@ -1,5 +1,5 @@
 import { dinero, miles, num, pct } from '../lib/formato'
-import type { BonosData, FeedbakData, GmmData, PayrollData, ServiciosData } from '../lib/modelo'
+import type { BonosData, FeedbakData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
 import { PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
 import { Area, Fecha, Fila, Lista, Numero, Opciones, Seccion, Texto } from './campos'
@@ -16,7 +16,7 @@ const TRATAMIENTOS = [
 ] as const
 
 function Destinatario<T extends { contacto: string; empresa: string; fecha: string }>({ d, set, ciudad }: Props<T> & { ciudad?: boolean }) {
-  const dd = d as T & { ciudad?: string; puesto?: string; tratamiento?: string; idioma?: string }
+  const dd = d as T & { ciudad?: string; puesto?: string; cargo?: string; tratamiento?: string; idioma?: string }
   const s = set as unknown as (p: Record<string, string>) => void
   return (
     <Seccion titulo="Cliente y fecha">
@@ -27,6 +27,7 @@ function Destinatario<T extends { contacto: string; empresa: string; fecha: stri
         )}
       </Fila>
       {dd.puesto !== undefined && <Texto label="Puesto" value={dd.puesto} onChange={(v) => s({ puesto: v })} placeholder="HR Manager" />}
+      {dd.cargo !== undefined && <Texto label="Puesto del contacto" value={dd.cargo} onChange={(v) => s({ cargo: v })} placeholder="Recursos Humanos" />}
       <Texto label="Empresa" value={d.empresa} onChange={(v) => s({ empresa: v })} placeholder="APTIV" />
       <Fila>
         {ciudad && dd.ciudad !== undefined && <Texto label="Ciudad" value={dd.ciudad} onChange={(v) => s({ ciudad: v })} />}
@@ -149,6 +150,7 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
 const AYUDA_TERMINOS = 'Un punto por línea.'
 
 export function FormServicios({ d, set }: Props<ServiciosData>) {
+  const especial = d.minimoEspecial !== undefined
   return (
     <>
       <Seccion titulo="Portada">
@@ -161,26 +163,44 @@ export function FormServicios({ d, set }: Props<ServiciosData>) {
           etiqueta="Servicio"
           items={d.servicios}
           onChange={(servicios) => set({ servicios })}
-          nuevo={() => ({ cantidad: '1', descripcion: '', precio: '0' })}
+          nuevo={() => ({ cantidad: '1', descripcion: '', precio: '0', ...(especial ? { precioEspecial: '0' } : {}) })}
           render={(s, cambiar) => (
             <>
               <Texto label="Descripción" value={s.descripcion} onChange={(v) => cambiar({ descripcion: v })} />
               <Fila>
                 <Numero label="Cantidad" value={s.cantidad} step="1" onChange={(v) => cambiar({ cantidad: v })} />
                 <Numero label="Precio unitario" prefijo="$" value={s.precio} onChange={(v) => cambiar({ precio: v })} />
+                {especial && (
+                  <Numero label="Precio especial" prefijo="$" value={s.precioEspecial ?? ''} onChange={(v) => cambiar({ precioEspecial: v })} />
+                )}
               </Fila>
             </>
           )}
         />
         <Fila>
           <Numero label="IVA (%)" value={d.iva} onChange={(v) => set({ iva: v })} />
+          {especial && (
+            <Numero
+              label="Mínimo para precio especial"
+              value={d.minimoEspecial ?? ''}
+              step="1"
+              onChange={(v) => set({ minimoEspecial: v })}
+              ayuda="Solicitudes. Con esa cantidad o más se cobra el precio especial."
+            />
+          )}
         </Fila>
         <Texto label="Nota de precios" value={d.notaPrecios} onChange={(v) => set({ notaPrecios: v })} />
-        <Area label="Detalle de la propuesta" value={d.detalle} onChange={(v) => set({ detalle: v })} ayuda={AYUDA_TERMINOS} />
+        <Area label="Detalle de la propuesta" value={d.detalle} onChange={(v) => set({ detalle: v })} ayuda={`${AYUDA_TERMINOS} Las líneas que empiezan con * son notas sin viñeta.`} />
         <Area label="Notas" value={d.notas} filas={2} onChange={(v) => set({ notas: v })} />
       </Seccion>
       <Seccion titulo="Términos y firma" abierta={false}>
-        <Area label="Términos y condiciones" value={d.terminos} filas={8} onChange={(v) => set({ terminos: v })} ayuda={AYUDA_TERMINOS} />
+        <Area
+          label="Términos y condiciones"
+          value={d.terminos}
+          filas={8}
+          onChange={(v) => set({ terminos: v })}
+          ayuda={especial ? `${AYUDA_TERMINOS} {minimo} se sustituye por el mínimo del precio especial.` : AYUDA_TERMINOS}
+        />
         <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />
       </Seccion>
     </>
@@ -294,3 +314,120 @@ export function FormBonos({ d, set }: Props<BonosData>) {
     </>
   )
 }
+
+/* ───────── Reclutamiento ───────── */
+
+const AYUDA_SECCIONES =
+  'Un punto por línea. "## " = título de sección, "- " = subpunto, "*" al inicio = nota sin viñeta y "---" = salto de hoja.'
+
+export function FormReclutamiento({ d, set }: Props<ReclutamientoData>) {
+  return (
+    <>
+      <Seccion titulo="Portada">
+        <Texto label="Título (posición)" value={d.tituloPortada} onChange={(v) => set({ tituloPortada: v })} />
+      </Seccion>
+      <Destinatario d={d} set={set} ciudad />
+      <Seccion titulo="Posiciones">
+        <Area label="Introducción" value={d.intro} filas={4} onChange={(v) => set({ intro: v })} ayuda="Un párrafo por línea. {posicion} se sustituye por la primera posición." />
+        <Lista
+          etiqueta="Posición"
+          items={d.posiciones}
+          onChange={(posiciones) => set({ posiciones })}
+          nuevo={() => ({ posicion: '', modalidad: '', precioRegular: '0', precioPromo: '' })}
+          render={(p, cambiar) => (
+            <>
+              <Fila>
+                <Texto label="Posición" value={p.posicion} onChange={(v) => cambiar({ posicion: v })} />
+                <Texto label="Modalidad" value={p.modalidad} onChange={(v) => cambiar({ modalidad: v })} />
+              </Fila>
+              <Fila>
+                <Numero label="Precio regular" prefijo="$" value={p.precioRegular} onChange={(v) => cambiar({ precioRegular: v })} />
+                <Numero label="Precio promoción" prefijo="$" value={p.precioPromo} onChange={(v) => cambiar({ precioPromo: v })} ayuda="Vacío si no hay promoción." />
+              </Fila>
+            </>
+          )}
+        />
+        <Texto label="Nota de precios" value={d.notaPrecios} onChange={(v) => set({ notaPrecios: v })} />
+      </Seccion>
+      <Seccion titulo="Condiciones y perfil" abierta={false}>
+        <Area label="Secciones" value={d.secciones} filas={14} onChange={(v) => set({ secciones: v })} ayuda={AYUDA_SECCIONES} />
+        <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />
+      </Seccion>
+    </>
+  )
+}
+
+/* ───────── HAATS ───────── */
+
+function TextosHaats<T extends HaatsMensualData | HaatsHorasData>({ d, set }: Props<T>) {
+  const s = set as unknown as (p: Partial<HaatsMensualData>) => void
+  return (
+    <Seccion titulo="Términos y firma" abierta={false}>
+      <Area label="Secciones" value={d.secciones} filas={14} onChange={(v) => s({ secciones: v })} ayuda={AYUDA_SECCIONES} />
+      <Fila>
+        <Texto label="Firmante" value={d.firmante} onChange={(v) => s({ firmante: v })} />
+        <Texto label="Puesto del firmante" value={d.firmantePuesto} onChange={(v) => s({ firmantePuesto: v })} />
+      </Fila>
+    </Seccion>
+  )
+}
+
+export function FormHaatsMensual({ d, set }: Props<HaatsMensualData>) {
+  return (
+    <>
+      <Destinatario d={d} set={set} ciudad />
+      <Seccion titulo="Servicio">
+        <Area label="Introducción" value={d.intro} filas={4} onChange={(v) => set({ intro: v })} ayuda="Un párrafo por línea." />
+        <Texto label="Nombre del servicio" value={d.tituloTabla} onChange={(v) => set({ tituloTabla: v })} />
+        <Lista
+          etiqueta="Periodo"
+          items={d.periodos}
+          onChange={(periodos) => set({ periodos })}
+          nuevo={() => ({ ...(d.periodos[d.periodos.length - 1] ?? { mensualidad: '0', precioHora: '0', credito: '' }), periodo: '' })}
+          render={(p, cambiar) => (
+            <>
+              <Texto label="Fecha de servicio" value={p.periodo} onChange={(v) => cambiar({ periodo: v })} placeholder="17 de junio al 17 de julio" />
+              <Fila>
+                <Numero label="Mensualidad" prefijo="$" value={p.mensualidad} onChange={(v) => cambiar({ mensualidad: v })} />
+                <Numero label="Precio hora festivo" prefijo="$" value={p.precioHora} onChange={(v) => cambiar({ precioHora: v })} />
+              </Fila>
+              <Texto label="Días de crédito" value={p.credito} onChange={(v) => cambiar({ credito: v })} />
+            </>
+          )}
+        />
+        <Texto label="Nota de precios" value={d.notaPrecios} onChange={(v) => set({ notaPrecios: v })} />
+      </Seccion>
+      <TextosHaats d={d} set={set} />
+    </>
+  )
+}
+
+export function FormHaatsHoras({ d, set }: Props<HaatsHorasData>) {
+  return (
+    <>
+      <Destinatario d={d} set={set} ciudad />
+      <Seccion titulo="Servicio">
+        <Area label="Introducción" value={d.intro} filas={4} onChange={(v) => set({ intro: v })} ayuda="Un párrafo por línea." />
+        <Texto label="Nombre del servicio" value={d.tituloTabla} onChange={(v) => set({ tituloTabla: v })} />
+        <Lista
+          etiqueta="Fila"
+          items={d.filas}
+          onChange={(filas) => set({ filas })}
+          nuevo={() => ({ horas: '0', turno: '', precioHora: d.filas[0]?.precioHora ?? '0' })}
+          render={(f, cambiar) => (
+            <>
+              <Fila>
+                <Numero label="Horas" value={f.horas} onChange={(v) => cambiar({ horas: v })} />
+                <Texto label="Turno" value={f.turno} onChange={(v) => cambiar({ turno: v })} />
+              </Fila>
+              <Numero label="Precio por hora" prefijo="$" value={f.precioHora} onChange={(v) => cambiar({ precioHora: v })} ayuda={`Costo: ${dinero(num(f.horas) * num(f.precioHora))}`} />
+            </>
+          )}
+        />
+        <Texto label="Nota de precios" value={d.notaPrecios} onChange={(v) => set({ notaPrecios: v })} />
+      </Seccion>
+      <TextosHaats d={d} set={set} />
+    </>
+  )
+}
+

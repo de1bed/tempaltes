@@ -12,13 +12,13 @@ import {
   num,
   paginar,
   primerNombre,
+  traductor,
 } from '../lib/formato'
-import { ligar, type Ligado } from '../lib/edicion'
-import { Editable, Lineas } from './Editable'
-import { type BonosData, type GmmData, type Idioma, type PayrollData, type ServiciosData } from '../lib/modelo'
+import { contarHojas, ligar, type Ligado } from '../lib/edicion'
+import { Editable, Lineas, Secciones } from './Editable'
+import { type BonosData,
+  type ReclutamientoData, type GmmData, type Idioma, type PayrollData, type ServiciosData } from '../lib/modelo'
 
-/** Devuelve el texto en el idioma de la plantilla. */
-const traductor = (idioma: Idioma) => (es: string, en: string) => (idioma === 'es' ? es : en)
 
 function Portada(p: { kicker: string; titulo: ReactNode; cliente: ReactNode; sub?: ReactNode; mes: string; normal?: boolean }) {
   return (
@@ -45,7 +45,13 @@ function Hoja({ children, block }: { children: ReactNode; block?: boolean }) {
 
 type Campo = (k: 'contacto' | 'empresa') => Ligado
 
-function Encabezado(p: { linea: ReactNode; d: { idioma: Idioma; contacto: string; empresa: string; tratamiento: string }; c$: Campo }) {
+function Encabezado(p: {
+  linea: ReactNode
+  d: { idioma: Idioma; contacto: string; empresa: string; tratamiento: string }
+  c$: Campo
+  /** Puesto del contacto (opcional). */
+  cargo?: Ligado
+}) {
   const t = traductor(p.d.idioma)
   const nombre = primerNombre(p.d.contacto) || t('[Nombre]', '[Name]')
   return (
@@ -55,6 +61,11 @@ function Encabezado(p: { linea: ReactNode; d: { idioma: Idioma; contacto: string
         <div className="accent" style={{ fontWeight: 600 }}>
           <Editable {...p.c$('contacto')} placeholder={t('Nombre del contacto', 'Contact name')} />
         </div>
+        {p.cargo && (
+          <div className={p.cargo.valor.trim() ? undefined : 'vacio'}>
+            <Editable {...p.cargo} placeholder={t('Puesto (opcional)', 'Job title (optional)')} />
+          </div>
+        )}
         <div>
           <Editable {...p.c$('empresa')} placeholder={t('Empresa', 'Company')} />
         </div>
@@ -66,7 +77,7 @@ function Encabezado(p: { linea: ReactNode; d: { idioma: Idioma; contacto: string
   )
 }
 
-function Aprobacion({ idioma }: { idioma: Idioma }) {
+export function Aprobacion({ idioma }: { idioma: Idioma }) {
   const t = traductor(idioma)
   const f = idioma === 'es' ? ['Nombre:', 'Puesto:', 'Fecha:', 'Firma:'] : ['Name:', 'Position:', 'Date:', 'Signature:']
   return (
@@ -104,16 +115,22 @@ const mesAnio = (idioma: Idioma, iso: string) => (idioma === 'es' ? mesAnioEs(is
 export function Servicios({ d, set }: { d: ServiciosData; set: (p: Partial<ServiciosData>) => void }) {
   const t = traductor(d.idioma)
   const c$ = ligar(d, set)
-  const fila$ = (i: number, k: 'cantidad' | 'descripcion' | 'precio'): Ligado => ({
-    valor: d.servicios[i][k],
+  const fila$ = (i: number, k: 'cantidad' | 'descripcion' | 'precio' | 'precioEspecial'): Ligado => ({
+    valor: d.servicios[i][k] ?? '',
     onCambio: (v) => set({ servicios: d.servicios.map((s, j) => (j === i ? { ...s, [k]: v } : s)) }),
   })
   const iva = num(d.iva) / 100
+  // Precio especial por volumen: aplica cuando la cantidad llega al mínimo de solicitudes.
+  const minimo = num(d.minimoEspecial ?? '')
+  const conEspecial = minimo > 0
   const filas = d.servicios.map((s) => {
     const cantidad = num(s.cantidad)
-    const precio = num(s.precio)
+    const precioLista = num(s.precio)
+    const especial = num(s.precioEspecial ?? '')
+    const aplicaEspecial = conEspecial && especial > 0 && cantidad >= minimo
+    const precio = aplicaEspecial ? especial : precioLista
     const subtotal = cantidad * precio
-    return { ...s, cantidad, precio, subtotal, iva: subtotal * iva, total: subtotal * (1 + iva) }
+    return { ...s, cantidad, precioLista, especial, aplicaEspecial, precio, subtotal, iva: subtotal * iva, total: subtotal * (1 + iva) }
   })
   const suma = (k: 'subtotal' | 'iva' | 'total') => filas.reduce((a, f) => a + f[k], 0)
   // Con pocos servicios todo cabe en una hoja; si no, el desglose pasa a la siguiente.
@@ -142,7 +159,7 @@ export function Servicios({ d, set }: { d: ServiciosData; set: (p: Partial<Servi
                 <Editable {...fila$(i, 'descripcion')} placeholder={t('Servicio', 'Service')} />
               </td>
               <td className="r">
-                <Editable {...fila$(i, 'precio')} mostrar={dinero(f.precio)} placeholder="$0.00" />
+                {f.aplicaEspecial ? dinero(f.precio) : <Editable {...fila$(i, 'precio')} mostrar={dinero(f.precio)} placeholder="$0.00" />}
               </td>
               <td className="r">{dinero(f.subtotal)}</td>
               <td className="r">{dinero(f.iva)}</td>
@@ -192,7 +209,12 @@ export function Servicios({ d, set }: { d: ServiciosData; set: (p: Partial<Servi
           <thead>
             <tr>
               <th className="dark">{t('Servicio', 'Service')}</th>
-              <th className="dark" style={{ width: '26%' }}>{t('Precio unitario', 'Unit price')}</th>
+              <th className="dark" style={{ width: conEspecial ? '20%' : '26%' }}>{t('Precio unitario', 'Unit price')}</th>
+              {conEspecial && (
+                <th className="dark" style={{ width: '26%' }}>
+                  {t(`Precio especial unitario +${minimo} solicitudes`, `Special unit price (${minimo}+ requests)`)}
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -202,8 +224,13 @@ export function Servicios({ d, set }: { d: ServiciosData; set: (p: Partial<Servi
                   <Editable {...fila$(i, 'descripcion')} placeholder={t('Servicio', 'Service')} />
                 </td>
                 <td className="r" style={{ fontWeight: 600 }}>
-                  <Editable {...fila$(i, 'precio')} mostrar={dinero(f.precio)} placeholder="$0.00" />
+                  <Editable {...fila$(i, 'precio')} mostrar={dinero(f.precioLista)} placeholder="$0.00" />
                 </td>
+                {conEspecial && (
+                  <td className="r" style={{ fontWeight: 600 }}>
+                    <Editable {...fila$(i, 'precioEspecial')} mostrar={f.especial > 0 ? dinero(f.especial) : ''} placeholder="$0.00" />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -216,7 +243,7 @@ export function Servicios({ d, set }: { d: ServiciosData; set: (p: Partial<Servi
       {!juntos && <Hoja>{desglose}</Hoja>}
       <Hoja block>
         <div className="accent" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>{t('Términos y condiciones:', 'Terms and conditions:')}</div>
-        <Lineas {...c$('terminos')} como="li" id="terminos" className="terms" placeholder={t('Nuevo punto', 'New item')} />
+        <Lineas {...c$('terminos')} como="li" id="terminos" className="terms" vars={{ minimo: String(minimo) }} placeholder={t('Nuevo punto', 'New item')} />
         <Aprobacion idioma={d.idioma} />
         <div className="small" style={{ lineHeight: 1.6 }}>
           {t('Quedo a sus órdenes para cualquier duda o aclaración.', 'Please let me know if you have any questions.')}
@@ -534,3 +561,89 @@ export function Bonos({ d, set }: { d: BonosData; set: (p: Partial<BonosData>) =
     </>
   )
 }
+
+/* ───────── Reclutamiento ───────── */
+
+export function Reclutamiento({ d, set }: { d: ReclutamientoData; set: (p: Partial<ReclutamientoData>) => void }) {
+  const t = traductor(d.idioma)
+  const c$ = ligar(d, set)
+  const pos$ = (i: number, k: keyof ReclutamientoData['posiciones'][number]): Ligado => ({
+    valor: d.posiciones[i][k],
+    onCambio: (v) => set({ posiciones: d.posiciones.map((p, j) => (j === i ? { ...p, [k]: v } : p)) }),
+  })
+  const hojas = contarHojas(d.secciones)
+  const vars = { posicion: (d.posiciones[0]?.posicion || t('[posición]', '[position]')).toLowerCase() }
+  const secciones = {
+    ...c$('secciones'),
+    id: 'secciones',
+    placeholder: t('Nuevo punto', 'New item'),
+    placeholderTitulo: t('Título de sección', 'Section title'),
+  }
+  const cierre = (
+    <div>
+      <div className="small" style={{ lineHeight: 1.6, marginTop: 4 }}>
+        {t('Quedo a sus órdenes para cualquier duda o aclaración.', 'Please let me know if you have any questions.')}
+      </div>
+      <div className="small" style={{ marginTop: 12 }}>{t('Atentamente,', 'Sincerely,')}</div>
+      <div className="signature" style={{ marginBottom: 22 }}>
+        <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
+      </div>
+      <Aprobacion idioma={d.idioma} />
+    </div>
+  )
+
+  return (
+    <>
+      <Portada
+        kicker={t('Cotización de reclutamiento', 'Recruitment quote')}
+        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Posición', 'Position')} />}
+        cliente={<Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />}
+        mes={mesAnio(d.idioma, d.fecha)}
+      />
+      <Hoja>
+        <Encabezado linea={<LugarFecha idioma={d.idioma} ciudad={c$('ciudad')} iso={d.fecha} />} d={d} c$={c$} cargo={c$('cargo')} />
+        <Lineas {...c$('intro')} como="p" id="intro" className="letter" vars={vars} placeholder={t('Párrafo', 'Paragraph')} />
+        <table>
+          <thead>
+            <tr>
+              <th className="dark">{t('Posición', 'Position')}</th>
+              <th className="dark" style={{ width: '26%', textAlign: 'left' }}>{t('Modalidad', 'Modality')}</th>
+              <th className="dark" style={{ width: '17%' }}>{t('Precio regular', 'Regular price')}</th>
+              <th className="dark" style={{ width: '18%' }}>{t('Precio promoción', 'Promotional price')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.posiciones.map((p, i) => (
+              <tr key={i}>
+                <td>
+                  <Editable {...pos$(i, 'posicion')} placeholder={t('Posición', 'Position')} />
+                </td>
+                <td>
+                  <Editable {...pos$(i, 'modalidad')} placeholder={t('Modalidad', 'Modality')} />
+                </td>
+                <td className="r">
+                  <Editable {...pos$(i, 'precioRegular')} mostrar={dinero(num(p.precioRegular))} placeholder="$0.00" />
+                </td>
+                <td className="r strong">
+                  <Editable {...pos$(i, 'precioPromo')} mostrar={num(p.precioPromo) > 0 ? dinero(num(p.precioPromo)) : ''} placeholder="—" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className={d.notaPrecios.trim() ? 'note' : 'note vacio'} style={{ fontWeight: 600 }}>
+          <Editable {...c$('notaPrecios')} placeholder={t('Nota de precios (opcional)', 'Pricing note (optional)')} />
+        </div>
+        <Secciones {...secciones} hoja={0} />
+        {hojas === 1 && cierre}
+      </Hoja>
+      {Array.from({ length: hojas - 1 }, (_, n) => (
+        <Hoja key={n}>
+          <Secciones {...secciones} hoja={n + 1} />
+          {n === hojas - 2 && cierre}
+        </Hoja>
+      ))}
+    </>
+  )
+}
+

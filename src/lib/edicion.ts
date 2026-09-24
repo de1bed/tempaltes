@@ -39,3 +39,8 @@ export function enfocar(id: string, final = true) {
   el.focus()
   cursorAl(el, final)
 }
+
+/** Número de hojas de un texto de secciones con saltos "---" (ver Secciones). */
+export function contarHojas(texto: string): number {
+  return texto.split('\n').filter((l) => l.trim() === '---').length + 1
+}

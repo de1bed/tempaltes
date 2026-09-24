@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Feedbak } from './doc/Feedbak'
-import { Bonos, Gmm, Payroll, Servicios } from './doc/Staffvia'
+import { HaatsHoras, HaatsMensual } from './doc/Haats'
+import { Bonos, Gmm, Payroll, Reclutamiento, Servicios } from './doc/Staffvia'
 import { hoyISO } from './lib/formato'
 import { cambiarIdioma, datosIniciales, PLANTILLAS, type Datos, type Idioma, type PlantillaId } from './lib/modelo'
 import { PRODUCTOS } from './lib/tabuladores'
-import { FormBonos, FormFeedbak, FormGmm, FormPayroll, FormServicios } from './ui/Formularios'
+import { FormBonos, FormFeedbak, FormGmm, FormHaatsHoras, FormHaatsMensual, FormPayroll, FormReclutamiento, FormServicios } from './ui/Formularios'
 
 const CLAVE = 'cotizador:v1'
 
@@ -49,6 +50,14 @@ function nombreArchivo(e: Estado): string {
       return `${cot} Staffvia GMM - ${empresa} - ${fecha}`
     case 'bonos':
       return `${cot} Staffvia ${e.datos.bonos.tituloPortada} - ${empresa} - ${fecha}`
+    case 'estudios':
+      return `${cot} Staffvia ${e.datos.estudios.tituloPortada} - ${empresa} - ${fecha}`
+    case 'reclutamiento':
+      return `${cot} Staffvia ${es ? 'Reclutamiento' : 'Recruitment'} ${e.datos.reclutamiento.tituloPortada} - ${empresa} - ${fecha}`
+    case 'haatsMensual':
+      return `${cot} HAATS ${e.datos.haatsMensual.tituloTabla} - ${empresa} - ${fecha}`
+    case 'haatsHoras':
+      return `${cot} HAATS ${e.datos.haatsHoras.tituloTabla} - ${empresa} - ${fecha}`
   }
 }
 
@@ -160,6 +169,10 @@ export default function App() {
           {plantilla === 'payroll' && <FormPayroll d={datos.payroll} set={set('payroll')} />}
           {plantilla === 'gmm' && <FormGmm d={datos.gmm} set={set('gmm')} />}
           {plantilla === 'bonos' && <FormBonos d={datos.bonos} set={set('bonos')} />}
+          {plantilla === 'estudios' && <FormServicios d={datos.estudios} set={set('estudios')} />}
+          {plantilla === 'reclutamiento' && <FormReclutamiento d={datos.reclutamiento} set={set('reclutamiento')} />}
+          {plantilla === 'haatsMensual' && <FormHaatsMensual d={datos.haatsMensual} set={set('haatsMensual')} />}
+          {plantilla === 'haatsHoras' && <FormHaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
         </form>
       </aside>
 
@@ -214,6 +227,10 @@ export default function App() {
           {plantilla === 'payroll' && <Payroll d={datos.payroll} set={set('payroll')} />}
           {plantilla === 'gmm' && <Gmm d={datos.gmm} set={set('gmm')} />}
           {plantilla === 'bonos' && <Bonos d={datos.bonos} set={set('bonos')} />}
+          {plantilla === 'estudios' && <Servicios d={datos.estudios} set={set('estudios')} />}
+          {plantilla === 'reclutamiento' && <Reclutamiento d={datos.reclutamiento} set={set('reclutamiento')} />}
+          {plantilla === 'haatsMensual' && <HaatsMensual d={datos.haatsMensual} set={set('haatsMensual')} />}
+          {plantilla === 'haatsHoras' && <HaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
         </div>
       </main>
     </div>
