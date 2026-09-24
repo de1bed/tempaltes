@@ -171,6 +171,7 @@ export default function App() {
               +
             </button>
           </div>
+          <span className="pista">Haz clic en cualquier texto resaltado de la hoja para editarlo.</span>
           {desbordadas.length > 0 && (
             <div className="alerta" role="status">
               El contenido no cabe en la hoja {desbordadas.join(', ')}: acorta textos o quita filas.
@@ -205,11 +206,11 @@ export default function App() {
           </div>
         </div>
         <div className="hojas" ref={vistaRef} style={{ zoom }}>
-          {plantilla === 'feedbak' && <Feedbak d={datos.feedbak} />}
-          {plantilla === 'servicios' && <Servicios d={datos.servicios} />}
-          {plantilla === 'payroll' && <Payroll d={datos.payroll} />}
-          {plantilla === 'gmm' && <Gmm d={datos.gmm} />}
-          {plantilla === 'bonos' && <Bonos d={datos.bonos} />}
+          {plantilla === 'feedbak' && <Feedbak d={datos.feedbak} set={set('feedbak')} />}
+          {plantilla === 'servicios' && <Servicios d={datos.servicios} set={set('servicios')} />}
+          {plantilla === 'payroll' && <Payroll d={datos.payroll} set={set('payroll')} />}
+          {plantilla === 'gmm' && <Gmm d={datos.gmm} set={set('gmm')} />}
+          {plantilla === 'bonos' && <Bonos d={datos.bonos} set={set('bonos')} />}
         </div>
       </main>
     </div>

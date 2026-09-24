@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { dinero, fechaEn, fechaFeedbak, miles, num, pct, primerNombre } from '../lib/formato'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import type { FeedbakData } from '../lib/modelo'
+import { ligar } from '../lib/edicion'
+import { Editable } from './Editable'
 import { cotizarFeedbak } from '../lib/tabuladores'
 
 function Hoja({ children }: { children: ReactNode }) {
@@ -28,8 +30,9 @@ function Terminos({ titulo, items, mb }: { titulo: string; items: ReactNode[]; m
   )
 }
 
-export function Feedbak({ d }: { d: FeedbakData }) {
+export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakData>) => void }) {
   const es = d.idioma === 'es'
+  const c$ = ligar(d, set)
   const t = (textoEs: string, textoEn: string) => (es ? textoEs : textoEn)
   const c = cotizarFeedbak({
     producto: d.producto,
@@ -60,12 +63,19 @@ export function Feedbak({ d }: { d: FeedbakData }) {
       <Hoja>
         <div className="content letter" style={{ gap: 14 }}>
           <div className="muted" style={{ fontSize: 12.5 }}>
-            {es ? `${d.ciudad} a ${fechaFeedbak(d.fecha)}` : `${d.ciudad}, ${fechaEn(d.fecha)}`}
+            <Editable {...c$('ciudad')} placeholder={t('Ciudad', 'City')} />
+            {es ? ` a ${fechaFeedbak(d.fecha)}` : `, ${fechaEn(d.fecha)}`}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 1, fontSize: 13, lineHeight: 1.45 }}>
-            <div className="accent" style={{ fontWeight: 600 }}>{d.contacto || t('Nombre del contacto', 'Contact name')}</div>
-            {d.puesto && <div>{d.puesto}</div>}
-            <div>{d.empresa || t('Empresa', 'Company')}</div>
+            <div className="accent" style={{ fontWeight: 600 }}>
+              <Editable {...c$('contacto')} placeholder={t('Nombre del contacto', 'Contact name')} />
+            </div>
+            <div className={d.puesto.trim() ? undefined : 'vacio'}>
+              <Editable {...c$('puesto')} placeholder={t('Puesto (opcional)', 'Job title (optional)')} />
+            </div>
+            <div>
+              <Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />
+            </div>
             {es && <div className="muted">Presente</div>}
           </div>
           <div className="accent" style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>
@@ -89,17 +99,25 @@ export function Feedbak({ d }: { d: FeedbakData }) {
             <tbody>
               {[
                 [t('Plataformas Incluídas:', 'Included Platforms:'), plataformas],
-                [t('Colaboradores:', 'Employees:'), miles(c.colaboradores)],
+                [t('Colaboradores:', 'Employees:'), <Editable key="colaboradores" {...c$('colaboradores')} mostrar={miles(c.colaboradores)} placeholder="0" />],
                 [t('Usuarios Administradores:', 'Administrator Users:'), admins],
                 [
                   t('Capacitación Personalizada:', 'Personalized Training:'),
-                  t(`Incluida (${d.capacitacionHoras} hrs) + Material Virtual`, `Included (${d.capacitacionHoras} hrs) + Virtual Material`),
+                  <>
+                    {t('Incluida (', 'Included (')}
+                    <Editable {...c$('capacitacionHoras')} placeholder="0" /> hrs){t(' + Material Virtual', ' + Virtual Material')}
+                  </>,
                 ],
                 [t('Configuración Inicial:', 'Initial Setup:'), c.setup > 0 ? dinero(c.setup) : t('Sin costo', 'No cost')],
-                [t('Horas de soporte incluidas:', 'Support hours included:'), t(`${d.horasSoporte} horas`, `${d.horasSoporte} hours`)],
-                [t('Costo por Hora de Soporte Adicional:', 'Cost per Additional Support Hour:'), d.costoHoraAdicional],
+                [
+                  t('Horas de soporte incluidas:', 'Support hours included:'),
+                  <>
+                    <Editable {...c$('horasSoporte')} placeholder="0" /> {t('horas', 'hours')}
+                  </>,
+                ],
+                [t('Costo por Hora de Soporte Adicional:', 'Cost per Additional Support Hour:'), <Editable key="costo" {...c$('costoHoraAdicional')} placeholder="$0.00" />],
               ].map(([k, v]) => (
-                <tr key={k}>
+                <tr key={k as string}>
                   <td className="k">{k}</td>
                   <td className="v">{v}</td>
                 </tr>
@@ -363,9 +381,11 @@ export function Feedbak({ d }: { d: FeedbakData }) {
             <div style={{ color: '#3D5257' }}>{t('Atentamente', 'Sincerely')}</div>
             <div style={{ height: 26 }} />
             <div className="accent" style={{ fontWeight: 600, borderTop: '1px solid #6FC08D', paddingTop: 6, width: 230 }}>
-              {d.firmante}
+              <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
             </div>
-            <div className="muted" style={{ fontSize: 11 }}>{d.firmanteEmpresa}</div>
+            <div className="muted" style={{ fontSize: 11 }}>
+              <Editable {...c$('firmanteEmpresa')} placeholder={t('Empresa', 'Company')} />
+            </div>
           </div>
         </div>
       </Hoja>

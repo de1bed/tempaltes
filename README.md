@@ -16,6 +16,16 @@ Todas se generan en **español o inglés** con el selector "Idioma del documento
 
 Al cambiar de idioma, los textos editables (introducción, términos, notas…) que siguen igual al original se traducen solos; los que ya editaste se quedan como los dejaste. Los textos de cada idioma están en `src/lib/modelo.ts`.
 
+### Edición directa en la hoja
+
+Los textos resaltados de la vista previa se editan con un clic: contacto, empresa, ciudad, títulos de portada, introducción, términos, notas, firmante y los montos que se capturan a mano en Staffvia. Lo que se escribe en la hoja se guarda en el mismo campo del formulario (y al revés), así que se conserva al cambiar de idioma o recargar.
+
+- Los montos muestran su valor sin formato al editarlos y con formato al salir.
+- En introducción y términos, `{empresa}`, `{puesto}` o `{fee}` aparecen como tales mientras se edita y se sustituyen al salir.
+- En listas (términos, detalle, notas), **Enter** agrega un punto nuevo y **Retroceso** en un punto vacío lo quita.
+- Los precios que calcula el tabulador de Feedbak no se editan: salen del tabulador fijo.
+- El resaltado y los textos guía solo se ven en pantalla; no salen en el PDF.
+
 Feedbak permite elegir entre 3 portadas o ninguna. Staffvia usa la portada Treve con título, cliente y mes.
 
 ## Tabuladores Feedbak

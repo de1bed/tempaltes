@@ -90,3 +90,18 @@
 .sv table.sign td:first-child { background: #F1F4F5; width: 26%; }
 .sv .small { font-size: 11px; color: #3C4E5A; }
 .sv .signature { font-size: 12px; font-weight: 600; color: #123A5A; border-top: 1px solid #8FA86A; padding-top: 6px; width: 220px; margin-top: 16px; }
+
+/* ───────── Edición directa en la hoja (solo en pantalla) ───────── */
+@media screen {
+  .page .editable { border-radius: 2px; outline: 1px dashed transparent; outline-offset: 1px; cursor: text; transition: outline-color 0.12s, background-color 0.12s; }
+  .page .editable:hover { outline-color: #6FC08D; background: rgba(111, 192, 141, 0.1); }
+  .page .editable:focus { outline: 2px solid #6FC08D; background: rgba(111, 192, 141, 0.16); }
+  .page .editable:empty { display: inline-block; min-width: 1.5em; }
+  .page .editable:empty::before { content: attr(data-placeholder); color: #9AA9AE; font-style: italic; font-weight: 400; }
+  /* Los textos oscuros sobre fondo de color conservan contraste al editarse */
+  .page th .editable:focus, .sv-cover .editable:focus { background: rgba(255, 255, 255, 0.18); }
+  .page .vacio { opacity: 0.75; }
+}
+@media print {
+  .page .vacio { display: none; }
+}

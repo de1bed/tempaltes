@@ -13,12 +13,14 @@ import {
   paginar,
   primerNombre,
 } from '../lib/formato'
-import { rellenar, type BonosData, type GmmData, type Idioma, type PayrollData, type ServiciosData } from '../lib/modelo'
+import { ligar, type Ligado } from '../lib/edicion'
+import { Editable, Lineas } from './Editable'
+import { type BonosData, type GmmData, type Idioma, type PayrollData, type ServiciosData } from '../lib/modelo'
 
 /** Devuelve el texto en el idioma de la plantilla. */
 const traductor = (idioma: Idioma) => (es: string, en: string) => (idioma === 'es' ? es : en)
 
-function Portada(p: { kicker: string; titulo: string; cliente: string; sub?: string; mes: string; normal?: boolean }) {
+function Portada(p: { kicker: string; titulo: ReactNode; cliente: ReactNode; sub?: ReactNode; mes: string; normal?: boolean }) {
   return (
     <section className="page sv-cover">
       <div className="box">
@@ -41,30 +43,26 @@ function Hoja({ children, block }: { children: ReactNode; block?: boolean }) {
   )
 }
 
-function Encabezado(p: { linea: string; d: { idioma: Idioma; contacto: string; empresa: string; tratamiento: string } }) {
+type Campo = (k: 'contacto' | 'empresa') => Ligado
+
+function Encabezado(p: { linea: ReactNode; d: { idioma: Idioma; contacto: string; empresa: string; tratamiento: string }; c$: Campo }) {
   const t = traductor(p.d.idioma)
   const nombre = primerNombre(p.d.contacto) || t('[Nombre]', '[Name]')
   return (
     <>
       <div className="muted" style={{ fontSize: 11.5 }}>{p.linea}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1, fontSize: 12.5, lineHeight: 1.4 }}>
-        <div className="accent" style={{ fontWeight: 600 }}>{p.d.contacto || t('Nombre del contacto', 'Contact name')}</div>
-        <div>{p.d.empresa || t('Empresa', 'Company')}</div>
+        <div className="accent" style={{ fontWeight: 600 }}>
+          <Editable {...p.c$('contacto')} placeholder={t('Nombre del contacto', 'Contact name')} />
+        </div>
+        <div>
+          <Editable {...p.c$('empresa')} placeholder={t('Empresa', 'Company')} />
+        </div>
       </div>
       <div className="accent" style={{ fontSize: 12.5, fontWeight: 600 }}>
         {p.d.idioma === 'es' ? `${p.d.tratamiento} ${nombre}:` : `Dear ${nombre},`}
       </div>
     </>
-  )
-}
-
-function Parrafos({ texto }: { texto: string }) {
-  return (
-    <div className="letter" style={{ display: 'contents' }}>
-      {lineas(texto).map((l, i) => (
-        <p key={i}>{l}</p>
-      ))}
-    </div>
   )
 }
 
@@ -90,25 +88,26 @@ function Aprobacion({ idioma }: { idioma: Idioma }) {
   )
 }
 
-function ListaTerminos({ texto, lg }: { texto: string; lg?: boolean }) {
+/** Línea de lugar y fecha: "Tijuana, Baja California a 26 de junio de 2026." / "Tijuana, Baja California, May 13, 2026" */
+function LugarFecha({ idioma, ciudad, iso }: { idioma: Idioma; ciudad: Ligado; iso: string }) {
   return (
-    <ul className={lg ? 'terms lg' : 'terms'}>
-      {lineas(texto).map((t, i) => (
-        <li key={i}>{t}</li>
-      ))}
-    </ul>
+    <>
+      <Editable {...ciudad} placeholder={idioma === 'es' ? 'Ciudad' : 'City'} />
+      {idioma === 'es' ? ` a ${fechaEs(iso)}.` : `, ${fechaEn(iso)}`}
+    </>
   )
 }
-
-/** Línea de lugar y fecha: "Tijuana, Baja California a 26 de junio de 2026." / "Tijuana, Baja California, May 13, 2026" */
-const lugarFecha = (idioma: Idioma, ciudad: string, iso: string) =>
-  idioma === 'es' ? `${ciudad} a ${fechaEs(iso)}.` : `${ciudad}, ${fechaEn(iso)}`
 const mesAnio = (idioma: Idioma, iso: string) => (idioma === 'es' ? mesAnioEs(iso) : mesAnioEn(iso))
 
 /* ───────── Servicios y trámites ───────── */
 
-export function Servicios({ d }: { d: ServiciosData }) {
+export function Servicios({ d, set }: { d: ServiciosData; set: (p: Partial<ServiciosData>) => void }) {
   const t = traductor(d.idioma)
+  const c$ = ligar(d, set)
+  const fila$ = (i: number, k: 'cantidad' | 'descripcion' | 'precio'): Ligado => ({
+    valor: d.servicios[i][k],
+    onCambio: (v) => set({ servicios: d.servicios.map((s, j) => (j === i ? { ...s, [k]: v } : s)) }),
+  })
   const iva = num(d.iva) / 100
   const filas = d.servicios.map((s) => {
     const cantidad = num(s.cantidad)
@@ -136,9 +135,15 @@ export function Servicios({ d }: { d: ServiciosData }) {
         <tbody>
           {filas.map((f, i) => (
             <tr key={i}>
-              <td className="c">{miles(f.cantidad)}</td>
-              <td>{f.descripcion}</td>
-              <td className="r">{dinero(f.precio)}</td>
+              <td className="c">
+                <Editable {...fila$(i, 'cantidad')} mostrar={miles(f.cantidad)} placeholder="0" />
+              </td>
+              <td>
+                <Editable {...fila$(i, 'descripcion')} placeholder={t('Servicio', 'Service')} />
+              </td>
+              <td className="r">
+                <Editable {...fila$(i, 'precio')} mostrar={dinero(f.precio)} placeholder="$0.00" />
+              </td>
               <td className="r">{dinero(f.subtotal)}</td>
               <td className="r">{dinero(f.iva)}</td>
               <td className="r strong">{dinero(f.total)}</td>
@@ -161,18 +166,12 @@ export function Servicios({ d }: { d: ServiciosData }) {
           <div className="accent" style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>
             {t('Detalle de la propuesta:', 'Proposal details:')}
           </div>
-          <ul style={{ fontSize: 10.5, lineHeight: 1.55, color: '#3C4E5A', gap: 4 }}>
-            {lineas(d.detalle).map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ul>
+          <Lineas {...c$('detalle')} como="li" id="detalle" style={{ fontSize: 10.5, lineHeight: 1.55, color: '#3C4E5A', gap: 4 }} placeholder={t('Nuevo punto', 'New item')} />
         </>
       )}
       {lineas(d.notas).length > 0 && (
         <div className="muted" style={{ fontSize: 10, lineHeight: 1.5 }}>
-          {lineas(d.notas).map((l, i) => (
-            <div key={i}>{l}</div>
-          ))}
+          <Lineas {...c$('notas')} como="div" id="notas" placeholder={t('Nota', 'Note')} />
         </div>
       )}
     </>
@@ -180,10 +179,15 @@ export function Servicios({ d }: { d: ServiciosData }) {
 
   return (
     <>
-      <Portada kicker={t('Cotización', 'Quote')} titulo={d.tituloPortada} cliente={d.empresa || t('Empresa', 'Company')} mes={mesAnio(d.idioma, d.fecha)} />
+      <Portada
+        kicker={t('Cotización', 'Quote')}
+        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Título', 'Title')} />}
+        cliente={<Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />}
+        mes={mesAnio(d.idioma, d.fecha)}
+      />
       <Hoja>
-        <Encabezado linea={lugarFecha(d.idioma, d.ciudad, d.fecha)} d={d} />
-        <Parrafos texto={rellenar(d.intro, { empresa: d.empresa })} />
+        <Encabezado linea={<LugarFecha idioma={d.idioma} ciudad={c$('ciudad')} iso={d.fecha} />} d={d} c$={c$} />
+        <Lineas {...c$('intro')} como="p" id="intro" className="letter" vars={{ empresa: d.empresa }} placeholder={t('Párrafo', 'Paragraph')} />
         <table>
           <thead>
             <tr>
@@ -194,25 +198,33 @@ export function Servicios({ d }: { d: ServiciosData }) {
           <tbody>
             {filas.map((f, i) => (
               <tr key={i}>
-                <td>{f.descripcion}</td>
-                <td className="r" style={{ fontWeight: 600 }}>{dinero(f.precio)}</td>
+                <td>
+                  <Editable {...fila$(i, 'descripcion')} placeholder={t('Servicio', 'Service')} />
+                </td>
+                <td className="r" style={{ fontWeight: 600 }}>
+                  <Editable {...fila$(i, 'precio')} mostrar={dinero(f.precio)} placeholder="$0.00" />
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {d.notaPrecios && <div className="note">{d.notaPrecios}</div>}
+        <div className={d.notaPrecios.trim() ? 'note' : 'note vacio'}>
+          <Editable {...c$('notaPrecios')} placeholder={t('Nota de precios (opcional)', 'Pricing note (optional)')} />
+        </div>
         {juntos && desglose}
       </Hoja>
       {!juntos && <Hoja>{desglose}</Hoja>}
       <Hoja block>
         <div className="accent" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>{t('Términos y condiciones:', 'Terms and conditions:')}</div>
-        <ListaTerminos texto={d.terminos} />
+        <Lineas {...c$('terminos')} como="li" id="terminos" className="terms" placeholder={t('Nuevo punto', 'New item')} />
         <Aprobacion idioma={d.idioma} />
         <div className="small" style={{ lineHeight: 1.6 }}>
           {t('Quedo a sus órdenes para cualquier duda o aclaración.', 'Please let me know if you have any questions.')}
         </div>
         <div className="small" style={{ marginTop: 14 }}>{t('Atentamente,', 'Sincerely,')}</div>
-        <div className="signature">{d.firmante}</div>
+        <div className="signature">
+          <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
+        </div>
       </Hoja>
     </>
   )
@@ -223,17 +235,21 @@ export function Servicios({ d }: { d: ServiciosData }) {
 /** Semanas promedio por mes (52 / 12). */
 const SEMANAS_MES = 52 / 12
 
-export function Payroll({ d }: { d: PayrollData }) {
+export function Payroll({ d, set }: { d: PayrollData; set: (p: Partial<PayrollData>) => void }) {
   const t = traductor(d.idioma)
+  const c$ = ligar(d, set)
   const fee = num(d.fee)
   const feeTxt = `${fee}%`
-  const base: [string, number][] = [
-    [t('Sueldo bruto', 'Gross salary'), num(d.salario)],
-    [t('Cuotas patronales (IMSS, INFONAVIT, SAR, ISN)', 'Employer taxes (IMSS, INFONAVIT, SAR, state tax)'), num(d.impuestos)],
-    [t('Vacaciones, aguinaldo y prima vacacional', 'Vacation pay, Christmas bonus and vacation bonus'), num(d.prestaciones)],
+  const base: [string, number, 'salario' | 'impuestos' | 'prestaciones' | null][] = [
+    [t('Sueldo bruto', 'Gross salary'), num(d.salario), 'salario'],
+    [t('Cuotas patronales (IMSS, INFONAVIT, SAR, ISN)', 'Employer taxes (IMSS, INFONAVIT, SAR, state tax)'), num(d.impuestos), 'impuestos'],
+    [t('Vacaciones, aguinaldo y prima vacacional', 'Vacation pay, Christmas bonus and vacation bonus'), num(d.prestaciones), 'prestaciones'],
   ]
   const subtotal = base.reduce((a, [, v]) => a + v, 0)
-  const filas: [string, number][] = [...base, [t(`Cuota de servicio (${feeTxt})`, `Service fee (${feeTxt})`), (subtotal * fee) / 100]]
+  const filas: [string, number, 'salario' | 'impuestos' | 'prestaciones' | null][] = [
+    ...base,
+    [t(`Cuota de servicio (${feeTxt})`, `Service fee (${feeTxt})`), (subtotal * fee) / 100, null],
+  ]
   const total = subtotal * (1 + fee / 100)
   const vars = { empresa: d.empresa || t('su empresa', 'your company'), puesto: d.puesto, fee: feeTxt }
 
@@ -241,22 +257,24 @@ export function Payroll({ d }: { d: PayrollData }) {
     <>
       <Portada
         kicker={t('Cotización de servicios de nómina', 'Payroll services quote')}
-        titulo={d.tituloPortada}
-        cliente={d.clientePortada}
+        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Puesto', 'Position')} />}
+        cliente={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
         mes={mesAnio(d.idioma, d.fecha)}
       />
       <Hoja>
-        <Encabezado linea={lugarFecha(d.idioma, d.ciudad, d.fecha)} d={d} />
-        <Parrafos texto={rellenar(d.intro, vars)} />
+        <Encabezado linea={<LugarFecha idioma={d.idioma} ciudad={c$('ciudad')} iso={d.fecha} />} d={d} c$={c$} />
+        <Lineas {...c$('intro')} como="p" id="intro" className="letter" vars={vars} placeholder={t('Párrafo', 'Paragraph')} />
         <div className="h-title">{t('Cotización de servicios de nómina de empleados indirectos', 'Quote for payroll services of indirect employees')}</div>
         <table>
           <tbody>
-            {[
-              [t('Puesto', 'Position'), d.puesto],
-              [t('Número de personas', 'Headcount'), miles(num(d.headcount))],
-              [t('Frecuencia de nómina', 'Payroll frequency'), d.frecuencia],
-              [t('Cuota de servicio', 'Service fee'), feeTxt],
-            ].map(([k, v]) => (
+            {(
+              [
+                [t('Puesto', 'Position'), <Editable key="puesto" {...c$('puesto')} placeholder={t('Puesto', 'Position')} />],
+                [t('Número de personas', 'Headcount'), <Editable key="headcount" {...c$('headcount')} mostrar={miles(num(d.headcount))} placeholder="0" />],
+                [t('Frecuencia de nómina', 'Payroll frequency'), <Editable key="frecuencia" {...c$('frecuencia')} placeholder={t('Semanal', 'Weekly')} />],
+                [t('Cuota de servicio', 'Service fee'), <Editable key="fee" {...c$('fee')} mostrar={feeTxt} placeholder="0%" />],
+              ] as const
+            ).map(([k, v]) => (
               <tr key={k}>
                 <td className="k">{k}</td>
                 <td className="v">{v}</td>
@@ -273,10 +291,10 @@ export function Payroll({ d }: { d: PayrollData }) {
             </tr>
           </thead>
           <tbody>
-            {filas.map(([k, v]) => (
+            {filas.map(([k, v, campo]) => (
               <tr key={k}>
                 <td>{k}</td>
-                <td className="r">{dinero(v)}</td>
+                <td className="r">{campo ? <Editable {...c$(campo)} mostrar={dinero(v)} placeholder="$0.00" /> : dinero(v)}</td>
                 <td className="r">{dinero(v * SEMANAS_MES)}</td>
               </tr>
             ))}
@@ -291,11 +309,13 @@ export function Payroll({ d }: { d: PayrollData }) {
       </Hoja>
       <Hoja block>
         <div className="h-sec">{t('TÉRMINOS Y CONDICIONES:', 'TERMS AND CONDITIONS:')}</div>
-        <ListaTerminos texto={rellenar(d.terminos, vars)} />
+        <Lineas {...c$('terminos')} como="li" id="terminos" className="terms" vars={vars} placeholder={t('Nuevo punto', 'New item')} />
         <Aprobacion idioma={d.idioma} />
         <div className="small">{t('Muchas gracias por su confianza.', 'Thank you very much for your partnership.')}</div>
         <div className="small" style={{ marginTop: 10 }}>{t('Atentamente,', 'Sincerely,')}</div>
-        <div className="signature">{d.firmante}</div>
+        <div className="signature">
+          <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
+        </div>
       </Hoja>
     </>
   )
@@ -303,20 +323,36 @@ export function Payroll({ d }: { d: PayrollData }) {
 
 /* ───────── Gastos médicos (GMM) ───────── */
 
-export function Gmm({ d }: { d: GmmData }) {
+export function Gmm({ d, set }: { d: GmmData; set: (p: Partial<GmmData>) => void }) {
   const t = traductor(d.idioma)
+  const c$ = ligar(d, set)
+  const emp$ = (i: number, k: keyof GmmData['empleados'][number]): Ligado => ({
+    valor: d.empleados[i][k],
+    onCambio: (v) => set({ empleados: d.empleados.map((e, j) => (j === i ? { ...e, [k]: v } : e)) }),
+  })
   const es = d.idioma === 'es'
   const nombres = d.empleados.map((e) => e.nombre.trim()).filter(Boolean)
-  const paginas = paginar(d.empleados, 2, 5)
+  const paginas = paginar(
+    d.empleados.map((e, i) => ({ ...e, i })),
+    2,
+    5,
+  )
   const fechaCorta = es ? fechaEs : fechaEn
-  const tabla = (e: GmmData['empleados'][number], i: number) => (
+  const monto = (i: number, k: 'menorMensual' | 'menorAnual' | 'mayorMensual' | 'mayorAnual') => (
+    <Editable {...emp$(i, k)} mostrar={dinero(num(d.empleados[i][k]))} placeholder="$0.00" />
+  )
+  const tabla = ({ i }: { i: number }) => (
     <table key={i}>
       <thead>
         <tr>
-          <th colSpan={3} className="dark">{e.nombre || t('Nombre del empleado', 'Employee name')}</th>
+          <th colSpan={3} className="dark">
+            <Editable {...emp$(i, 'nombre')} placeholder={t('Nombre del empleado', 'Employee name')} />
+          </th>
         </tr>
         <tr>
-          <th className="olive">{t('Edad', 'Age')}: {e.edad}</th>
+          <th className="olive">
+            {t('Edad', 'Age')}: <Editable {...emp$(i, 'edad')} placeholder="0" />
+          </th>
           <th className="olive" style={{ width: '24%' }}>{t('Costo mensual', 'Monthly Cost')}</th>
           <th className="olive" style={{ width: '24%' }}>{t('Costo anual', 'Annual Cost')}</th>
         </tr>
@@ -324,13 +360,13 @@ export function Gmm({ d }: { d: GmmData }) {
       <tbody>
         <tr>
           <td>{t('Seguro de Gastos Médicos Menores', 'Minor Medical Insurance')}</td>
-          <td className="r">{dinero(num(e.menorMensual))}</td>
-          <td className="r">{dinero(num(e.menorAnual))}</td>
+          <td className="r">{monto(i, 'menorMensual')}</td>
+          <td className="r">{monto(i, 'menorAnual')}</td>
         </tr>
         <tr>
           <td>{t('Seguro de Gastos Médicos Mayores', 'Major Medical Insurance')}</td>
-          <td className="r">{dinero(num(e.mayorMensual))}</td>
-          <td className="r">{dinero(num(e.mayorAnual))}</td>
+          <td className="r">{monto(i, 'mayorMensual')}</td>
+          <td className="r">{monto(i, 'mayorAnual')}</td>
         </tr>
       </tbody>
     </table>
@@ -349,14 +385,14 @@ export function Gmm({ d }: { d: GmmData }) {
         titulo={t('Seguro de Gastos Médicos Mayores y Menores', 'Medical Major & Minor Insurance')}
         normal
         cliente={clientePortada}
-        sub={d.clientePortada}
+        sub={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
         mes={mesAnio(d.idioma, d.fecha)}
       />
       {paginas.map((grupo, p) => (
         <Hoja key={p}>
           {p === 0 && (
             <>
-              <Encabezado linea={es ? fechaEsDia(d.fecha) : fechaEnDia(d.fecha)} d={d} />
+              <Encabezado linea={es ? fechaEsDia(d.fecha) : fechaEnDia(d.fecha)} d={d} c$={c$} />
               <div className="letter" style={{ display: 'contents' }}>
                 <p>
                   {es
@@ -381,17 +417,19 @@ export function Gmm({ d }: { d: GmmData }) {
               <div className="h-title">{t('Seguro médico privado', 'Private medical insurance')}</div>
             </>
           )}
-          {grupo.map((e, i) => tabla(e, i))}
+          {grupo.map(tabla)}
           {p === paginas.length - 1 && <div className="note">{t('Precio por persona + IVA.', 'Price per person + TAX.')}</div>}
         </Hoja>
       ))}
       <Hoja block>
         <div className="h-sec">{t('TÉRMINOS Y CONDICIONES:', 'TERMS AND CONDITIONS:')}</div>
-        <ListaTerminos texto={d.terminos} lg />
+        <Lineas {...c$('terminos')} como="li" id="terminos" className="terms lg" placeholder={t('Nuevo punto', 'New item')} />
         <Aprobacion idioma={d.idioma} />
         <div className="small">{t('Muchas gracias por su confianza.', 'Thank you very much for your partnership.')}</div>
         <div className="small" style={{ marginTop: 10 }}>{t('Atentamente,', 'Sincerely,')}</div>
-        <div className="signature">{d.firmante}</div>
+        <div className="signature">
+          <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
+        </div>
       </Hoja>
     </>
   )
@@ -399,12 +437,17 @@ export function Gmm({ d }: { d: GmmData }) {
 
 /* ───────── Bonos ───────── */
 
-export function Bonos({ d }: { d: BonosData }) {
+export function Bonos({ d, set }: { d: BonosData; set: (p: Partial<BonosData>) => void }) {
   const t = traductor(d.idioma)
-  const filas = d.empleados.map((e) => {
+  const c$ = ligar(d, set)
+  const emp$ = (i: number, k: keyof BonosData['empleados'][number]): Ligado => ({
+    valor: d.empleados[i][k],
+    onCambio: (v) => set({ empleados: d.empleados.map((e, j) => (j === i ? { ...e, [k]: v } : e)) }),
+  })
+  const filas = d.empleados.map((e, i) => {
     const bruto = num(e.bruto)
     const costo = num(e.costo)
-    return { nombre: e.nombre, bruto, neto: num(e.neto), costo, total: bruto + costo }
+    return { i, nombre: e.nombre, bruto, neto: num(e.neto), costo, total: bruto + costo }
   })
   const suma = (k: 'bruto' | 'neto' | 'costo' | 'total') => filas.reduce((a, f) => a + f[k], 0)
   const paginas = paginar(filas, 12, 24)
@@ -413,8 +456,8 @@ export function Bonos({ d }: { d: BonosData }) {
     <>
       <Portada
         kicker={t('Cotización de servicios de nómina', 'Payroll services quotation')}
-        titulo={d.tituloPortada}
-        cliente={d.clientePortada}
+        titulo={<Editable {...c$('tituloPortada')} placeholder={t('Título', 'Title')} />}
+        cliente={<Editable {...c$('clientePortada')} placeholder={t('Cliente', 'Client')} />}
         mes={mesAnio(d.idioma, d.fecha)}
       />
       {paginas.map((grupo, p) => {
@@ -423,8 +466,15 @@ export function Bonos({ d }: { d: BonosData }) {
           <Hoja key={p}>
             {p === 0 && (
               <>
-                <Encabezado linea={lugarFecha(d.idioma, d.ciudad, d.fecha)} d={d} />
-                <Parrafos texto={rellenar(d.intro, { empresa: d.empresa || t('su empresa', 'your company'), titulo: d.tituloPortada })} />
+                <Encabezado linea={<LugarFecha idioma={d.idioma} ciudad={c$('ciudad')} iso={d.fecha} />} d={d} c$={c$} />
+                <Lineas
+                  {...c$('intro')}
+                  como="p"
+                  id="intro"
+                  className="letter"
+                  vars={{ empresa: d.empresa || t('su empresa', 'your company'), titulo: d.tituloPortada }}
+                  placeholder={t('Párrafo', 'Paragraph')}
+                />
                 <div className="h-title">{t('Cotización de servicios de nómina de empleados indirectos', 'Quote for payroll services of indirect employees')}</div>
               </>
             )}
@@ -439,12 +489,20 @@ export function Bonos({ d }: { d: BonosData }) {
                 </tr>
               </thead>
               <tbody>
-                {grupo.map((f, i) => (
-                  <tr key={i}>
-                    <td>{f.nombre || t('Nombre del empleado', 'Employee name')}</td>
-                    <td className="r">{dinero(f.bruto)}</td>
-                    <td className="r">{dinero(f.neto)}</td>
-                    <td className="r">{dinero(f.costo)}</td>
+                {grupo.map((f) => (
+                  <tr key={f.i}>
+                    <td>
+                      <Editable {...emp$(f.i, 'nombre')} placeholder={t('Nombre del empleado', 'Employee name')} />
+                    </td>
+                    <td className="r">
+                      <Editable {...emp$(f.i, 'bruto')} mostrar={dinero(f.bruto)} placeholder="$0.00" />
+                    </td>
+                    <td className="r">
+                      <Editable {...emp$(f.i, 'neto')} mostrar={dinero(f.neto)} placeholder="$0.00" />
+                    </td>
+                    <td className="r">
+                      <Editable {...emp$(f.i, 'costo')} mostrar={dinero(f.costo)} placeholder="$0.00" />
+                    </td>
                     <td className="r">{dinero(f.total)}</td>
                   </tr>
                 ))}
@@ -465,11 +523,13 @@ export function Bonos({ d }: { d: BonosData }) {
       })}
       <Hoja block>
         <div className="h-sec">{t('TÉRMINOS Y CONDICIONES:', 'TERMS AND CONDITIONS:')}</div>
-        <ListaTerminos texto={d.terminos} lg />
+        <Lineas {...c$('terminos')} como="li" id="terminos" className="terms lg" placeholder={t('Nuevo punto', 'New item')} />
         <div className="small" style={{ marginBottom: 14 }}>{t('Muchas gracias por su confianza.', 'Thank you very much for your partnership.')}</div>
         <Aprobacion idioma={d.idioma} />
         <div className="small">{t('Atentamente,', 'Sincerely,')}</div>
-        <div className="signature">{d.firmante}</div>
+        <div className="signature">
+          <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
+        </div>
       </Hoja>
     </>
   )
