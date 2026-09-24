@@ -27,6 +27,7 @@ interface DefinicionProducto {
   nombre: string
   /** Texto para "Plataformas incluidas" y la carta. */
   plataformas: string
+  plataformasEn: string
   /** Precio mensual por usuario (MXN) por rango. */
   precios: [number, number, number, number, number, number, number]
   /** Setup inicial (MXN), se cobra en la primera factura. */
@@ -39,24 +40,28 @@ export const PRODUCTOS: Record<ProductoFeedbak, DefinicionProducto> = {
   checador: {
     nombre: 'Checador',
     plataformas: 'Checador',
+    plataformasEn: 'Checador',
     precios: [24, 19, 12, 7, 7, 7, 7],
     setup: () => 2000,
   },
   'checador-facial': {
     nombre: 'Checador con reconocimiento facial',
     plataformas: 'Checador con reconocimiento facial',
+    plataformasEn: 'Checador with facial recognition',
     precios: [26, 21, 14, 9, 9, 9, 9],
     setup: () => 2000,
   },
   'mk-checador': {
     nombre: 'Mi Kiosko + Checador',
     plataformas: 'Mi Kiosko y Checador',
+    plataformasEn: 'Mi Kiosko and Checador',
     precios: [36, 29, 22, 17, 13, 8, 5],
     setup: (n) => (n > 100 ? 0 : 3000),
   },
   'mk-checador-facial': {
     nombre: 'Mi Kiosko + Checador con reconocimiento facial',
     plataformas: 'Mi Kiosko y Checador con reconocimiento facial',
+    plataformasEn: 'Mi Kiosko and Checador with facial recognition',
     precios: [38, 31, 24, 19, 15, 8, 5],
     setup: (n) => (n > 100 ? 0 : 3000),
   },

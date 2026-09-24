@@ -16,13 +16,13 @@ const TRATAMIENTOS = [
 ] as const
 
 function Destinatario<T extends { contacto: string; empresa: string; fecha: string }>({ d, set, ciudad }: Props<T> & { ciudad?: boolean }) {
-  const dd = d as T & { ciudad?: string; puesto?: string; tratamiento?: string }
+  const dd = d as T & { ciudad?: string; puesto?: string; tratamiento?: string; idioma?: string }
   const s = set as unknown as (p: Record<string, string>) => void
   return (
     <Seccion titulo="Cliente y fecha">
       <Fila>
         <Texto label="Nombre del contacto" value={d.contacto} onChange={(v) => s({ contacto: v })} placeholder="Luz Gómez" />
-        {dd.tratamiento !== undefined && (
+        {dd.idioma === 'es' && dd.tratamiento !== undefined && (
           <Opciones label="Saludo" value={dd.tratamiento} onChange={(v) => s({ tratamiento: v })} opciones={TRATAMIENTOS} />
         )}
       </Fila>
@@ -184,19 +184,19 @@ export function FormPayroll({ d, set }: Props<PayrollData>) {
       <Destinatario d={d} set={set} ciudad />
       <Seccion titulo="Cotización">
         <Area label="Introducción" value={d.intro} filas={3} onChange={(v) => set({ intro: v })} ayuda="{empresa} y {puesto} se sustituyen automáticamente." />
-        <Texto label="Position" value={d.puesto} onChange={(v) => set({ puesto: v })} />
+        <Texto label="Puesto" value={d.puesto} onChange={(v) => set({ puesto: v })} />
         <Fila>
-          <Numero label="Headcount" value={d.headcount} step="1" onChange={(v) => set({ headcount: v })} />
-          <Texto label="Payroll frequency" value={d.frecuencia} onChange={(v) => set({ frecuencia: v })} />
+          <Numero label="Número de personas" value={d.headcount} step="1" onChange={(v) => set({ headcount: v })} />
+          <Texto label="Frecuencia de nómina" value={d.frecuencia} onChange={(v) => set({ frecuencia: v })} />
         </Fila>
-        <Numero label="Service fee (%)" value={d.fee} onChange={(v) => set({ fee: v })} />
-        <Numero label="Gross salary (semanal)" prefijo="$" value={d.salario} onChange={(v) => set({ salario: v })} />
-        <Numero label="Employer taxes (semanal)" prefijo="$" value={d.impuestos} onChange={(v) => set({ impuestos: v })} />
-        <Numero label="Vacation pay y aguinaldo (semanal)" prefijo="$" value={d.prestaciones} onChange={(v) => set({ prestaciones: v })} />
-        <small className="nota">Mensual = semanal × 4.33 (52 semanas / 12 meses). El fee se calcula sobre la suma.</small>
+        <Numero label="Cuota de servicio (%)" value={d.fee} onChange={(v) => set({ fee: v })} />
+        <Numero label="Sueldo bruto (semanal)" prefijo="$" value={d.salario} onChange={(v) => set({ salario: v })} />
+        <Numero label="Cuotas patronales (semanal)" prefijo="$" value={d.impuestos} onChange={(v) => set({ impuestos: v })} />
+        <Numero label="Vacaciones, aguinaldo y prima (semanal)" prefijo="$" value={d.prestaciones} onChange={(v) => set({ prestaciones: v })} />
+        <small className="nota">Mensual = semanal × 4.33 (52 semanas / 12 meses). La cuota de servicio se calcula sobre la suma.</small>
       </Seccion>
       <Seccion titulo="Términos y firma" abierta={false}>
-        <Area label="Terms and conditions" value={d.terminos} filas={8} onChange={(v) => set({ terminos: v })} ayuda={`${AYUDA_TERMINOS} {fee} se sustituye por el service fee.`} />
+        <Area label="Términos y condiciones" value={d.terminos} filas={8} onChange={(v) => set({ terminos: v })} ayuda={`${AYUDA_TERMINOS} {fee} se sustituye por la cuota de servicio.`} />
         <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />
       </Seccion>
     </>
@@ -239,7 +239,7 @@ export function FormGmm({ d, set }: Props<GmmData>) {
         />
       </Seccion>
       <Seccion titulo="Términos y firma" abierta={false}>
-        <Area label="Terms and conditions" value={d.terminos} filas={8} onChange={(v) => set({ terminos: v })} ayuda={AYUDA_TERMINOS} />
+        <Area label="Términos y condiciones" value={d.terminos} filas={8} onChange={(v) => set({ terminos: v })} ayuda={AYUDA_TERMINOS} />
         <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />
       </Seccion>
     </>
@@ -265,17 +265,17 @@ export function FormBonos({ d, set }: Props<BonosData>) {
             <>
               <Texto label="Nombre" value={e.nombre} onChange={(v) => cambiar({ nombre: v })} />
               <Fila>
-                <Numero label="Gross bonus" prefijo="$" value={e.bruto} onChange={(v) => cambiar({ bruto: v })} />
-                <Numero label="Net bonus" prefijo="$" value={e.neto} onChange={(v) => cambiar({ neto: v })} />
-                <Numero label="Payroll cost" prefijo="$" value={e.costo} onChange={(v) => cambiar({ costo: v })} />
+                <Numero label="Bono bruto" prefijo="$" value={e.bruto} onChange={(v) => cambiar({ bruto: v })} />
+                <Numero label="Bono neto" prefijo="$" value={e.neto} onChange={(v) => cambiar({ neto: v })} />
+                <Numero label="Costo de nómina" prefijo="$" value={e.costo} onChange={(v) => cambiar({ costo: v })} />
               </Fila>
             </>
           )}
         />
-        <small className="nota">Total por empleado = gross bonus + payroll cost.</small>
+        <small className="nota">Total por empleado = bono bruto + costo de nómina.</small>
       </Seccion>
       <Seccion titulo="Términos y firma" abierta={false}>
-        <Area label="Terms and conditions" value={d.terminos} filas={8} onChange={(v) => set({ terminos: v })} ayuda={AYUDA_TERMINOS} />
+        <Area label="Términos y condiciones" value={d.terminos} filas={8} onChange={(v) => set({ terminos: v })} ayuda={AYUDA_TERMINOS} />
         <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />
       </Seccion>
     </>

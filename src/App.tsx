@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Feedbak } from './doc/Feedbak'
 import { Bonos, Gmm, Payroll, Servicios } from './doc/Staffvia'
 import { hoyISO } from './lib/formato'
-import { datosIniciales, PLANTILLAS, type Datos, type PlantillaId } from './lib/modelo'
+import { cambiarIdioma, datosIniciales, PLANTILLAS, type Datos, type Idioma, type PlantillaId } from './lib/modelo'
 import { PRODUCTOS } from './lib/tabuladores'
 import { FormBonos, FormFeedbak, FormGmm, FormPayroll, FormServicios } from './ui/Formularios'
 
@@ -31,19 +31,21 @@ function cargar(): Estado {
 
 function nombreArchivo(e: Estado): string {
   const d = e.datos[e.plantilla]
-  const empresa = d.empresa.trim() || 'Cliente'
+  const es = d.idioma === 'es'
+  const empresa = d.empresa.trim() || (es ? 'Cliente' : 'Client')
   const fecha = d.fecha || hoyISO()
+  const cot = es ? 'Cotizacion' : 'Quote'
   switch (e.plantilla) {
     case 'feedbak':
-      return `Cotizacion Feedbak ${PRODUCTOS[e.datos.feedbak.producto].nombre} - ${empresa} - ${fecha}`
+      return `${cot} Feedbak ${PRODUCTOS[e.datos.feedbak.producto].nombre} - ${empresa} - ${fecha}`
     case 'servicios':
-      return `Cotizacion Staffvia ${e.datos.servicios.tituloPortada} - ${empresa} - ${fecha}`
+      return `${cot} Staffvia ${e.datos.servicios.tituloPortada} - ${empresa} - ${fecha}`
     case 'payroll':
-      return `Quote Staffvia Payroll ${e.datos.payroll.puesto} - ${empresa} - ${fecha}`
+      return `${cot} Staffvia ${es ? 'Nomina' : 'Payroll'} ${e.datos.payroll.puesto} - ${empresa} - ${fecha}`
     case 'gmm':
-      return `Quote Staffvia GMM - ${empresa} - ${fecha}`
+      return `${cot} Staffvia GMM - ${empresa} - ${fecha}`
     case 'bonos':
-      return `Quote Staffvia ${e.datos.bonos.tituloPortada} - ${empresa} - ${fecha}`
+      return `${cot} Staffvia ${e.datos.bonos.tituloPortada} - ${empresa} - ${fecha}`
   }
 }
 
@@ -87,6 +89,10 @@ export default function App() {
       setEstado((e) => ({ ...e, datos: { ...e.datos, [k]: { ...e.datos[k], ...parcial } } }))
   }
 
+  function idioma(nuevo: Idioma) {
+    setEstado((e) => ({ ...e, datos: { ...e.datos, [e.plantilla]: cambiarIdioma(e.plantilla, e.datos[e.plantilla], nuevo) } }))
+  }
+
   function imprimir() {
     const titulo = document.title
     document.title = nombreArchivo(estado)
@@ -118,12 +124,32 @@ export default function App() {
               aria-pressed={p.id === plantilla}
             >
               <span className="plantilla-meta">
-                {p.marca} · {p.idioma}
+                {p.marca} · {datos[p.id].idioma.toUpperCase()}
               </span>
               <span>{p.nombre}</span>
             </button>
           ))}
         </nav>
+
+        <div className="idioma" role="group" aria-label="Idioma del documento">
+          <span>Idioma del documento</span>
+          {(
+            [
+              ['es', 'Español'],
+              ['en', 'English'],
+            ] as const
+          ).map(([id, texto]) => (
+            <button
+              key={id}
+              type="button"
+              className={datos[plantilla].idioma === id ? 'activo' : undefined}
+              aria-pressed={datos[plantilla].idioma === id}
+              onClick={() => idioma(id)}
+            >
+              {texto}
+            </button>
+          ))}
+        </div>
 
         <form className="formulario" onSubmit={(e) => e.preventDefault()}>
           {plantilla === 'feedbak' && <FormFeedbak d={datos.feedbak} set={set('feedbak')} />}

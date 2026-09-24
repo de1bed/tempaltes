@@ -70,3 +70,7 @@ export function paginar<T>(items: T[], primera: number, resto: number): T[][] {
   for (let i = primera; i < items.length; i += resto) paginas.push(items.slice(i, i + resto))
   return paginas
 }
+
+const DIAS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+/** "Miércoles 13 de mayo de 2026" */
+export const fechaEsDia = (iso: string) => `${cap(DIAS_ES[fecha(iso).getDay()])} ${fechaEs(iso)}`

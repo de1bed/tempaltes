@@ -34,6 +34,13 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .plantilla.activa { background: #edf6f1; border-color: var(--verde); }
 .plantilla-meta { font-size: 10px; letter-spacing: 1.4px; color: var(--suave); font-weight: 600; text-transform: uppercase; }
 
+/* Selector de idioma */
+.idioma { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 12px; color: var(--suave); }
+.idioma span { margin-right: auto; font-weight: 500; }
+.idioma button { font: inherit; font-size: 12.5px; font-weight: 500; padding: 5px 14px; border-radius: 999px; border: 1px solid #c9d3d7; background: #fff; color: var(--marca); cursor: pointer; }
+.idioma button.activo { background: var(--marca); border-color: var(--marca); color: #fff; }
+.idioma button:focus-visible, .plantilla:focus-visible, .btn:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+
 .seccion { border-top: 1px solid var(--linea); padding: 12px 0; }
 .seccion summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--marca); list-style-position: outside; }
 .seccion-body { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }

@@ -4,6 +4,7 @@ import {
   fechaEn,
   fechaEnDia,
   fechaEs,
+  fechaEsDia,
   lineas,
   mesAnioEn,
   mesAnioEs,
@@ -12,7 +13,10 @@ import {
   paginar,
   primerNombre,
 } from '../lib/formato'
-import { rellenar, type BonosData, type GmmData, type PayrollData, type ServiciosData } from '../lib/modelo'
+import { rellenar, type BonosData, type GmmData, type Idioma, type PayrollData, type ServiciosData } from '../lib/modelo'
+
+/** Devuelve el texto en el idioma de la plantilla. */
+const traductor = (idioma: Idioma) => (es: string, en: string) => (idioma === 'es' ? es : en)
 
 function Portada(p: { kicker: string; titulo: string; cliente: string; sub?: string; mes: string; normal?: boolean }) {
   return (
@@ -37,15 +41,19 @@ function Hoja({ children, block }: { children: ReactNode; block?: boolean }) {
   )
 }
 
-function Encabezado(p: { linea: string; contacto: string; empresa: string; saludo: string; es?: boolean }) {
+function Encabezado(p: { linea: string; d: { idioma: Idioma; contacto: string; empresa: string; tratamiento: string } }) {
+  const t = traductor(p.d.idioma)
+  const nombre = primerNombre(p.d.contacto) || t('[Nombre]', '[Name]')
   return (
     <>
       <div className="muted" style={{ fontSize: 11.5 }}>{p.linea}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1, fontSize: 12.5, lineHeight: 1.4 }}>
-        <div className="accent" style={{ fontWeight: 600 }}>{p.contacto || (p.es ? 'Nombre del contacto' : 'Contact name')}</div>
-        <div>{p.empresa || (p.es ? 'Empresa' : 'Company')}</div>
+        <div className="accent" style={{ fontWeight: 600 }}>{p.d.contacto || t('Nombre del contacto', 'Contact name')}</div>
+        <div>{p.d.empresa || t('Empresa', 'Company')}</div>
       </div>
-      <div className="accent" style={{ fontSize: 12.5, fontWeight: 600 }}>{p.saludo}</div>
+      <div className="accent" style={{ fontSize: 12.5, fontWeight: 600 }}>
+        {p.d.idioma === 'es' ? `${p.d.tratamiento} ${nombre}:` : `Dear ${nombre},`}
+      </div>
     </>
   )
 }
@@ -60,21 +68,25 @@ function Parrafos({ texto }: { texto: string }) {
   )
 }
 
-function Firma({ es }: { es?: boolean }) {
-  const f = es
-    ? ['Nombre:', 'Posición:', 'Fecha:', 'Firma:']
-    : ['Name:', 'Position:', 'Date:', 'Signature:']
+function Aprobacion({ idioma }: { idioma: Idioma }) {
+  const t = traductor(idioma)
+  const f = idioma === 'es' ? ['Nombre:', 'Puesto:', 'Fecha:', 'Firma:'] : ['Name:', 'Position:', 'Date:', 'Signature:']
   return (
-    <table className="sign">
-      <tbody>
-        {f.map((k, i) => (
-          <tr key={k}>
-            <td>{k}</td>
-            <td style={i === 3 ? { height: 34 } : undefined} />
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <>
+      <div className="accent" style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: 0.5, marginBottom: 8 }}>
+        {t('ACEPTO ESTA COTIZACIÓN', 'I APPROVE THIS QUOTE')}
+      </div>
+      <table className="sign">
+        <tbody>
+          {f.map((k, i) => (
+            <tr key={k}>
+              <td>{k}</td>
+              <td style={i === 3 ? { height: 34 } : undefined} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   )
 }
 
@@ -88,9 +100,15 @@ function ListaTerminos({ texto, lg }: { texto: string; lg?: boolean }) {
   )
 }
 
-/* ───────── Servicios y trámites (ES) ───────── */
+/** Línea de lugar y fecha: "Tijuana, Baja California a 26 de junio de 2026." / "Tijuana, Baja California, May 13, 2026" */
+const lugarFecha = (idioma: Idioma, ciudad: string, iso: string) =>
+  idioma === 'es' ? `${ciudad} a ${fechaEs(iso)}.` : `${ciudad}, ${fechaEn(iso)}`
+const mesAnio = (idioma: Idioma, iso: string) => (idioma === 'es' ? mesAnioEs(iso) : mesAnioEn(iso))
+
+/* ───────── Servicios y trámites ───────── */
 
 export function Servicios({ d }: { d: ServiciosData }) {
+  const t = traductor(d.idioma)
   const iva = num(d.iva) / 100
   const filas = d.servicios.map((s) => {
     const cantidad = num(s.cantidad)
@@ -107,11 +125,11 @@ export function Servicios({ d }: { d: ServiciosData }) {
       <table className="sm">
         <thead>
           <tr>
-            <th className="olive c" style={{ width: '9%', textAlign: 'center' }}>Cantidad</th>
-            <th className="olive" style={{ textAlign: 'left' }}>Servicio</th>
-            <th className="olive" style={{ width: '15%' }}>Precio unitario</th>
+            <th className="olive c" style={{ width: '9%', textAlign: 'center' }}>{t('Cantidad', 'Qty')}</th>
+            <th className="olive" style={{ textAlign: 'left' }}>{t('Servicio', 'Service')}</th>
+            <th className="olive" style={{ width: '15%' }}>{t('Precio unitario', 'Unit price')}</th>
             <th className="olive" style={{ width: '14%' }}>Subtotal</th>
-            <th className="olive" style={{ width: '12%' }}>IVA</th>
+            <th className="olive" style={{ width: '12%' }}>{t('IVA', 'VAT')}</th>
             <th className="olive" style={{ width: '14%' }}>Total</th>
           </tr>
         </thead>
@@ -140,7 +158,9 @@ export function Servicios({ d }: { d: ServiciosData }) {
       </table>
       {lineas(d.detalle).length > 0 && (
         <>
-          <div className="accent" style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>Detalle de la propuesta:</div>
+          <div className="accent" style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>
+            {t('Detalle de la propuesta:', 'Proposal details:')}
+          </div>
           <ul style={{ fontSize: 10.5, lineHeight: 1.55, color: '#3C4E5A', gap: 4 }}>
             {lineas(d.detalle).map((l, i) => (
               <li key={i}>{l}</li>
@@ -160,21 +180,15 @@ export function Servicios({ d }: { d: ServiciosData }) {
 
   return (
     <>
-      <Portada kicker="Cotización" titulo={d.tituloPortada} cliente={d.empresa || 'Empresa'} mes={mesAnioEs(d.fecha)} />
+      <Portada kicker={t('Cotización', 'Quote')} titulo={d.tituloPortada} cliente={d.empresa || t('Empresa', 'Company')} mes={mesAnio(d.idioma, d.fecha)} />
       <Hoja>
-        <Encabezado
-          linea={`${d.ciudad} a ${fechaEs(d.fecha)}.`}
-          contacto={d.contacto}
-          empresa={d.empresa}
-          saludo={`${d.tratamiento} ${primerNombre(d.contacto) || '[Nombre]'}:`}
-          es
-        />
+        <Encabezado linea={lugarFecha(d.idioma, d.ciudad, d.fecha)} d={d} />
         <Parrafos texto={rellenar(d.intro, { empresa: d.empresa })} />
         <table>
           <thead>
             <tr>
-              <th className="dark">Servicio</th>
-              <th className="dark" style={{ width: '26%' }}>Precio unitario</th>
+              <th className="dark">{t('Servicio', 'Service')}</th>
+              <th className="dark" style={{ width: '26%' }}>{t('Precio unitario', 'Unit price')}</th>
             </tr>
           </thead>
           <tbody>
@@ -191,55 +205,57 @@ export function Servicios({ d }: { d: ServiciosData }) {
       </Hoja>
       {!juntos && <Hoja>{desglose}</Hoja>}
       <Hoja block>
-        <div className="accent" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>Términos y condiciones:</div>
+        <div className="accent" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>{t('Términos y condiciones:', 'Terms and conditions:')}</div>
         <ListaTerminos texto={d.terminos} />
-        <div className="accent" style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: 0.5, marginBottom: 8 }}>Acepto cotización</div>
-        <Firma es />
-        <div className="small" style={{ lineHeight: 1.6 }}>Quedo a sus órdenes para cualquier duda o aclaración.</div>
-        <div className="small" style={{ marginTop: 14 }}>Atentamente,</div>
+        <Aprobacion idioma={d.idioma} />
+        <div className="small" style={{ lineHeight: 1.6 }}>
+          {t('Quedo a sus órdenes para cualquier duda o aclaración.', 'Please let me know if you have any questions.')}
+        </div>
+        <div className="small" style={{ marginTop: 14 }}>{t('Atentamente,', 'Sincerely,')}</div>
         <div className="signature">{d.firmante}</div>
       </Hoja>
     </>
   )
 }
 
-/* ───────── Payroll services (EN) ───────── */
+/* ───────── Nómina / payroll ───────── */
 
 /** Semanas promedio por mes (52 / 12). */
 const SEMANAS_MES = 52 / 12
 
 export function Payroll({ d }: { d: PayrollData }) {
+  const t = traductor(d.idioma)
   const fee = num(d.fee)
   const feeTxt = `${fee}%`
   const base: [string, number][] = [
-    ['Gross salary', num(d.salario)],
-    ['Employer taxes (IMSS, INFONAVIT, SAR, state tax)', num(d.impuestos)],
-    ['Vacation pay, Christmas bonus and vacation bonus', num(d.prestaciones)],
+    [t('Sueldo bruto', 'Gross salary'), num(d.salario)],
+    [t('Cuotas patronales (IMSS, INFONAVIT, SAR, ISN)', 'Employer taxes (IMSS, INFONAVIT, SAR, state tax)'), num(d.impuestos)],
+    [t('Vacaciones, aguinaldo y prima vacacional', 'Vacation pay, Christmas bonus and vacation bonus'), num(d.prestaciones)],
   ]
   const subtotal = base.reduce((a, [, v]) => a + v, 0)
-  const filas: [string, number][] = [...base, [`Service fee (${feeTxt})`, (subtotal * fee) / 100]]
+  const filas: [string, number][] = [...base, [t(`Cuota de servicio (${feeTxt})`, `Service fee (${feeTxt})`), (subtotal * fee) / 100]]
   const total = subtotal * (1 + fee / 100)
-  const vars = { empresa: d.empresa || 'your company', puesto: d.puesto, fee: feeTxt }
+  const vars = { empresa: d.empresa || t('su empresa', 'your company'), puesto: d.puesto, fee: feeTxt }
 
   return (
     <>
-      <Portada kicker="Payroll services quote" titulo={d.tituloPortada} cliente={d.clientePortada} mes={mesAnioEn(d.fecha)} />
+      <Portada
+        kicker={t('Cotización de servicios de nómina', 'Payroll services quote')}
+        titulo={d.tituloPortada}
+        cliente={d.clientePortada}
+        mes={mesAnio(d.idioma, d.fecha)}
+      />
       <Hoja>
-        <Encabezado
-          linea={`${d.ciudad}, ${fechaEn(d.fecha)}`}
-          contacto={d.contacto}
-          empresa={d.empresa}
-          saludo={`Dear ${primerNombre(d.contacto) || '[Name]'},`}
-        />
+        <Encabezado linea={lugarFecha(d.idioma, d.ciudad, d.fecha)} d={d} />
         <Parrafos texto={rellenar(d.intro, vars)} />
-        <div className="h-title">Quote for payroll services of indirect employees</div>
+        <div className="h-title">{t('Cotización de servicios de nómina de empleados indirectos', 'Quote for payroll services of indirect employees')}</div>
         <table>
           <tbody>
             {[
-              ['Position', d.puesto],
-              ['Headcount', miles(num(d.headcount))],
-              ['Payroll frequency', d.frecuencia],
-              ['Service fee', feeTxt],
+              [t('Puesto', 'Position'), d.puesto],
+              [t('Número de personas', 'Headcount'), miles(num(d.headcount))],
+              [t('Frecuencia de nómina', 'Payroll frequency'), d.frecuencia],
+              [t('Cuota de servicio', 'Service fee'), feeTxt],
             ].map(([k, v]) => (
               <tr key={k}>
                 <td className="k">{k}</td>
@@ -251,9 +267,9 @@ export function Payroll({ d }: { d: PayrollData }) {
         <table>
           <thead>
             <tr>
-              <th className="dark">Salary structure</th>
-              <th className="dark" style={{ width: '22%' }}>Weekly</th>
-              <th className="dark" style={{ width: '22%' }}>Monthly</th>
+              <th className="dark">{t('Estructura salarial', 'Salary structure')}</th>
+              <th className="dark" style={{ width: '22%' }}>{t('Semanal', 'Weekly')}</th>
+              <th className="dark" style={{ width: '22%' }}>{t('Mensual', 'Monthly')}</th>
             </tr>
           </thead>
           <tbody>
@@ -265,114 +281,126 @@ export function Payroll({ d }: { d: PayrollData }) {
               </tr>
             ))}
             <tr className="total">
-              <td>Total per person</td>
+              <td>{t('Total por persona', 'Total per person')}</td>
               <td className="r strong">{dinero(total)}</td>
               <td className="r strong">{dinero(total * SEMANAS_MES)}</td>
             </tr>
           </tbody>
         </table>
-        <div className="note">Price per person + TAX.</div>
+        <div className="note">{t('Precio por persona + IVA.', 'Price per person + TAX.')}</div>
       </Hoja>
       <Hoja block>
-        <div className="h-sec">TERMS AND CONDITIONS:</div>
+        <div className="h-sec">{t('TÉRMINOS Y CONDICIONES:', 'TERMS AND CONDITIONS:')}</div>
         <ListaTerminos texto={rellenar(d.terminos, vars)} />
-        <div className="accent" style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: 0.5, marginBottom: 8 }}>I APPROVE THIS QUOTE</div>
-        <Firma />
-        <div className="small">Thank you very much for your partnership.</div>
-        <div className="small" style={{ marginTop: 10 }}>Sincerely,</div>
+        <Aprobacion idioma={d.idioma} />
+        <div className="small">{t('Muchas gracias por su confianza.', 'Thank you very much for your partnership.')}</div>
+        <div className="small" style={{ marginTop: 10 }}>{t('Atentamente,', 'Sincerely,')}</div>
         <div className="signature">{d.firmante}</div>
       </Hoja>
     </>
   )
 }
 
-/* ───────── Medical insurance GMM (EN) ───────── */
+/* ───────── Gastos médicos (GMM) ───────── */
 
 export function Gmm({ d }: { d: GmmData }) {
+  const t = traductor(d.idioma)
+  const es = d.idioma === 'es'
   const nombres = d.empleados.map((e) => e.nombre.trim()).filter(Boolean)
   const paginas = paginar(d.empleados, 2, 5)
+  const fechaCorta = es ? fechaEs : fechaEn
   const tabla = (e: GmmData['empleados'][number], i: number) => (
     <table key={i}>
       <thead>
         <tr>
-          <th colSpan={3} className="dark">{e.nombre || 'Employee name'}</th>
+          <th colSpan={3} className="dark">{e.nombre || t('Nombre del empleado', 'Employee name')}</th>
         </tr>
         <tr>
-          <th className="olive">Age: {e.edad}</th>
-          <th className="olive" style={{ width: '24%' }}>Monthly Cost</th>
-          <th className="olive" style={{ width: '24%' }}>Annual Cost</th>
+          <th className="olive">{t('Edad', 'Age')}: {e.edad}</th>
+          <th className="olive" style={{ width: '24%' }}>{t('Costo mensual', 'Monthly Cost')}</th>
+          <th className="olive" style={{ width: '24%' }}>{t('Costo anual', 'Annual Cost')}</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td>Minor Medical Insurance</td>
+          <td>{t('Seguro de Gastos Médicos Menores', 'Minor Medical Insurance')}</td>
           <td className="r">{dinero(num(e.menorMensual))}</td>
           <td className="r">{dinero(num(e.menorAnual))}</td>
         </tr>
         <tr>
-          <td>Major Medical Insurance</td>
+          <td>{t('Seguro de Gastos Médicos Mayores', 'Major Medical Insurance')}</td>
           <td className="r">{dinero(num(e.mayorMensual))}</td>
           <td className="r">{dinero(num(e.mayorAnual))}</td>
         </tr>
       </tbody>
     </table>
   )
+  const clientePortada =
+    nombres.length === 1
+      ? nombres[0]
+      : nombres.length > 1
+        ? t(`${nombres.length} empleados`, `${nombres.length} employees`)
+        : t('Nombre del empleado', 'Employee name')
 
   return (
     <>
       <Portada
-        kicker="Quote"
-        titulo="Medical Major & Minor Insurance"
+        kicker={t('Cotización', 'Quote')}
+        titulo={t('Seguro de Gastos Médicos Mayores y Menores', 'Medical Major & Minor Insurance')}
         normal
-        cliente={nombres.length === 1 ? nombres[0] : nombres.length > 1 ? `${nombres.length} employees` : 'Employee name'}
+        cliente={clientePortada}
         sub={d.clientePortada}
-        mes={mesAnioEn(d.fecha)}
+        mes={mesAnio(d.idioma, d.fecha)}
       />
       {paginas.map((grupo, p) => (
         <Hoja key={p}>
           {p === 0 && (
             <>
-              <Encabezado
-                linea={fechaEnDia(d.fecha)}
-                contacto={d.contacto}
-                empresa={d.empresa}
-                saludo={`Dear ${primerNombre(d.contacto) || '[Name]'},`}
-              />
+              <Encabezado linea={es ? fechaEsDia(d.fecha) : fechaEnDia(d.fecha)} d={d} />
               <div className="letter" style={{ display: 'contents' }}>
                 <p>
-                  Thank you for your continued trust and partnership. Please find below the quote for the Major Medical
-                  Policy for the following employee{nombres.length === 1 ? '' : 's'}:
+                  {es
+                    ? `Gracias por su confianza y colaboración continua. A continuación encontrará la cotización de la Póliza de Gastos Médicos Mayores para ${nombres.length === 1 ? 'el siguiente empleado' : 'los siguientes empleados'}:`
+                    : `Thank you for your continued trust and partnership. Please find below the quote for the Major Medical Policy for the following employee${nombres.length === 1 ? '' : 's'}:`}
                 </p>
-                <div className="accent" style={{ fontSize: 11.5, fontWeight: 600 }}>{nombres.join(', ') || 'Employee name'}</div>
+                <div className="accent" style={{ fontSize: 11.5, fontWeight: 600 }}>
+                  {nombres.join(', ') || t('Nombre del empleado', 'Employee name')}
+                </div>
                 <p>
-                  This quotation reflects the applicable coverage and pricing for their enrollment, with an effective
-                  period from {fechaEn(d.inicio)}, through {fechaEn(d.fin)}.
+                  {es
+                    ? `Esta cotización refleja la cobertura y los precios aplicables para su alta, con una vigencia del ${fechaCorta(d.inicio)} al ${fechaCorta(d.fin)}.`
+                    : `This quotation reflects the applicable coverage and pricing for their enrollment, with an effective period from ${fechaCorta(d.inicio)}, through ${fechaCorta(d.fin)}.`}
                 </p>
-                <p>We remain committed to providing reliable service, timely support, and competitive coverage options.</p>
+                <p>
+                  {t(
+                    'Seguimos comprometidos en brindarle un servicio confiable, atención oportuna y opciones de cobertura competitivas.',
+                    'We remain committed to providing reliable service, timely support, and competitive coverage options.',
+                  )}
+                </p>
               </div>
-              <div className="h-title">Private medical insurance</div>
+              <div className="h-title">{t('Seguro médico privado', 'Private medical insurance')}</div>
             </>
           )}
           {grupo.map((e, i) => tabla(e, i))}
-          {p === paginas.length - 1 && <div className="note">Price per person + TAX.</div>}
+          {p === paginas.length - 1 && <div className="note">{t('Precio por persona + IVA.', 'Price per person + TAX.')}</div>}
         </Hoja>
       ))}
       <Hoja block>
-        <div className="h-sec">TERMS AND CONDITIONS:</div>
+        <div className="h-sec">{t('TÉRMINOS Y CONDICIONES:', 'TERMS AND CONDITIONS:')}</div>
         <ListaTerminos texto={d.terminos} lg />
-        <div className="accent" style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: 0.5, marginBottom: 8 }}>I APPROVE THIS QUOTE</div>
-        <Firma />
-        <div className="small">Thank you very much for your partnership.</div>
-        <div className="small" style={{ marginTop: 10 }}>Sincerely,</div>
+        <Aprobacion idioma={d.idioma} />
+        <div className="small">{t('Muchas gracias por su confianza.', 'Thank you very much for your partnership.')}</div>
+        <div className="small" style={{ marginTop: 10 }}>{t('Atentamente,', 'Sincerely,')}</div>
         <div className="signature">{d.firmante}</div>
       </Hoja>
     </>
   )
 }
 
-/* ───────── Bonuses (EN) ───────── */
+/* ───────── Bonos ───────── */
 
 export function Bonos({ d }: { d: BonosData }) {
+  const t = traductor(d.idioma)
   const filas = d.empleados.map((e) => {
     const bruto = num(e.bruto)
     const costo = num(e.costo)
@@ -383,37 +411,37 @@ export function Bonos({ d }: { d: BonosData }) {
 
   return (
     <>
-      <Portada kicker="Payroll services quotation" titulo={d.tituloPortada} cliente={d.clientePortada} mes={mesAnioEn(d.fecha)} />
+      <Portada
+        kicker={t('Cotización de servicios de nómina', 'Payroll services quotation')}
+        titulo={d.tituloPortada}
+        cliente={d.clientePortada}
+        mes={mesAnio(d.idioma, d.fecha)}
+      />
       {paginas.map((grupo, p) => {
         const ultima = p === paginas.length - 1
         return (
           <Hoja key={p}>
             {p === 0 && (
               <>
-                <Encabezado
-                  linea={`${d.ciudad}, ${fechaEn(d.fecha)}`}
-                  contacto={d.contacto}
-                  empresa={d.empresa}
-                  saludo={`Dear ${primerNombre(d.contacto) || '[Name]'},`}
-                />
-                <Parrafos texto={rellenar(d.intro, { empresa: d.empresa || 'your company', titulo: d.tituloPortada })} />
-                <div className="h-title">Quote for payroll services of indirect employees</div>
+                <Encabezado linea={lugarFecha(d.idioma, d.ciudad, d.fecha)} d={d} />
+                <Parrafos texto={rellenar(d.intro, { empresa: d.empresa || t('su empresa', 'your company'), titulo: d.tituloPortada })} />
+                <div className="h-title">{t('Cotización de servicios de nómina de empleados indirectos', 'Quote for payroll services of indirect employees')}</div>
               </>
             )}
             <table className="sm">
               <thead>
                 <tr>
-                  <th className="dark">Employee</th>
-                  <th className="dark" style={{ width: '16%' }}>Gross Bonus</th>
-                  <th className="dark" style={{ width: '16%' }}>Net Bonus</th>
-                  <th className="dark" style={{ width: '18%' }}>Payroll Cost</th>
+                  <th className="dark">{t('Empleado', 'Employee')}</th>
+                  <th className="dark" style={{ width: '16%' }}>{t('Bono bruto', 'Gross Bonus')}</th>
+                  <th className="dark" style={{ width: '16%' }}>{t('Bono neto', 'Net Bonus')}</th>
+                  <th className="dark" style={{ width: '18%' }}>{t('Costo de nómina', 'Payroll Cost')}</th>
                   <th className="dark" style={{ width: '16%' }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {grupo.map((f, i) => (
                   <tr key={i}>
-                    <td>{f.nombre || 'Employee name'}</td>
+                    <td>{f.nombre || t('Nombre del empleado', 'Employee name')}</td>
                     <td className="r">{dinero(f.bruto)}</td>
                     <td className="r">{dinero(f.neto)}</td>
                     <td className="r">{dinero(f.costo)}</td>
@@ -422,7 +450,7 @@ export function Bonos({ d }: { d: BonosData }) {
                 ))}
                 {ultima && (
                   <tr className="total">
-                    <td>Grand total</td>
+                    <td>{t('Gran total', 'Grand total')}</td>
                     <td className="r">{dinero(suma('bruto'))}</td>
                     <td className="r">{dinero(suma('neto'))}</td>
                     <td className="r">{dinero(suma('costo'))}</td>
@@ -431,17 +459,16 @@ export function Bonos({ d }: { d: BonosData }) {
                 )}
               </tbody>
             </table>
-            {ultima && <div className="note">Price per person + TAX.</div>}
+            {ultima && <div className="note">{t('Precio por persona + IVA.', 'Price per person + TAX.')}</div>}
           </Hoja>
         )
       })}
       <Hoja block>
-        <div className="h-sec">TERMS AND CONDITIONS:</div>
+        <div className="h-sec">{t('TÉRMINOS Y CONDICIONES:', 'TERMS AND CONDITIONS:')}</div>
         <ListaTerminos texto={d.terminos} lg />
-        <div className="small" style={{ marginBottom: 14 }}>Thank you very much for your partnership.</div>
-        <div className="accent" style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: 0.5, marginBottom: 8 }}>I APPROVE THIS QUOTE</div>
-        <Firma />
-        <div className="small">Sincerely,</div>
+        <div className="small" style={{ marginBottom: 14 }}>{t('Muchas gracias por su confianza.', 'Thank you very much for your partnership.')}</div>
+        <Aprobacion idioma={d.idioma} />
+        <div className="small">{t('Atentamente,', 'Sincerely,')}</div>
         <div className="signature">{d.firmante}</div>
       </Hoja>
     </>

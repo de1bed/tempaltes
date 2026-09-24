@@ -4,13 +4,17 @@ Mini app para generar cotizaciones en PDF a partir de un formulario. Se llenan l
 
 ## Plantillas
 
-| Plantilla | Idioma | Precios |
-| --- | --- | --- |
-| Feedbak · Licenciamiento Mi Kiosko / Checador | ES | **Tabulador fijo** (ver abajo) |
-| Staffvia · Servicios y trámites | ES | Captura manual, IVA calculado |
-| Staffvia · Payroll services | EN | Captura semanal; mensual y fee calculados |
-| Staffvia · Medical insurance (GMM) | EN | Captura manual por empleado |
-| Staffvia · Bonuses | EN | Captura por empleado; totales calculados |
+Todas se generan en **español o inglés** con el selector "Idioma del documento".
+
+| Plantilla | Precios |
+| --- | --- |
+| Feedbak · Licenciamiento Mi Kiosko / Checador | **Tabulador fijo** (ver abajo) |
+| Staffvia · Servicios y trámites | Captura manual, IVA calculado |
+| Staffvia · Nómina (payroll) | Captura semanal; mensual y cuota de servicio calculados |
+| Staffvia · Gastos médicos (GMM) | Captura manual por empleado |
+| Staffvia · Bonos | Captura por empleado; totales calculados |
+
+Al cambiar de idioma, los textos editables (introducción, términos, notas…) que siguen igual al original se traducen solos; los que ya editaste se quedan como los dejaste. Los textos de cada idioma están en `src/lib/modelo.ts`.
 
 Feedbak permite elegir entre 3 portadas o ninguna. Staffvia usa la portada Treve con título, cliente y mes.
 
@@ -42,6 +46,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # pruebas del tabulador
 npm run build    # sitio estático en dist/ (Vercel, Netlify, etc.)
+npm run build:artifact  # un solo HTML autocontenido en dist-artifact/cotizador.html
 ```
 
 El borrador se guarda en el navegador (localStorage). **Reiniciar** limpia solo la plantilla abierta. Si algún contenido no cabe en su hoja, la vista previa la marca en rojo y muestra un aviso.
