@@ -47,7 +47,7 @@
 .fb ul.terms { margin: 0 0 14px; font-size: 10.5px; line-height: 1.5; color: #3D5257; gap: 3px; }
 
 /* ───────── Staffvia ───────── */
-.sv-cover { background: #fff url(/assets/treve-cover.png) center / cover no-repeat; }
+.sv-cover { background: #fff url(../assets/treve-cover.png) center / cover no-repeat; }
 .sv-cover .box {
   position: absolute; left: 12%; top: 25%; width: 62%;
   background: rgba(15, 45, 74, 0.93); padding: 26px 30px;
@@ -62,7 +62,7 @@
 .sv-cover .sub { font-size: 12px; color: #C6D3DF; }
 .sv-cover .month { font-size: 12px; letter-spacing: 1.5px; color: #C6D3DF; text-transform: uppercase; }
 
-.sv { color: #22333F; padding: 175px 88px 215px; background: #fff url(/assets/sv-letterhead.png) center / 100% 100% no-repeat; }
+.sv { color: #22333F; padding: 175px 88px 215px; background: #fff url(../assets/sv-letterhead.png) center / 100% 100% no-repeat; }
 .sv .content { gap: 12px; }
 .sv .content.block { display: block; }
 .sv .muted { color: #5C6C77; }

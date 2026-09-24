@@ -53,6 +53,7 @@ export default function App() {
   const vistaRef = useRef<HTMLDivElement>(null)
   const [desbordadas, setDesbordadas] = useState<number[]>([])
   const [zoom, setZoom] = useState(0.7)
+  const [confirmando, setConfirmando] = useState(false)
 
   useEffect(() => {
     try {
@@ -94,8 +95,8 @@ export default function App() {
   }
 
   function reiniciar() {
-    if (!confirm('¿Borrar los datos de esta plantilla y volver a los valores iniciales?')) return
     setEstado((e) => ({ ...e, datos: { ...e.datos, [e.plantilla]: datosIniciales()[e.plantilla] } }))
+    setConfirmando(false)
   }
 
   return (
@@ -150,12 +151,31 @@ export default function App() {
             </div>
           )}
           <div className="acciones">
-            <button type="button" className="btn secundario" onClick={reiniciar}>
-              Reiniciar
-            </button>
-            <button type="button" className="btn primario" onClick={imprimir}>
-              Descargar PDF
-            </button>
+            {confirmando ? (
+              <>
+                <span className="pregunta">¿Borrar los datos de esta plantilla?</span>
+                <button type="button" className="btn secundario" onClick={() => setConfirmando(false)}>
+                  Cancelar
+                </button>
+                <button type="button" className="btn peligro" onClick={reiniciar}>
+                  Sí, reiniciar
+                </button>
+              </>
+            ) : (
+              <button type="button" className="btn secundario" onClick={() => setConfirmando(true)}>
+                Reiniciar
+              </button>
+            )}
+            {/* El visor de artifacts bloquea window.print(); ahí se ofrece la versión desplegada. */}
+            {import.meta.env.MODE === 'artifact' ? (
+              <span className="aviso-pdf" title="Clona el repo de1bed/tempaltes o usa la versión en Vercel para descargar PDF">
+                Vista previa · el PDF se descarga desde la app desplegada
+              </span>
+            ) : (
+              <button type="button" className="btn primario" onClick={imprimir}>
+                Descargar PDF
+              </button>
+            )}
           </div>
         </div>
         <div className="hojas" ref={vistaRef} style={{ zoom }}>

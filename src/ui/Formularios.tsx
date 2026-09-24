@@ -1,5 +1,6 @@
 import { dinero, miles, num, pct } from '../lib/formato'
 import type { BonosData, FeedbakData, GmmData, PayrollData, ServiciosData } from '../lib/modelo'
+import { PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
 import { Area, Fecha, Fila, Lista, Numero, Opciones, Seccion, Texto } from './campos'
 
@@ -59,7 +60,7 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
               onClick={() => set({ portada: p })}
               aria-pressed={d.portada === p}
             >
-              {p === 'ninguna' ? <span>Sin portada</span> : <img src={p === '3' ? '/assets/portada-3.webp' : `/assets/portada-${p}.png`} alt={`Portada ${p}`} />}
+              {p === 'ninguna' ? <span>Sin portada</span> : <img src={PORTADAS[p]} alt={`Portada ${p}`} />}
             </button>
           ))}
         </div>

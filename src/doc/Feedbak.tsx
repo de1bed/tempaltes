@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react'
 import { dinero, fechaFeedbak, miles, num, pct, primerNombre } from '../lib/formato'
 import type { FeedbakData } from '../lib/modelo'
+import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak } from '../lib/tabuladores'
 
-const PORTADAS = { '1': '/assets/portada-1.png', '2': '/assets/portada-2.png', '3': '/assets/portada-3.webp' }
 
 function Hoja({ children }: { children: ReactNode }) {
   return (
     <section className="page fb">
-      <img className="bg header" src="/assets/fb-header.png" alt="" />
-      <img className="bg footer" src="/assets/fb-footer.png" alt="" />
-      <img className="bg mark" src="/assets/fb-watermark.png" alt="" />
+      <img className="bg header" src={IMG.fbHeader} alt="" />
+      <img className="bg footer" src={IMG.fbFooter} alt="" />
+      <img className="bg mark" src={IMG.fbWatermark} alt="" />
       {children}
     </section>
   )
