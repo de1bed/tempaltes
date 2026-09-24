@@ -50,6 +50,26 @@ function cargar(): Estado {
   }
 }
 
+const PREFERENCIAS = 'cotizador:preferencias'
+
+function leerPreferencia<T>(clave: string, porDefecto: T): T {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(PREFERENCIAS) ?? '{}') as Record<string, unknown>
+    return clave in guardado ? (guardado[clave] as T) : porDefecto
+  } catch {
+    return porDefecto
+  }
+}
+
+function guardarPreferencia(clave: string, valor: unknown) {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(PREFERENCIAS) ?? '{}') as Record<string, unknown>
+    localStorage.setItem(PREFERENCIAS, JSON.stringify({ ...guardado, [clave]: valor }))
+  } catch {
+    /* sin almacenamiento: el menú vuelve a su estado inicial al recargar */
+  }
+}
+
 function nombreArchivo(e: Estado): string {
   const d = e.datos[e.plantilla]
   const es = d.idioma === 'es'
@@ -89,6 +109,12 @@ export default function App() {
   const [desbordadas, setDesbordadas] = useState<number[]>([])
   const [zoom, setZoom] = useState(0.7)
   const [confirmando, setConfirmando] = useState(false)
+  const actual = PLANTILLAS.find((p) => p.id === plantilla) ?? PLANTILLAS[0]
+  // Menú de plantillas plegable; se recuerda en este navegador.
+  const [menuAbierto, setMenuAbierto] = useState<boolean>(() => leerPreferencia('menuAbierto', false))
+  const [gruposCerrados, setGruposCerrados] = useState<string[]>(() => leerPreferencia('gruposCerrados', []))
+  useEffect(() => guardarPreferencia('menuAbierto', menuAbierto), [menuAbierto])
+  useEffect(() => guardarPreferencia('gruposCerrados', gruposCerrados), [gruposCerrados])
 
   useEffect(() => {
     try {
@@ -160,31 +186,71 @@ export default function App() {
     <div className="app">
       <aside className="panel">
         <header className="marca">
-          <div className="marca-kicker">TREVE · FEEDBAK · STAFFVIA</div>
+          <div className="marca-kicker">TREVE · FEEDBAK · STAFFVIA · HAATS</div>
           <h1>Cotizador</h1>
         </header>
 
-        <nav className="plantillas" aria-label="Plantilla">
-          {GRUPOS.map((g) => (
-            <div key={g.tipo} className="grupo">
-              <div className="grupo-titulo">{g.titulo}</div>
-              {PLANTILLAS.filter((p) => p.tipo === g.tipo).map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={p.id === plantilla ? 'plantilla activa' : 'plantilla'}
-                  style={{ borderLeftColor: p.color }}
-                  onClick={() => setEstado((e) => ({ ...e, plantilla: p.id }))}
-                  aria-pressed={p.id === plantilla}
+        <nav className="menu" aria-label="Plantillas">
+          <button
+            type="button"
+            className="menu-actual"
+            style={{ borderLeftColor: actual.color }}
+            onClick={() => setMenuAbierto((v) => !v)}
+            aria-expanded={menuAbierto}
+            aria-controls="menu-plantillas"
+          >
+            <span className="menu-texto">
+              <span className="plantilla-meta">
+                {actual.tipo === 'contrato' ? 'Contrato' : 'Cotización'} · {actual.marca} · {datos[plantilla].idioma.toUpperCase()}
+              </span>
+              <span>{actual.nombre}</span>
+            </span>
+            <span className="menu-accion">{menuAbierto ? 'Ocultar' : 'Cambiar'}</span>
+            <svg className={menuAbierto ? 'chevron abierto' : 'chevron'} viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          <div id="menu-plantillas" className="plantillas" hidden={!menuAbierto}>
+            {GRUPOS.map((g) => {
+              const lista = PLANTILLAS.filter((p) => p.tipo === g.tipo)
+              return (
+                <details
+                  key={g.tipo}
+                  className="grupo"
+                  open={!gruposCerrados.includes(g.tipo)}
+                  onToggle={(e) => {
+                    const abierto = (e.currentTarget as HTMLDetailsElement).open
+                    setGruposCerrados((prev) => (abierto ? prev.filter((x) => x !== g.tipo) : prev.includes(g.tipo) ? prev : [...prev, g.tipo]))
+                  }}
                 >
-                  <span className="plantilla-meta">
-                    {p.marca} · {datos[p.id].idioma.toUpperCase()}
-                  </span>
-                  <span>{p.nombre}</span>
-                </button>
-              ))}
-            </div>
-          ))}
+                  <summary className="grupo-titulo">
+                    {g.titulo} <span className="grupo-cuenta">{lista.length}</span>
+                  </summary>
+                  <div className="grupo-lista">
+                    {lista.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={p.id === plantilla ? 'plantilla activa' : 'plantilla'}
+                        style={{ borderLeftColor: p.color }}
+                        onClick={() => {
+                          setEstado((e) => ({ ...e, plantilla: p.id }))
+                          setMenuAbierto(false)
+                        }}
+                        aria-pressed={p.id === plantilla}
+                      >
+                        <span className="plantilla-meta">
+                          {p.marca} · {datos[p.id].idioma.toUpperCase()}
+                        </span>
+                        <span>{p.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              )
+            })}
+          </div>
         </nav>
 
         <div className="idioma" role="group" aria-label="Idioma del documento">
