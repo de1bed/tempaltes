@@ -1,0 +1,92 @@
+/* Hojas A4 de las cotizaciones. Medidas en px a 96 dpi, iguales a las plantillas HTML originales. */
+
+.page {
+  position: relative;
+  box-sizing: border-box;
+  width: 210mm;
+  height: 297mm;
+  overflow: hidden;
+  background: #fff;
+  font-family: Poppins, sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.page * { box-sizing: border-box; }
+.page p { margin: 0; text-wrap: pretty; }
+.page ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; }
+.page table { width: 100%; border-collapse: collapse; }
+.page .r { text-align: right; }
+.page .c { text-align: center; }
+.page .content { position: relative; z-index: 1; display: flex; flex-direction: column; }
+
+/* Portadas a sangre */
+.cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+/* ───────── Feedbak ───────── */
+.fb { color: #1B2B30; padding: 178px 92px 142px; }
+.fb .bg { position: absolute; left: 0; width: 100%; z-index: 0; }
+.fb .bg.header { top: 0; }
+.fb .bg.footer { bottom: 0; }
+.fb .bg.mark { bottom: 120px; right: 0; left: auto; width: 52%; }
+.fb .muted { color: #5A6B70; }
+.fb .accent { color: #0B4C5E; }
+.fb .letter p { font-size: 12.5px; line-height: 1.6; }
+.fb .h-title { font-size: 15px; font-weight: 700; color: #0B4C5E; letter-spacing: -0.2px; }
+.fb table { font-size: 11.5px; }
+.fb td { padding: 6px 10px; border: 1px solid #D3E5DB; }
+.fb td.k { background: #EDF6F1; width: 46%; }
+.fb td.v { font-weight: 500; }
+.fb th { padding: 7px 10px; font-weight: 600; text-align: right; }
+.fb th:first-child { text-align: left; width: 46%; }
+.fb th + th { width: 18%; }
+.fb th.dark { background: #0B4C5E; color: #fff; border: 1px solid #0B4C5E; }
+.fb th.green { background: #6FC08D; color: #0B4C5E; border: 1px solid #6FC08D; }
+.fb tr.total td { background: #EDF6F1; }
+.fb .strong { font-weight: 700; color: #0B4C5E; }
+.fb .h-sec { font-size: 12px; font-weight: 600; color: #0B4C5E; margin-bottom: 5px; }
+.fb ul.terms { margin: 0 0 14px; font-size: 10.5px; line-height: 1.5; color: #3D5257; gap: 3px; }
+
+/* ───────── Staffvia ───────── */
+.sv-cover { background: #fff url(/assets/treve-cover.png) center / cover no-repeat; }
+.sv-cover .box {
+  position: absolute; left: 12%; top: 25%; width: 62%;
+  background: rgba(15, 45, 74, 0.93); padding: 26px 30px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sv-cover .kicker { font-size: 11px; letter-spacing: 2.5px; color: #F2A72C; font-weight: 600; text-transform: uppercase; }
+.sv-cover .title { font-size: 26px; line-height: 1.15; font-weight: 700; color: #fff; text-transform: uppercase; text-wrap: balance; }
+.sv-cover .title.normal { font-size: 24px; line-height: 1.2; text-transform: none; }
+.sv-cover .rule { height: 2px; width: 56px; background: #E2601A; }
+.sv-cover .client { font-size: 17px; font-weight: 500; color: #fff; }
+.sv-cover .client.sm { font-size: 15px; }
+.sv-cover .sub { font-size: 12px; color: #C6D3DF; }
+.sv-cover .month { font-size: 12px; letter-spacing: 1.5px; color: #C6D3DF; text-transform: uppercase; }
+
+.sv { color: #22333F; padding: 175px 88px 215px; background: #fff url(/assets/sv-letterhead.png) center / 100% 100% no-repeat; }
+.sv .content { gap: 12px; }
+.sv .content.block { display: block; }
+.sv .muted { color: #5C6C77; }
+.sv .accent { color: #123A5A; }
+.sv .letter p { font-size: 11.5px; line-height: 1.6; }
+.sv .h-title { font-size: 13px; font-weight: 700; color: #123A5A; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 4px; }
+.sv table { font-size: 11px; }
+.sv table.sm { font-size: 10.5px; }
+.sv td { padding: 6px 10px; border: 1px solid #D5DDE2; background: #fff; }
+.sv table.sm td, .sv table.sm th { padding-left: 8px; padding-right: 8px; }
+.sv td.k { background: #EDF1F2; width: 42%; }
+.sv td.v { font-weight: 500; }
+.sv th { padding: 7px 10px; font-weight: 600; text-align: right; }
+.sv th:first-child { text-align: left; }
+.sv th.dark { background: #123A5A; color: #fff; border: 1px solid #123A5A; }
+.sv th.olive { background: #8FA86A; color: #1E3346; border: 1px solid #8FA86A; }
+.sv tr.total td { background: #EDF1F2; padding-top: 7px; padding-bottom: 7px; font-weight: 600; }
+.sv .strong { font-weight: 700; color: #123A5A; }
+.sv .note { font-size: 9.5px; color: #5C6C77; margin-top: -6px; }
+.sv .h-sec { font-size: 12px; font-weight: 600; color: #123A5A; letter-spacing: 0.4px; margin-bottom: 8px; }
+.sv ul.terms { margin: 0 0 16px; font-size: 10px; line-height: 1.5; color: #3C4E5A; gap: 4px; }
+.sv ul.terms.lg { font-size: 10.5px; line-height: 1.55; gap: 5px; margin-bottom: 18px; }
+.sv table.sign { width: 74%; font-size: 10.5px; margin-bottom: 16px; }
+.sv table.sign td { padding: 7px 10px; }
+.sv table.sign td:first-child { background: #F1F4F5; width: 26%; }
+.sv .small { font-size: 11px; color: #3C4E5A; }
+.sv .signature { font-size: 12px; font-weight: 600; color: #123A5A; border-top: 1px solid #8FA86A; padding-top: 6px; width: 220px; margin-top: 16px; }
