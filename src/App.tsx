@@ -21,7 +21,10 @@ function cargar(): Estado {
     // Mezcla con los valores por defecto para tolerar borradores de versiones anteriores.
     const datos = { ...base.datos }
     for (const k of Object.keys(datos) as PlantillaId[]) {
-      datos[k] = { ...datos[k], ...(guardado.datos[k] ?? {}) } as never
+      const previo = guardado.datos[k]
+      // Los campos nuevos toman el texto por defecto en el idioma del borrador.
+      const inicial = previo?.idioma ? cambiarIdioma(k, datos[k], previo.idioma) : datos[k]
+      datos[k] = { ...inicial, ...(previo ?? {}) } as never
     }
     return { plantilla: guardado.plantilla && guardado.plantilla in datos ? guardado.plantilla : 'feedbak', datos }
   } catch {

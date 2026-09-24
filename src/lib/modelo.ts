@@ -29,6 +29,13 @@ export interface FeedbakData extends Base {
   horasSoporte: string
   costoHoraAdicional: string
   firmanteEmpresa: string
+  /** Carta: un párrafo por línea. {plataformas} se sustituye. */
+  intro: string
+  titulo: string
+  /** Nota bajo los precios. {Moneda} se sustituye. */
+  notaMontos: string
+  /** Términos: líneas que empiezan con "## " son títulos de sección; las demás, puntos. */
+  terminos: string
 }
 
 export interface Servicio {
@@ -120,8 +127,96 @@ export const PLANTILLAS: { id: PlantillaId; marca: string; nombre: string; color
 type Textos<T> = Record<Idioma, Partial<T>>
 
 const FEEDBAK: Textos<FeedbakData> = {
-  es: { ciudad: 'Tijuana B.C.', costoHoraAdicional: '$65.00 Dlls (Paquetes disponibles)' },
-  en: { ciudad: 'Tijuana, B.C.', costoHoraAdicional: '$65.00 USD (packages available)' },
+  es: {
+    ciudad: 'Tijuana B.C.',
+    costoHoraAdicional: '$65.00 Dlls (Paquetes disponibles)',
+    intro: `Sabemos que llevar la administración en empresas tan importantes como la suya, es todo un reto. Debido a esto, para Feedbak es un privilegio presentar las Plataformas Tecnológicas que permiten eficientizar tiempos de Administración y ahorrar importantes costos asociados con el personal; a través de {plataformas}.
+Con esto en mente les presentamos la siguiente propuesta.`,
+    titulo: 'Cotización Licenciamiento de Plataforma Tecnológica',
+    notaMontos: 'Todos los montos están expresados en {Moneda} y no incluyen IVA (donde aplique).',
+    terminos: `## 1. Condiciones de Pago
+El pago anual o semestral deberá realizarse en una sola exhibición antes del inicio del servicio.
+En pagos mensuales, el setup inicial y la primera mensualidad deberán cubrirse al iniciar el proyecto.
+Nuestros servicios son pre-pago: todas las mensualidades son por adelantado.
+Los precios están expresados en {moneda}, más IVA (16%, donde aplique), y son válidos por 15 días naturales.
+El costo por cada Usuario Administrador adicional será de {precioAdmin} más IVA (16%, donde aplique) de manera mensual. Dicho importe tendrá el carácter de no negociable y no estará sujeto a la aplicación de promociones, descuentos, bonificaciones ni cualquier otro beneficio comercial vigente o futuro.
+En el supuesto de que el monto total de la factura entregada y no objetada por “El cliente” o cualquier porción de dicha factura no sea pagada a “El Proveedor” dentro del terminó de 7 días naturales antes citado, conllevará un cargo de interés moratorio del 10% (diez por ciento) mensual sobre el saldo vencido pagadero por “El Cliente” a “El Proveedor” en conjunto con la suerte principal consignada en la factura respectiva.
+## 2. Vigencia y Ajustes de Precio
+Los precios podrán actualizarse anualmente conforme a inflación (Índice INPC) u otros factores de mercado.
+El cliente será notificado con al menos 30 días de anticipación.
+## 3. Alcance de la Implementación y Soporte
+La propuesta incluye las horas de soporte indicadas durante la implementación. Para horas adicionales, favor de solicitar una cotización separada.
+Toda configuración especial o requisito para la puesta en marcha y el correcto funcionamiento de la plataforma, es cubierto por el tiempo disponible de “Implementación”. En caso de agotar todas las horas y requerir horas adicionales, estas serán facturadas por paquetes por separado con un costo de $1,200.00 por hora (más IVA) y un tiempo de respuesta de hasta 24 horas en días hábiles. En caso de ser un soporte o servicio urgente este tendrá un costo de $1,900.00 pesos (más IVA) por hora en un tiempo no mayor a 3 horas, en caso de ser fuera de horario de oficina se agregará el 20% de costo sobre total de tiempo. Horarios de Lun-Jue 8am a 6pm y Vie 8am a 3pm PST. Sábados y Domingos no son días hábiles.
+Gastos de viáticos fuera de la ciudad (cuando aplique y previa autorización del cliente) correrán por cuenta del cliente.
+## 4. Hardware y Responsabilidades del Cliente
+La cotización no incluye ningún tipo de hardware (iPads, Tablets, accesorios, pedestales, arneses, etc.).
+El cliente tiene la responsabilidad de: Adquirir y mantener los equipos necesarios. Instalar y configurar la aplicación en cada dispositivo; así como de proveer la información a la plataforma mediante archivos de texto o Excel, según se indique.
+Feedbak puede cotizar y proveer hardware bajo solicitud expresa del cliente.
+## 5. Capacitación
+La cotización provista incluye una sesión inicial remota vía Zoom para administradores.
+La sesión será grabada y entregada al cliente para consultas posteriores.
+Cualquier capacitación adicional, podrá causar cargo por horas de soporte.
+Material de soporte se proveerá vía video en plataformas.
+## 6. Privacidad y Protección de Datos
+La información suministrada por el cliente será tratada conforme a la Ley Federal de Protección de Datos Personales.
+El cliente declara contar con el consentimiento de sus empleados para el tratamiento de la información compartida.
+Feedbak no modificará ni operará la información del cliente sin autorización.
+Feedbak no tiene acceso a datos específicos de los empleados.
+Feedbak no utiliza ni explota esos datos para fines distintos al servicio.
+Los datos están encriptados y protegidos todo el tiempo.
+El acceso a datos personales se concede solamente en casos estrictamente necesarios (soporte, mantenimiento, cumplimiento legal).
+## 7. Soporte Técnico Posterior
+El soporte técnico posterior requiere contar con póliza o paquete vigente de horas de soporte (Cotizadas por separado).
+Tickets deben levantarse vía soporte@feedbakmx.com o en la plataforma correspondiente en el menú de “Soporte”.
+Incidencias resueltas en menos de 5 minutos no generarán costo.
+## 8. Facturación
+Contamos con Facturación en México y EEUU. En caso de requerir facturación vía Invoice, favor de notificarlo al área de servicio al cliente.`,
+  },
+  en: {
+    ciudad: 'Tijuana, B.C.',
+    costoHoraAdicional: '$65.00 USD (packages available)',
+    intro: `We know that managing administration in companies as important as yours is a real challenge. That is why Feedbak is proud to present the Technology Platforms that streamline administrative time and deliver significant savings in personnel-related costs through {plataformas}.
+With this in mind, we are pleased to present the following proposal.`,
+    titulo: 'Technology Platform Licensing Quote',
+    notaMontos: 'All amounts are expressed in {Moneda} and do not include VAT (where applicable).',
+    terminos: `## 1. Payment Terms
+Annual or semi-annual payments must be made in a single installment before the service starts.
+For monthly payments, the initial setup and the first monthly fee must be paid at the start of the project.
+Our services are prepaid: all monthly fees are paid in advance.
+Prices are expressed in {moneda}, plus VAT (16%, where applicable), and are valid for 15 calendar days.
+The cost of each additional Administrator User will be {precioAdmin} plus VAT (16%, where applicable) per month. This amount is non-negotiable and is not subject to any current or future promotions, discounts, credits or other commercial benefits.
+If the total amount of an invoice delivered and not disputed by “The Client”, or any portion of it, is not paid to “The Provider” within the 7 calendar days mentioned above, a late-payment interest of 10% (ten percent) per month will be charged on the past-due balance payable by “The Client” to “The Provider”, together with the principal amount stated on the respective invoice.
+## 2. Validity and Price Adjustments
+Prices may be updated annually based on inflation (Mexican INPC index) or other market factors.
+The client will be notified at least 30 days in advance.
+## 3. Implementation Scope and Support
+This proposal includes the support hours indicated during implementation. For additional hours, please request a separate quote.
+Any special configuration or requirement for the launch and proper operation of the platform is covered by the available “Implementation” time. If all hours are used and additional hours are required, they will be invoiced separately in packages at $1,200.00 MXN per hour (plus VAT), with a response time of up to 24 business hours. Urgent support or services will cost $1,900.00 MXN (plus VAT) per hour, with a response time of no more than 3 hours; outside office hours, a 20% surcharge will be added to the total time. Office hours: Mon–Thu 8am to 6pm and Fri 8am to 3pm PST. Saturdays and Sundays are not business days.
+Out-of-town travel expenses (when applicable and with prior client authorization) will be covered by the client.
+## 4. Hardware and Client Responsibilities
+This quote does not include any hardware (iPads, tablets, accessories, stands, harnesses, etc.).
+The client is responsible for purchasing and maintaining the necessary equipment, installing and configuring the application on each device, and providing the information to the platform through text or Excel files, as indicated.
+Feedbak can quote and provide hardware upon the client’s express request.
+## 5. Training
+This quote includes one initial remote session via Zoom for administrators.
+The session will be recorded and delivered to the client for future reference.
+Any additional training may be charged as support hours.
+Support material will be provided as videos within the platforms.
+## 6. Privacy and Data Protection
+Information provided by the client will be handled in accordance with the Mexican Federal Law on the Protection of Personal Data.
+The client states that it has its employees’ consent to process the information shared.
+Feedbak will not modify or operate the client’s information without authorization.
+Feedbak does not have access to specific employee data.
+Feedbak does not use or exploit this data for purposes other than the service.
+Data is encrypted and protected at all times.
+Access to personal data is granted only when strictly necessary (support, maintenance, legal compliance).
+## 7. Ongoing Technical Support
+Ongoing technical support requires an active support policy or package of support hours (quoted separately).
+Tickets must be submitted to soporte@feedbakmx.com or through the “Support” menu in the corresponding platform.
+Issues resolved in under 5 minutes will not be charged.
+## 8. Invoicing
+We can invoice in Mexico and the United States. If you require a US invoice, please let our customer service team know.`,
+  },
 }
 
 const SERVICIOS: Textos<ServiciosData> = {
@@ -294,6 +389,10 @@ export function datosIniciales(): Datos {
       firmanteEmpresa: 'Treve / Feedbak',
       ciudad: '',
       costoHoraAdicional: '',
+      intro: '',
+      titulo: '',
+      notaMontos: '',
+      terminos: '',
       ...FEEDBAK.es,
     },
     servicios: {

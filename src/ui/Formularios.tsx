@@ -121,6 +121,19 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
         <Texto label="Costo por hora de soporte adicional" value={d.costoHoraAdicional} onChange={(v) => set({ costoHoraAdicional: v })} />
       </Seccion>
 
+      <Seccion titulo="Carta y términos" abierta={false}>
+        <Area label="Carta" value={d.intro} filas={5} onChange={(v) => set({ intro: v })} ayuda="Un párrafo por línea. {plataformas} se sustituye." />
+        <Texto label="Título" value={d.titulo} onChange={(v) => set({ titulo: v })} />
+        <Texto label="Nota de montos" value={d.notaMontos} onChange={(v) => set({ notaMontos: v })} ayuda="{Moneda} se sustituye." />
+        <Area
+          label="Términos y condiciones"
+          value={d.terminos}
+          filas={10}
+          onChange={(v) => set({ terminos: v })}
+          ayuda='Un punto por línea. Las líneas que empiezan con "## " son títulos de sección. {moneda} y {precioAdmin} se sustituyen.'
+        />
+      </Seccion>
+
       <Seccion titulo="Firma" abierta={false}>
         <Fila>
           <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />

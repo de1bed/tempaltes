@@ -34,10 +34,8 @@ export function posicionCursor(el: HTMLElement): number {
 }
 
 export function enfocar(id: string, final = true) {
-  requestAnimationFrame(() => {
-    const el = document.getElementById(id)
-    if (!el) return
-    el.focus()
-    cursorAl(el, final)
-  })
+  const el = document.getElementById(id)
+  if (!el) return
+  el.focus()
+  cursorAl(el, final)
 }

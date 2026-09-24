@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type ClipboardEvent, type CSSProperties, type KeyboardEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { cursorAl, enfocar, posicionCursor, type Ligado } from '../lib/edicion'
 import { rellenar } from '../lib/modelo'
 
@@ -87,6 +88,39 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
   )
 }
 
+type Linea = Pick<EditableProps, 'id' | 'valor' | 'mostrar' | 'onCambio' | 'onEnter' | 'onBorrarVacio'>
+
+/**
+ * Props de edición para la línea `i` de un texto multilínea: escribir la
+ * actualiza, Enter la parte en dos y Retroceso en vacío la quita.
+ * `prefijo` (p. ej. "## ") se guarda pero no se muestra.
+ */
+function linea(items: string[], i: number, guardar: (l: string[]) => void, id: string, vars?: Record<string, string>, prefijo = ''): Linea {
+  const valor = items[i].slice(prefijo.length)
+  return {
+    id: `${id}-${i}`,
+    valor,
+    mostrar: vars ? rellenar(valor, vars) : undefined,
+    onCambio: (v) => guardar(items.map((x, j) => (j === i ? prefijo + v : x))),
+    onEnter: (pos, el) => {
+      // Enter parte el punto en dos, como en un procesador de texto. En un título, abre un punto debajo.
+      const antes = prefijo ? valor : valor.slice(0, pos)
+      const despues = prefijo ? '' : valor.slice(pos)
+      el.textContent = antes
+      // Se renderiza en el acto para mover el cursor antes de la siguiente tecla.
+      flushSync(() => guardar([...items.slice(0, i), prefijo + antes, despues, ...items.slice(i + 1)]))
+      enfocar(`${id}-${i + 1}`, false)
+    },
+    onBorrarVacio:
+      items.length > 1
+        ? () => {
+            flushSync(() => guardar(items.filter((_, j) => j !== i)))
+            enfocar(`${id}-${Math.max(0, i - 1)}`)
+          }
+        : undefined,
+  }
+}
+
 /** Texto multilínea (un párrafo o un punto por línea), editable punto por punto. */
 export function Lineas({
   valor,
@@ -111,29 +145,7 @@ export function Lineas({
 
   const lista = items.map((l, i) => (
     <Tag key={i} className={l.trim() ? undefined : 'vacio'}>
-      <Editable
-        id={`${id}-${i}`}
-        valor={l}
-        mostrar={vars ? rellenar(l, vars) : undefined}
-        placeholder={placeholder}
-        onCambio={(v) => guardar(items.map((x, j) => (j === i ? v : x)))}
-        onEnter={(pos, el) => {
-          // Enter parte el punto en dos, como en un procesador de texto.
-          const antes = items[i].slice(0, pos)
-          const despues = items[i].slice(pos)
-          el.textContent = antes
-          guardar([...items.slice(0, i), antes, despues, ...items.slice(i + 1)])
-          enfocar(`${id}-${i + 1}`, false)
-        }}
-        onBorrarVacio={
-          items.length > 1
-            ? () => {
-                guardar(items.filter((_, j) => j !== i))
-                enfocar(`${id}-${Math.max(0, i - 1)}`)
-              }
-            : undefined
-        }
-      />
+      <Editable {...linea(items, i, guardar, id, vars)} placeholder={placeholder} />
     </Tag>
   ))
 
@@ -147,5 +159,62 @@ export function Lineas({
     <div className={className} style={{ display: 'contents', ...style }}>
       {lista}
     </div>
+  )
+}
+
+const TITULO = '## '
+
+/**
+ * Términos por secciones: las líneas que empiezan con "## " son títulos y las
+ * demás, puntos. Muestra solo las secciones [desde, hasta) para repartirlas
+ * entre hojas; todas editan el mismo texto.
+ */
+export function Secciones({
+  valor,
+  onCambio,
+  id,
+  vars,
+  desde,
+  hasta,
+  placeholder,
+  placeholderTitulo,
+}: Ligado & {
+  id: string
+  vars?: Record<string, string>
+  desde: number
+  hasta?: number
+  placeholder: string
+  placeholderTitulo: string
+}) {
+  const items = valor.split('\n')
+  const guardar = (nuevos: string[]) => onCambio(nuevos.join('\n'))
+  const secciones: { titulo: number | null; puntos: number[] }[] = []
+  items.forEach((l, i) => {
+    if (l.startsWith(TITULO)) secciones.push({ titulo: i, puntos: [] })
+    else if (secciones.length === 0) secciones.push({ titulo: null, puntos: [i] })
+    else secciones[secciones.length - 1].puntos.push(i)
+  })
+
+  return (
+    <>
+      {secciones.slice(desde, hasta).map((s) => (
+        <div key={s.titulo ?? `s${s.puntos[0]}`}>
+          {s.titulo !== null && (
+            <div className={items[s.titulo].slice(TITULO.length).trim() ? 'h-sec' : 'h-sec vacio'}>
+              <Editable {...linea(items, s.titulo, guardar, id, vars, TITULO)} placeholder={placeholderTitulo} />
+            </div>
+          )}
+          {s.puntos.length > 0 && (
+            <ul className="terms">
+              {s.puntos.map((i) => (
+                <li key={i} className={items[i].trim() ? undefined : 'vacio'}>
+                  <Editable {...linea(items, i, guardar, id, vars)} placeholder={placeholder} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </>
   )
 }

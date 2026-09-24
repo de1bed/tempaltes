@@ -23,6 +23,7 @@ Los textos resaltados de la vista previa se editan con un clic: contacto, empres
 - Los montos muestran su valor sin formato al editarlos y con formato al salir.
 - En introducción y términos, `{empresa}`, `{puesto}` o `{fee}` aparecen como tales mientras se edita y se sustituyen al salir.
 - En listas (términos, detalle, notas), **Enter** agrega un punto nuevo y **Retroceso** en un punto vacío lo quita.
+- En Feedbak también se editan la carta, el título, la nota de montos y todos los términos. En los términos, las líneas que empiezan con `## ` son títulos de sección; `{moneda}` y `{precioAdmin}` se llenan con el tabulador.
 - Los precios que calcula el tabulador de Feedbak no se editan: salen del tabulador fijo.
 - El resaltado y los textos guía solo se ven en pantalla; no salen en el PDF.
 
