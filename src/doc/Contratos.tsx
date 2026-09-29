@@ -80,6 +80,11 @@ function bloquesCuerpo(cuerpo: string, onCambio: (v: string) => void, vars: Reco
   })
 }
 
+/** El último bloque del cuerpo va junto con las firmas: las firmas nunca quedan solas en una hoja. */
+function conFirmas(bloques: Bloque[]): Bloque[] {
+  return bloques.map((b, i) => (i === bloques.length - 1 ? { ...b, conSiguiente: true } : b))
+}
+
 /** Logotipo Feedbak recortado de la hoja membretada, línea superior y pie con número de hoja. */
 const fondoFeedbak = (
   <>
@@ -130,7 +135,7 @@ export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p:
         </p>
       ),
     },
-    ...bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), vars, d.idioma),
+    ...conFirmas(bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), vars, d.idioma)),
     {
       key: 'firmas',
       nodo: (
@@ -217,7 +222,7 @@ export function Nda({ d, set }: { d: NdaData; set: (p: Partial<NdaData>) => void
         </div>
       ),
     },
-    ...bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), vars, d.idioma),
+    ...conFirmas(bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), vars, d.idioma)),
     {
       key: 'firmas',
       nodo: (
