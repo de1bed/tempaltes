@@ -133,6 +133,12 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
   .panel, .barra { display: none !important; }
   .app, .vista { display: block; height: auto; overflow: visible; }
   .hojas { zoom: 1 !important; padding: 0; gap: 0; display: block; overflow: visible; }
-  .hojas .page { box-shadow: none; outline: none; break-after: page; }
-  .hojas .page:last-child { break-after: auto; }
+  .hojas .page, .hojas .page.excede { box-shadow: none; outline: none; }
+  /* Salto antes de cada hoja (no después): la copia invisible del paginador va al final. */
+  .hojas .page + .page { break-before: page; }
+}
+/* Papel Carta (u otro más corto que A4): navegadores como Safari ignoran @page size y
+   usan el papel del sistema. Se reduce la hoja para que quepa entera y no se parta en dos. */
+@media print and (max-height: 290mm) {
+  .hojas .page { zoom: 0.94; margin: 0 auto; }
 }

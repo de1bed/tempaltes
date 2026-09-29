@@ -1,22 +1,20 @@
-import type { ReactNode } from 'react'
 import { dinero, fechaEn, fechaFeedbak, miles, num, pct, primerNombre } from '../lib/formato'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { rellenar } from '../lib/modelo'
 import type { FeedbakData } from '../lib/modelo'
-import { ligar } from '../lib/edicion'
-import { Editable, Lineas, Secciones } from './Editable'
+import { contarSecciones, ligar } from '../lib/edicion'
+import { Editable, LineaEditable, Secciones } from './Editable'
+import { Paginado, type Bloque } from './Paginado'
 import { cotizarFeedbak } from '../lib/tabuladores'
 
-function Hoja({ children }: { children: ReactNode }) {
-  return (
-    <section className="page fb">
-      <img className="bg header" src={IMG.fbHeader} alt="" />
-      <img className="bg footer" src={IMG.fbFooter} alt="" />
-      <img className="bg mark" src={IMG.fbWatermark} alt="" />
-      {children}
-    </section>
-  )
-}
+/** Hoja membretada de Feedbak: encabezado, pie y marca de agua. */
+const fondo = (
+  <>
+    <img className="bg header" src={IMG.fbHeader} alt="" />
+    <img className="bg footer" src={IMG.fbFooter} alt="" />
+    <img className="bg mark" src={IMG.fbWatermark} alt="" />
+  </>
+)
 
 export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakData>) => void }) {
   const es = d.idioma === 'es'
@@ -53,16 +51,14 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
     placeholderTitulo: t('Título de sección', 'Section title'),
   }
 
-  return (
-    <>
-      {d.portada !== 'ninguna' && (
-        <section className="page">
-          <img className="cover-img" src={PORTADAS[d.portada]} alt="" />
-        </section>
-      )}
+  const intro = d.intro.split('\n')
+  const secciones = contarSecciones(d.terminos)
 
-      <Hoja>
-        <div className="content letter" style={{ gap: 14 }}>
+  const bloques: Bloque[] = [
+    {
+      key: 'encabezado',
+      nodo: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="muted" style={{ fontSize: 12.5 }}>
             <Editable {...c$('ciudad')} placeholder={t('Ciudad', 'City')} />
             {es ? ` a ${fechaFeedbak(d.fecha)}` : `, ${fechaEn(d.fecha)}`}
@@ -82,168 +78,209 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
           <div className="accent" style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>
             {es ? `${d.tratamiento} ${nombre}:` : `Dear ${nombre},`}
           </div>
-          <Lineas {...c$('intro')} como="p" id="intro" vars={vars} placeholder={t('Párrafo', 'Paragraph')} />
-
-          <div className="h-title" style={{ marginTop: 6 }}>
+        </div>
+      ),
+    },
+    // Cada párrafo de la carta es un bloque: si la carta crece, pasa a la hoja siguiente.
+    ...intro.map((l, i) => ({
+      key: `intro-${i}`,
+      nodo: (
+        <p className={l.trim() ? undefined : 'vacio'}>
+          <LineaEditable items={intro} i={i} onCambio={(v) => set({ intro: v })} id="intro" vars={vars} placeholder={t('Párrafo', 'Paragraph')} />
+        </p>
+      ),
+    })),
+    {
+      key: 'titulo',
+      conSiguiente: true,
+      nodo: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6 }}>
+          <div className="h-title">
             <Editable {...c$('titulo')} placeholder={t('Título', 'Title')} />
           </div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#3D5257', marginTop: -4 }}>
-            {t('Esta propuesta incluye:', 'This proposal includes:')}
-          </div>
-          <table>
-            <tbody>
-              {[
-                [t('Plataformas Incluídas:', 'Included Platforms:'), plataformas],
-                [t('Colaboradores:', 'Employees:'), <Editable key="colaboradores" {...c$('colaboradores')} mostrar={miles(c.colaboradores)} placeholder="0" />],
-                [t('Usuarios Administradores:', 'Administrator Users:'), admins],
-                [
-                  t('Capacitación Personalizada:', 'Personalized Training:'),
-                  <>
-                    {t('Incluida (', 'Included (')}
-                    <Editable {...c$('capacitacionHoras')} placeholder="0" /> hrs){t(' + Material Virtual', ' + Virtual Material')}
-                  </>,
-                ],
-                [t('Configuración Inicial:', 'Initial Setup:'), c.setup > 0 ? dinero(c.setup) : t('Sin costo', 'No cost')],
-                [
-                  t('Horas de soporte incluidas:', 'Support hours included:'),
-                  <>
-                    <Editable {...c$('horasSoporte')} placeholder="0" /> {t('horas', 'hours')}
-                  </>,
-                ],
-                [t('Costo por Hora de Soporte Adicional:', 'Cost per Additional Support Hour:'), <Editable key="costo" {...c$('costoHoraAdicional')} placeholder="$0.00" />],
-              ].map(([k, v]) => (
-                <tr key={k as string}>
-                  <td className="k">{k}</td>
-                  <td className="v">{v}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#3D5257' }}>{t('Esta propuesta incluye:', 'This proposal includes:')}</div>
         </div>
-      </Hoja>
-
-      <Hoja>
-        <div className="content" style={{ gap: 12 }}>
-          <table style={{ marginTop: 4 }}>
-            <thead>
-              <tr>
-                <th className="dark">{t('Concepto', 'Item')}</th>
-                <th className="dark">{t('Precio Unitario', 'Unit Price')}</th>
-                <th className="dark">{t('Cantidad', 'Quantity')}</th>
-                <th className="dark">{t('Monto', 'Amount')}</th>
+      ),
+    },
+    {
+      key: 'alcance',
+      nodo: (
+        <table>
+          <tbody>
+            {[
+              [t('Plataformas Incluídas:', 'Included Platforms:'), plataformas],
+              [t('Colaboradores:', 'Employees:'), <Editable key="colaboradores" {...c$('colaboradores')} mostrar={miles(c.colaboradores)} placeholder="0" />],
+              [t('Usuarios Administradores:', 'Administrator Users:'), admins],
+              [
+                t('Capacitación Personalizada:', 'Personalized Training:'),
+                <>
+                  {t('Incluida (', 'Included (')}
+                  <Editable {...c$('capacitacionHoras')} placeholder="0" /> hrs){t(' + Material Virtual', ' + Virtual Material')}
+                </>,
+              ],
+              [t('Configuración Inicial:', 'Initial Setup:'), c.setup > 0 ? dinero(c.setup) : t('Sin costo', 'No cost')],
+              [
+                t('Horas de soporte incluidas:', 'Support hours included:'),
+                <>
+                  <Editable {...c$('horasSoporte')} placeholder="0" /> {t('horas', 'hours')}
+                </>,
+              ],
+              [t('Costo por Hora de Soporte Adicional:', 'Cost per Additional Support Hour:'), <Editable key="costo" {...c$('costoHoraAdicional')} placeholder="$0.00" />],
+            ].map(([k, v]) => (
+              <tr key={k as string}>
+                <td className="k">{k}</td>
+                <td className="v">{v}</td>
               </tr>
-            </thead>
-            <tbody>
+            ))}
+          </tbody>
+        </table>
+      ),
+    },
+    {
+      // Los precios empiezan en hoja nueva, como en la plantilla original.
+      key: 'precios',
+      salto: true,
+      nodo: (
+        <table style={{ marginTop: 4 }}>
+          <thead>
+            <tr>
+              <th className="dark">{t('Concepto', 'Item')}</th>
+              <th className="dark">{t('Precio Unitario', 'Unit Price')}</th>
+              <th className="dark">{t('Cantidad', 'Quantity')}</th>
+              <th className="dark">{t('Monto', 'Amount')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{t('Precio mensual por usuario', 'Monthly price per user')}</td>
+              <td className="r">{dinero(c.precioUsuario)}</td>
+              <td className="r">{miles(c.colaboradores)}</td>
+              <td className="r">{dinero(c.mensualUsuarios)}</td>
+            </tr>
+            <tr>
+              <td>{t('Precio mensual por administrador', 'Monthly price per administrator')}</td>
+              <td className="r">{dinero(0)}</td>
+              <td className="r">{c.adminsIncluidos}</td>
+              <td className="r">{dinero(0)}</td>
+            </tr>
+            {extra > 0 && (
               <tr>
-                <td>{t('Precio mensual por usuario', 'Monthly price per user')}</td>
-                <td className="r">{dinero(c.precioUsuario)}</td>
-                <td className="r">{miles(c.colaboradores)}</td>
-                <td className="r">{dinero(c.mensualUsuarios)}</td>
+                <td>{t('Administrador adicional (mensual)', 'Additional administrator (monthly)')}</td>
+                <td className="r">{dinero(c.precioAdminExtra)}</td>
+                <td className="r">{extra}</td>
+                <td className="r">{dinero(c.mensualAdminsExtra)}</td>
               </tr>
+            )}
+            <tr className="total">
+              <td style={{ fontWeight: 600 }}>{t('Total Mensual', 'Monthly Total')}</td>
+              <td />
+              <td />
+              <td className="r strong">{dinero(c.totalMensual)}</td>
+            </tr>
+            {c.setup > 0 && (
               <tr>
-                <td>{t('Precio mensual por administrador', 'Monthly price per administrator')}</td>
-                <td className="r">{dinero(0)}</td>
-                <td className="r">{c.adminsIncluidos}</td>
-                <td className="r">{dinero(0)}</td>
-              </tr>
-              {extra > 0 && (
-                <tr>
-                  <td>{t('Administrador adicional (mensual)', 'Additional administrator (monthly)')}</td>
-                  <td className="r">{dinero(c.precioAdminExtra)}</td>
-                  <td className="r">{extra}</td>
-                  <td className="r">{dinero(c.mensualAdminsExtra)}</td>
-                </tr>
-              )}
-              <tr className="total">
-                <td style={{ fontWeight: 600 }}>{t('Total Mensual', 'Monthly Total')}</td>
+                <td>{t('Primera factura (mensualidad + configuración inicial)', 'First invoice (monthly fee + initial setup)')}</td>
                 <td />
                 <td />
-                <td className="r strong">{dinero(c.totalMensual)}</td>
+                <td className="r">{dinero(c.primeraFactura)}</td>
               </tr>
-              {c.setup > 0 && (
-                <tr>
-                  <td>{t('Primera factura (mensualidad + configuración inicial)', 'First invoice (monthly fee + initial setup)')}</td>
-                  <td />
-                  <td />
-                  <td className="r">{dinero(c.primeraFactura)}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {(
-            [
-              [
-                t('Descuento por pago Semestral', 'Semi-annual Payment Discount'),
-                t('Precio Semestral', 'Semi-annual Price'),
-                t(`Pago semestral (6 meses${conSetup})`, `Semi-annual payment (6 months${conSetup})`),
-                c.semestralBase,
-                c.descuentoSemestral,
-                c.semestral,
-              ],
-              [
-                t('Descuento por pago Anualizado', 'Annual Payment Discount'),
-                t('Precio Anual', 'Annual Price'),
-                t(`Pago anual (12 meses${conSetup})`, `Annual payment (12 months${conSetup})`),
-                c.anualBase,
-                c.descuentoAnual,
-                c.anual,
-              ],
-            ] as const
-          ).map(([titulo, col, fila, base, desc, total]) => (
-            <table key={titulo}>
-              <thead>
-                <tr>
-                  <th className="green">{titulo}</th>
-                  <th className="green">{col}</th>
-                  <th className="green">{t('Descuento (%)', 'Discount (%)')}</th>
-                  <th className="green">{t('Monto', 'Amount')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{fila}</td>
-                  <td className="r">{dinero(base)}</td>
-                  <td className="r">{pct(desc)}</td>
-                  <td className="r strong">{dinero(total)}</td>
-                </tr>
-              </tbody>
-            </table>
-          ))}
-
-          <div className="muted" style={{ fontSize: 10.5, fontStyle: 'italic' }}>
-            <Editable {...c$('notaMontos')} mostrar={rellenar(d.notaMontos, vars)} placeholder={t('Nota', 'Note')} />
+            )}
+          </tbody>
+        </table>
+      ),
+    },
+    ...(
+      [
+        [
+          t('Descuento por pago Semestral', 'Semi-annual Payment Discount'),
+          t('Precio Semestral', 'Semi-annual Price'),
+          t(`Pago semestral (6 meses${conSetup})`, `Semi-annual payment (6 months${conSetup})`),
+          c.semestralBase,
+          c.descuentoSemestral,
+          c.semestral,
+        ],
+        [
+          t('Descuento por pago Anualizado', 'Annual Payment Discount'),
+          t('Precio Anual', 'Annual Price'),
+          t(`Pago anual (12 meses${conSetup})`, `Annual payment (12 months${conSetup})`),
+          c.anualBase,
+          c.descuentoAnual,
+          c.anual,
+        ],
+      ] as const
+    ).map(([titulo, col, fila, base, desc, total]) => ({
+      key: titulo,
+      nodo: (
+        <table>
+          <thead>
+            <tr>
+              <th className="green">{titulo}</th>
+              <th className="green">{col}</th>
+              <th className="green">{t('Descuento (%)', 'Discount (%)')}</th>
+              <th className="green">{t('Monto', 'Amount')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{fila}</td>
+              <td className="r">{dinero(base)}</td>
+              <td className="r">{pct(desc)}</td>
+              <td className="r strong">{dinero(total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      ),
+    })),
+    {
+      key: 'nota',
+      nodo: (
+        <div className="muted" style={{ fontSize: 10.5, fontStyle: 'italic' }}>
+          <Editable {...c$('notaMontos')} mostrar={rellenar(d.notaMontos, vars)} placeholder={t('Nota', 'Note')} />
+        </div>
+      ),
+    },
+    {
+      key: 'terminos-titulo',
+      conSiguiente: true,
+      nodo: (
+        <div className="h-title" style={{ paddingTop: 12 }}>
+          {t('Términos y Condiciones del Servicio (SaaS)', 'Service Terms and Conditions (SaaS)')}
+        </div>
+      ),
+    },
+    // Cada sección de términos es un bloque: un título nunca queda separado de sus puntos.
+    ...Array.from({ length: secciones }, (_, n) => ({
+      key: `seccion-${n}`,
+      // La última sección va junto con la firma: la firma nunca queda sola en una hoja.
+      conSiguiente: n === secciones - 1,
+      nodo: <Secciones {...terminos} desde={n} hasta={n + 1} />,
+    })),
+    {
+      key: 'firma',
+      nodo: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, paddingTop: 20 }}>
+          <div style={{ color: '#3D5257' }}>{t('Atentamente', 'Sincerely')}</div>
+          <div style={{ height: 26 }} />
+          <div className="accent" style={{ fontWeight: 600, borderTop: '1px solid #6FC08D', paddingTop: 6, width: 230 }}>
+            <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
           </div>
-          <div className="h-title" style={{ marginTop: 12, marginBottom: 10 }}>
-            {t('Términos y Condiciones del Servicio (SaaS)', 'Service Terms and Conditions (SaaS)')}
-          </div>
-          <div>
-            <Secciones {...terminos} desde={0} hasta={2} />
+          <div className="muted" style={{ fontSize: 11 }}>
+            <Editable {...c$('firmanteEmpresa')} placeholder={t('Empresa', 'Company')} />
           </div>
         </div>
-      </Hoja>
+      ),
+    },
+  ]
 
-      <Hoja>
-        <div className="content" style={{ display: 'block' }}>
-          <Secciones {...terminos} desde={2} hasta={5} />
-        </div>
-      </Hoja>
+  return (
+    <>
+      {d.portada !== 'ninguna' && (
+        <section className="page">
+          <img className="cover-img" src={PORTADAS[d.portada]} alt="" />
+        </section>
+      )}
 
-      <Hoja>
-        <div className="content" style={{ display: 'block' }}>
-          <Secciones {...terminos} desde={5} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, marginTop: 20 }}>
-            <div style={{ color: '#3D5257' }}>{t('Atentamente', 'Sincerely')}</div>
-            <div style={{ height: 26 }} />
-            <div className="accent" style={{ fontWeight: 600, borderTop: '1px solid #6FC08D', paddingTop: 6, width: 230 }}>
-              <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
-            </div>
-            <div className="muted" style={{ fontSize: 11 }}>
-              <Editable {...c$('firmanteEmpresa')} placeholder={t('Empresa', 'Company')} />
-            </div>
-          </div>
-        </div>
-      </Hoja>
+      <Paginado clase="fb" claseContenido="letter" fondo={fondo} bloques={bloques} />
     </>
   )
 }

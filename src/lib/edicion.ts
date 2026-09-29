@@ -48,3 +48,11 @@ export function contarHojas(texto: string): number {
 
 /** Verdadero dentro de la copia invisible que usa Paginado para medir: ahí no se ponen ids. */
 export const EnMedidor = createContext(false)
+
+/** Número de secciones de un texto con títulos "## " (un texto inicial sin título cuenta como una). */
+export function contarSecciones(texto: string): number {
+  const lineas = texto.split('\n')
+  const titulos = lineas.filter((l) => l.startsWith('## ')).length
+  const primera = lineas.findIndex((l) => l.trim() && l.trim() !== '---')
+  return titulos + (primera >= 0 && !lineas[primera].startsWith('## ') ? 1 : 0)
+}

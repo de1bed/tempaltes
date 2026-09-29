@@ -6,6 +6,8 @@ export interface Bloque {
   nodo: ReactNode
   /** No dejarlo solo al final de una hoja (títulos). */
   conSiguiente?: boolean
+  /** Empezar siempre en hoja nueva. */
+  salto?: boolean
 }
 
 /**
@@ -19,11 +21,14 @@ export function Paginado({
   clase,
   fondo,
   pie,
+  claseContenido,
 }: {
   bloques: Bloque[]
   clase: string
   fondo?: ReactNode
   pie?: (hoja: number, total: number) => ReactNode
+  /** Clase extra del contenedor de contenido (p. ej. "letter"). */
+  claseContenido?: string
 }) {
   const medidor = useRef<HTMLElement>(null)
   const [cortes, setCortes] = useState<number[]>([])
@@ -47,7 +52,7 @@ export function Paginado({
     let usado = 0
     altos.forEach((alto, i) => {
       const siguiente = bloques[i]?.conSiguiente ? (altos[i + 1] ?? 0) : 0
-      if (usado > 0 && usado + alto + siguiente > disponible) {
+      if (usado > 0 && (bloques[i]?.salto || usado + alto + siguiente > disponible)) {
         nuevos.push(i)
         usado = 0
       }
@@ -70,14 +75,14 @@ export function Paginado({
       {hojas.map((lista, n) => (
         <section key={n} className={`page ${clase}`}>
           {fondo}
-          <div className="content">{contenido(lista)}</div>
+          <div className={claseContenido ? `content ${claseContenido}` : 'content'}>{contenido(lista)}</div>
           {pie?.(n + 1, hojas.length)}
         </section>
       ))}
       {/* Copia invisible para medir: fuera de pantalla, sin foco ni lectores de pantalla. */}
       <section ref={medidor} className={`page ${clase} medidor`} aria-hidden inert>
         <EnMedidor.Provider value={true}>
-          <div className="content">{contenido(bloques)}</div>
+          <div className={claseContenido ? `content ${claseContenido}` : 'content'}>{contenido(bloques)}</div>
         </EnMedidor.Provider>
       </section>
     </>

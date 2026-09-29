@@ -44,6 +44,8 @@
 .fb tr.total td { background: #EDF6F1; }
 .fb .strong { font-weight: 700; color: #0B4C5E; }
 .fb .h-sec { font-size: 12px; font-weight: 600; color: #0B4C5E; margin-bottom: 5px; }
+.fb [data-bloque] { padding-bottom: 12px; }
+.fb [data-bloque] ul.terms { margin-bottom: 0; }
 .fb ul.terms { margin: 0 0 14px; font-size: 10.5px; line-height: 1.5; color: #3D5257; gap: 3px; }
 
 /* ───────── Staffvia ───────── */
