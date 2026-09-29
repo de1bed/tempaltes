@@ -201,3 +201,9 @@
 @media print {
   .page .vacio { display: none; }
 }
+
+/* Mientras se genera el PDF la vista previa se ve igual que impresa */
+.hojas.modo-pdf .page { box-shadow: none !important; outline: none !important; }
+.hojas.modo-pdf .vacio { display: none !important; }
+.hojas.modo-pdf .editable { outline: none !important; background: none !important; }
+.hojas.modo-pdf .editable:empty::before { content: none !important; }

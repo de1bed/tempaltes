@@ -13,7 +13,7 @@ import {
   traductor,
 } from '../lib/formato'
 import { ligar, type Ligado } from '../lib/edicion'
-import { bloquesLineas, bloquesSecciones, bloquesTabla } from './bloques'
+import { bloquesLineas, bloquesSecciones, bloquesTabla, conCierre } from './bloques'
 import { Editable } from './Editable'
 import { Paginado, type Bloque } from './Paginado'
 import { type BonosData,
@@ -37,7 +37,7 @@ export function Portada(p: { kicker: string; titulo: ReactNode; cliente: ReactNo
 
 /** Hojas membretadas de Staffvia que se reparten solas. */
 function Hojas({ bloques }: { bloques: Bloque[] }) {
-  return <Paginado clase="sv" claseContenido="letter" bloques={bloques} />
+  return <Paginado clase="sv" claseContenido="letter" bloques={conCierre(bloques)} />
 }
 
 type Campo = (k: 'contacto' | 'empresa') => Ligado

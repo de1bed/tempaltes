@@ -173,11 +173,25 @@ export default function App() {
     setEstado((e) => ({ ...e, datos: { ...e.datos, [e.plantilla]: cambiarIdioma(e.plantilla, e.datos[e.plantilla], nuevo) } }))
   }
 
-  function imprimir() {
-    const titulo = document.title
-    document.title = nombreArchivo(estado)
-    window.print()
-    document.title = titulo
+  // Genera el PDF en la app (no con el diálogo de impresión, que en iPhone/iPad
+  // cambia el tamaño de hoja y agrega márgenes y encabezados).
+  const [exportando, setExportando] = useState<{ hoja: number; total: number } | null>(null)
+  const [errorPdf, setErrorPdf] = useState('')
+  async function descargarPdf() {
+    setErrorPdf('')
+    setExportando({ hoja: 0, total: 0 })
+    try {
+      // Esperar a que la vista quede sin zoom y en modo impresión antes de capturar.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+      const hojas = Array.from(vistaRef.current?.querySelectorAll<HTMLElement>('.page:not(.medidor)') ?? [])
+      const { generarPdf } = await import('./lib/pdf')
+      await generarPdf(hojas, tamano, nombreArchivo(estado), (hoja, total) => setExportando({ hoja, total }))
+    } catch (e) {
+      console.error(e)
+      setErrorPdf('No se pudo generar el PDF. Intenta de nuevo; si sigue fallando, recarga la página.')
+    } finally {
+      setExportando(null)
+    }
   }
 
   function reiniciar() {
@@ -343,15 +357,20 @@ export default function App() {
                 Vista previa · el PDF se descarga desde la app desplegada
               </span>
             ) : (
-              <button type="button" className="btn primario" onClick={imprimir}>
-                Descargar PDF
+              <button type="button" className="btn primario" onClick={descargarPdf} disabled={exportando !== null}>
+                {exportando ? (exportando.total ? `Generando PDF… ${exportando.hoja}/${exportando.total}` : 'Generando PDF…') : 'Descargar PDF'}
               </button>
             )}
           </div>
         </div>
         {/* Tamaño de papel para imprimir / guardar como PDF */}
         <style>{`@page { size: ${tamano === 'a4' ? 'A4' : 'letter'}; margin: 0; }`}</style>
-        <div className={`hojas ${tamano}`} ref={vistaRef} style={{ zoom }}>
+        {errorPdf && (
+          <div className="alerta" role="alert" style={{ margin: '8px 18px 0' }}>
+            {errorPdf}
+          </div>
+        )}
+        <div className={`hojas ${tamano}${exportando ? ' modo-pdf' : ''}`} ref={vistaRef} style={{ zoom: exportando ? 1 : zoom }}>
           {plantilla === 'feedbak' && <Feedbak d={datos.feedbak} set={set('feedbak')} />}
           {plantilla === 'servicios' && <Servicios d={datos.servicios} set={set('servicios')} />}
           {plantilla === 'payroll' && <Payroll d={datos.payroll} set={set('payroll')} />}

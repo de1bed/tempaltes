@@ -7,6 +7,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
   build:
     mode === 'artifact'
-      ? { outDir: 'dist-artifact', assetsInlineLimit: () => true, cssCodeSplit: false }
+      ? { outDir: 'dist-artifact', assetsInlineLimit: () => true, cssCodeSplit: false, rollupOptions: { output: { inlineDynamicImports: true } } }
       : undefined,
 }))

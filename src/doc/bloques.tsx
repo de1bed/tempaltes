@@ -164,3 +164,9 @@ export function bloquesTabla({
     })),
   ]
 }
+
+/** El bloque anterior al cierre va junto con él: el cierre (firma, aprobación) nunca queda solo en una hoja. */
+export function conCierre(bloques: Bloque[]): Bloque[] {
+  const i = bloques.length - 2
+  return bloques.map((b, j) => (j === i ? { ...b, conSiguiente: true } : b))
+}

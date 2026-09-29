@@ -97,6 +97,7 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .btn { font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
 .btn.primario { background: var(--marca); color: #fff; }
 .btn.primario:hover { background: #083a48; }
+.btn:disabled { opacity: 0.7; cursor: progress; }
 .btn.secundario { background: #fff; color: var(--marca); border-color: #c9d3d7; }
 .btn.secundario:hover { background: #f1f5f6; }
 .btn.peligro { background: var(--peligro); color: #fff; }

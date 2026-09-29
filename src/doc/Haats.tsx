@@ -2,7 +2,7 @@ import { ligar, type Ligado } from '../lib/edicion'
 import { dinero, fechaEs, fechaEn, mesAnioEn, mesAnioEs, miles, num, primerNombre, traductor } from '../lib/formato'
 import { IMG } from '../lib/imagenes'
 import type { HaatsHorasData, HaatsMensualData, Idioma } from '../lib/modelo'
-import { bloquesLineas, bloquesSecciones, bloquesTabla } from './bloques'
+import { bloquesLineas, bloquesSecciones, bloquesTabla, conCierre } from './bloques'
 import { Editable } from './Editable'
 import { Paginado, type Bloque } from './Paginado'
 import { Aprobacion, Portada } from './Staffvia'
@@ -91,7 +91,7 @@ function Haats<T extends Datos>({ d, set, tabla }: { d: T; set: (p: Partial<T>) 
           mes={d.idioma === 'es' ? mesAnioEs(d.fecha) : mesAnioEn(d.fecha)}
         />
       )}
-      <Paginado clase="haats" claseContenido="letter" fondo={logo} bloques={bloques} />
+      <Paginado clase="haats" claseContenido="letter" fondo={logo} bloques={conCierre(bloques)} />
     </>
   )
 }
