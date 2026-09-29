@@ -1,6 +1,10 @@
 # Cotizador · Treve / Feedbak / Staffvia / HAATS
 
-Mini app para generar cotizaciones en PDF a partir de un formulario. Se llenan los datos del cliente a la izquierda, la vista previa se actualiza en vivo a la derecha y **Descargar PDF** abre el diálogo de impresión (guardar como PDF, tamaño A4) con el nombre del archivo ya puesto.
+Mini app para generar cotizaciones y contratos en PDF a partir de un formulario. Se llenan los datos del cliente a la izquierda, la vista previa se actualiza en vivo a la derecha y **Descargar PDF** abre el diálogo de impresión (guardar como PDF, tamaño A4) con el nombre del archivo ya puesto.
+
+## Tamaño de hoja y reparto en hojas
+
+Las hojas son **Carta** por defecto (el papel de las plantillas originales); en la barra superior se puede cambiar a **A4**. Todas las plantillas reparten su contenido solas: si una carta, una lista de términos o una tabla crece, lo que no cabe pasa a la hoja siguiente (las tablas largas repiten su encabezado). En Reclutamiento, HAATS y los términos se puede forzar un salto de hoja con una línea `---`.
 
 ## Plantillas
 

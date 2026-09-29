@@ -137,9 +137,10 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
       ),
     },
     {
-      // Los precios empiezan en hoja nueva, como en la plantilla original.
+      // Los precios empiezan en hoja nueva, como en la plantilla original, salvo que la
+      // carta ya haya pasado a otra hoja (entonces siguen ahí, sin dejar huecos).
       key: 'precios',
-      salto: true,
+      salto: 'primera',
       nodo: (
         <table style={{ marginTop: 4 }}>
           <thead>

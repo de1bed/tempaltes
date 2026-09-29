@@ -1,52 +1,85 @@
-import type { ReactNode } from 'react'
-import { contarHojas, ligar, type Ligado } from '../lib/edicion'
+import { ligar, type Ligado } from '../lib/edicion'
 import { dinero, fechaEs, fechaEn, mesAnioEn, mesAnioEs, miles, num, primerNombre, traductor } from '../lib/formato'
 import { IMG } from '../lib/imagenes'
 import type { HaatsHorasData, HaatsMensualData, Idioma } from '../lib/modelo'
-import { Editable, Lineas, Secciones } from './Editable'
+import { bloquesLineas, bloquesSecciones, bloquesTabla } from './bloques'
+import { Editable } from './Editable'
+import { Paginado, type Bloque } from './Paginado'
 import { Aprobacion, Portada } from './Staffvia'
 
 type Datos = HaatsMensualData | HaatsHorasData
 
-function Hoja({ children }: { children: ReactNode }) {
-  return (
-    <section className="page haats">
-      <img className="logo" src={IMG.haatsLogo} alt="HAATS" />
-      <div className="content">{children}</div>
-    </section>
-  )
-}
+/** Hoja membretada HAATS con logo; el contenido se reparte solo. */
+const logo = <img className="logo" src={IMG.haatsLogo} alt="HAATS" />
 
 /**
  * Cotizaciones HAATS (servicio especializado de enfermería): mensualidades por
  * periodo o tiempo extra por horas. Misma carta, términos y cierre.
  */
-function Haats<T extends Datos>({ d, set, tabla }: { d: T; set: (p: Partial<T>) => void; tabla: ReactNode }) {
+function Haats<T extends Datos>({ d, set, tabla }: { d: T; set: (p: Partial<T>) => void; tabla: Bloque[] }) {
   const t = traductor(d.idioma)
   const c$ = ligar(d as Datos, set as (p: Partial<Datos>) => void)
-  const hojas = contarHojas(d.secciones)
   const nombre = primerNombre(d.contacto) || t('[Nombre]', '[Name]')
-  const secciones = {
-    ...c$('secciones'),
-    id: 'secciones',
-    placeholder: t('Nuevo punto', 'New item'),
-    placeholderTitulo: t('Título de sección', 'Section title'),
-  }
-  const cierre = (
-    <div className="cierre">
-      <div>{t('Quedo a sus órdenes para cualquier duda o aclaración.', 'Please let me know if you have any questions.')}</div>
-      <div style={{ marginTop: 10 }}>{t('Atentamente,', 'Sincerely,')}</div>
-      <div className="firma">
-        <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
-      </div>
-      <div className="firma-puesto">
-        <Editable {...c$('firmantePuesto')} placeholder={t('Puesto', 'Title')} />
-      </div>
-      <div style={{ marginTop: 20 }}>
-        <Aprobacion idioma={d.idioma} />
-      </div>
-    </div>
-  )
+
+  const bloques: Bloque[] = [
+    {
+      key: 'encabezado',
+      nodo: (
+        <div className="pila">
+          <div className="fecha">
+            <Editable {...c$('ciudad')} placeholder={t('Ciudad', 'City')} />
+            {d.idioma === 'es' ? ` a ${fechaEs(d.fecha)}` : `, ${fechaEn(d.fecha)}`}
+          </div>
+          <div className="destinatario">
+            <div>
+              <Editable {...c$('contacto')} placeholder={t('Nombre del contacto', 'Contact name')} />
+            </div>
+            <div className={d.cargo.trim() ? undefined : 'vacio'}>
+              <Editable {...c$('cargo')} placeholder={t('Puesto (opcional)', 'Job title (optional)')} />
+            </div>
+            <div>
+              <Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />
+            </div>
+          </div>
+          <div className="saludo">{d.idioma === 'es' ? `${d.tratamiento} ${nombre}:` : `Dear ${nombre},`}</div>
+        </div>
+      ),
+    },
+    ...bloquesLineas({ ...c$('intro'), id: 'intro', placeholder: t('Párrafo', 'Paragraph'), como: 'p' }),
+    ...tabla,
+    {
+      key: 'nota-precios',
+      nodo: (
+        <div className={d.notaPrecios.trim() ? 'note' : 'note vacio'} style={{ marginTop: -4 }}>
+          <Editable {...c$('notaPrecios')} placeholder={t('Nota de precios (opcional)', 'Pricing note (optional)')} />
+        </div>
+      ),
+    },
+    ...bloquesSecciones({
+      ...c$('secciones'),
+      id: 'secciones',
+      placeholder: t('Nuevo punto', 'New item'),
+      placeholderTitulo: t('Título de sección', 'Section title'),
+    }),
+    {
+      key: 'cierre',
+      nodo: (
+        <div className="cierre">
+          <div>{t('Quedo a sus órdenes para cualquier duda o aclaración.', 'Please let me know if you have any questions.')}</div>
+          <div style={{ marginTop: 10 }}>{t('Atentamente,', 'Sincerely,')}</div>
+          <div className="firma">
+            <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
+          </div>
+          <div className="firma-puesto">
+            <Editable {...c$('firmantePuesto')} placeholder={t('Puesto', 'Title')} />
+          </div>
+          <div style={{ marginTop: 20 }}>
+            <Aprobacion idioma={d.idioma} />
+          </div>
+        </div>
+      ),
+    },
+  ]
 
   return (
     <>
@@ -58,37 +91,7 @@ function Haats<T extends Datos>({ d, set, tabla }: { d: T; set: (p: Partial<T>) 
           mes={d.idioma === 'es' ? mesAnioEs(d.fecha) : mesAnioEn(d.fecha)}
         />
       )}
-      <Hoja>
-        <div className="fecha">
-          <Editable {...c$('ciudad')} placeholder={t('Ciudad', 'City')} />
-          {d.idioma === 'es' ? ` a ${fechaEs(d.fecha)}` : `, ${fechaEn(d.fecha)}`}
-        </div>
-        <div className="destinatario">
-          <div>
-            <Editable {...c$('contacto')} placeholder={t('Nombre del contacto', 'Contact name')} />
-          </div>
-          <div className={d.cargo.trim() ? undefined : 'vacio'}>
-            <Editable {...c$('cargo')} placeholder={t('Puesto (opcional)', 'Job title (optional)')} />
-          </div>
-          <div>
-            <Editable {...c$('empresa')} placeholder={t('Empresa', 'Company')} />
-          </div>
-        </div>
-        <div className="saludo">{d.idioma === 'es' ? `${d.tratamiento} ${nombre}:` : `Dear ${nombre},`}</div>
-        <Lineas {...c$('intro')} como="p" id="intro" className="letter" placeholder={t('Párrafo', 'Paragraph')} />
-        {tabla}
-        <div className={d.notaPrecios.trim() ? 'note' : 'note vacio'}>
-          <Editable {...c$('notaPrecios')} placeholder={t('Nota de precios (opcional)', 'Pricing note (optional)')} />
-        </div>
-        <Secciones {...secciones} hoja={0} claseTitulo="h-sec" />
-        {hojas === 1 && cierre}
-      </Hoja>
-      {Array.from({ length: hojas - 1 }, (_, n) => (
-        <Hoja key={n}>
-          <Secciones {...secciones} hoja={n + 1} claseTitulo="h-sec" />
-          {n === hojas - 2 && cierre}
-        </Hoja>
-      ))}
+      <Paginado clase="haats" claseContenido="letter" fondo={logo} bloques={bloques} />
     </>
   )
 }
@@ -109,37 +112,40 @@ export function HaatsMensual({ d, set }: { d: HaatsMensualData; set: (p: Partial
     valor: d.periodos[i][k],
     onCambio: (v) => set({ periodos: d.periodos.map((p, j) => (j === i ? { ...p, [k]: v } : p)) }),
   })
-  const tabla = (
-    <table>
-      <thead>
+  const tabla = bloquesTabla({
+    key: 'periodos',
+    anchos: [undefined, '22%', '24%', '16%'],
+    encabezado: (
+      <>
         <Titulo ligado={ligar(d, set)('tituloTabla')} columnas={4} idioma={d.idioma} />
         <tr>
           <th className="cab">{t('Fecha de servicio', 'Service period')}</th>
-          <th className="cab" style={{ width: '22%' }}>{t('Mensualidad', 'Monthly fee')}</th>
-          <th className="cab" style={{ width: '24%' }}>{t('Precio por hora festivo laborado', 'Hourly price, worked holiday')}</th>
-          <th className="cab" style={{ width: '16%' }}>{t('Días de crédito', 'Credit days')}</th>
+          <th className="cab">{t('Mensualidad', 'Monthly fee')}</th>
+          <th className="cab">{t('Precio por hora festivo laborado', 'Hourly price, worked holiday')}</th>
+          <th className="cab">{t('Días de crédito', 'Credit days')}</th>
         </tr>
-      </thead>
-      <tbody>
-        {d.periodos.map((p, i) => (
-          <tr key={i}>
-            <td>
-              <Editable {...per$(i, 'periodo')} placeholder={t('Periodo', 'Period')} />
-            </td>
-            <td className="strong">
-              <Editable {...per$(i, 'mensualidad')} mostrar={dinero(num(p.mensualidad))} placeholder="$0.00" />
-            </td>
-            <td>
-              <Editable {...per$(i, 'precioHora')} mostrar={dinero(num(p.precioHora))} placeholder="$0.00" />
-            </td>
-            <td>
-              <Editable {...per$(i, 'credito')} placeholder={t('30 días', '30 days')} />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
+      </>
+    ),
+    filas: d.periodos.map((p, i) => ({
+      key: String(i),
+      nodo: (
+        <tr>
+          <td>
+            <Editable {...per$(i, 'periodo')} placeholder={t('Periodo', 'Period')} />
+          </td>
+          <td className="strong">
+            <Editable {...per$(i, 'mensualidad')} mostrar={dinero(num(p.mensualidad))} placeholder="$0.00" />
+          </td>
+          <td>
+            <Editable {...per$(i, 'precioHora')} mostrar={dinero(num(p.precioHora))} placeholder="$0.00" />
+          </td>
+          <td>
+            <Editable {...per$(i, 'credito')} placeholder={t('30 días', '30 days')} />
+          </td>
+        </tr>
+      ),
+    })),
+  })
   return <Haats d={d} set={set} tabla={tabla} />
 }
 
@@ -151,42 +157,46 @@ export function HaatsHoras({ d, set }: { d: HaatsHorasData; set: (p: Partial<Haa
   })
   const filas = d.filas.map((f) => ({ horas: num(f.horas), precio: num(f.precioHora), costo: num(f.horas) * num(f.precioHora) }))
   const total = filas.reduce((a, f) => a + f.costo, 0)
-  const tabla = (
-    <table>
-      <thead>
+  const tabla = bloquesTabla({
+    key: 'horas',
+    anchos: ['16%', undefined, '22%', '26%'],
+    encabezado: (
+      <>
         <Titulo ligado={ligar(d, set)('tituloTabla')} columnas={4} idioma={d.idioma} />
         <tr>
-          <th className="cab" style={{ width: '16%' }}>{t('Horas', 'Hours')}</th>
+          <th className="cab">{t('Horas', 'Hours')}</th>
           <th className="cab">{t('Turno', 'Shift')}</th>
-          <th className="cab" style={{ width: '22%' }}>{t('Precio por hora', 'Hourly price')}</th>
-          <th className="cab" style={{ width: '26%' }}>{t('Costo', 'Cost')}</th>
+          <th className="cab">{t('Precio por hora', 'Hourly price')}</th>
+          <th className="cab">{t('Costo', 'Cost')}</th>
         </tr>
-      </thead>
-      <tbody>
-        {d.filas.map((_, i) => (
-          <tr key={i}>
-            <td>
-              <Editable {...fila$(i, 'horas')} mostrar={miles(filas[i].horas)} placeholder="0" />
-            </td>
-            <td>
-              <Editable {...fila$(i, 'turno')} placeholder={t('Turno', 'Shift')} />
-            </td>
-            <td>
-              <Editable {...fila$(i, 'precioHora')} mostrar={dinero(filas[i].precio)} placeholder="$0.00" />
-            </td>
-            <td className="strong">{dinero(filas[i].costo)} MXN</td>
-          </tr>
-        ))}
-        {filas.length > 1 && (
-          <tr className="total">
-            <td>{miles(filas.reduce((a, f) => a + f.horas, 0))}</td>
-            <td>Total</td>
-            <td />
-            <td className="strong">{dinero(total)} MXN</td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  )
+      </>
+    ),
+    filas: d.filas.map((_, i) => ({
+      key: String(i),
+      nodo: (
+        <tr>
+          <td>
+            <Editable {...fila$(i, 'horas')} mostrar={miles(filas[i].horas)} placeholder="0" />
+          </td>
+          <td>
+            <Editable {...fila$(i, 'turno')} placeholder={t('Turno', 'Shift')} />
+          </td>
+          <td>
+            <Editable {...fila$(i, 'precioHora')} mostrar={dinero(filas[i].precio)} placeholder="$0.00" />
+          </td>
+          <td className="strong">{dinero(filas[i].costo)} MXN</td>
+        </tr>
+      ),
+    })),
+    pie:
+      filas.length > 1 ? (
+        <tr className="total">
+          <td>{miles(filas.reduce((a, f) => a + f.horas, 0))}</td>
+          <td>Total</td>
+          <td />
+          <td className="strong">{dinero(total)} MXN</td>
+        </tr>
+      ) : undefined,
+  })
   return <Haats d={d} set={set} tabla={tabla} />
 }

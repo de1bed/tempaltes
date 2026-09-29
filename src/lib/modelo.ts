@@ -492,7 +492,6 @@ Esta cotización no incluye servicio de transporte.
 Este precio está definido de acuerdo con el perfil, ubicación de la planta, actividades a realizar, salario, procesos operativos y de reclutamiento definidos, por lo que en caso de que se presente algún cambio, será necesario la reevaluación del precio final.
 Cualquier servicio adicional diverso a los expresamente señalados en el presente documento, tales como reportes especiales, equipo de protección personal, botas, cascos, caretas, cubre bocas, cofias, gorros, guantes, herramientas, etc.; serán motivo de una ulterior cotización y facturados de manera independiente, previo acuerdo con el cliente.
 No incluye trámite de carta de antecedentes no penales. En caso de que el cliente requiera este trámite, será necesaria una cotización adicional.
----
 ## Cotización en modalidad de contratado con garantía, incluye:
 Reclutamiento
 Expediente con documentación básica
@@ -518,7 +517,6 @@ Documentación:
 - RFC
 - CURP
 - Comprobante de domicilio
----
 ## Prestaciones:
 De ley
 Comedor subsidiado
@@ -541,7 +539,6 @@ This quote does not include transportation.
 This price is based on the defined profile, plant location, activities, salary, and operating and recruitment processes; if any of these change, the final price will need to be reassessed.
 Any additional service not expressly stated in this document, such as special reports, personal protective equipment, boots, helmets, face shields, face masks, hairnets, caps, gloves, tools, etc., will require a separate quote and will be invoiced independently, subject to prior agreement with the client.
 Criminal background letters are not included. If the client requires them, an additional quote will be needed.
----
 ## The guaranteed-hire modality includes:
 Recruitment
 File with basic documentation
@@ -567,7 +564,6 @@ Documents:
 - RFC (tax ID)
 - CURP
 - Proof of address
----
 ## Benefits:
 Statutory benefits
 Subsidized cafeteria
@@ -621,7 +617,6 @@ function seccionesHaats(idioma: Idioma, mensual: boolean): string {
   return [
     es ? '## TÉRMINOS Y CONDICIONES:' : '## TERMS AND CONDITIONS:',
     terminos,
-    '---',
     es ? '## COTIZACIÓN INCLUYE:' : '## THIS QUOTE INCLUDES:',
     incluye,
     es ? '## ADICIONALES' : '## ADDITIONAL TERMS',

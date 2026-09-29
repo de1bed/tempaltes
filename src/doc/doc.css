@@ -1,16 +1,18 @@
-/* Hojas A4 de las cotizaciones. Medidas en px a 96 dpi, iguales a las plantillas HTML originales. */
+/* Hojas de las cotizaciones (Carta por defecto; A4 con .hojas.a4). Medidas en px a 96 dpi. */
 
 .page {
   position: relative;
   box-sizing: border-box;
-  width: 210mm;
-  height: 297mm;
+  width: var(--pw, 215.9mm);
+  height: var(--ph, 279.4mm);
   overflow: hidden;
   background: #fff;
   font-family: Poppins, sans-serif;
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
+.hojas.a4 { --pw: 210mm; --ph: 297mm; }
+.hojas.carta { --pw: 215.9mm; --ph: 279.4mm; }
 .page * { box-sizing: border-box; }
 .page p { margin: 0; text-wrap: pretty; }
 .page ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; }
@@ -18,6 +20,21 @@
 .page .r { text-align: right; }
 .page .c { text-align: center; }
 .page .content { position: relative; z-index: 1; display: flex; flex-direction: column; }
+
+/* Contenido repartido por Paginado: bloques apilados, cada uno mide su alto real
+   (flow-root evita que los márgenes internos se salgan del bloque). */
+.page .content.paginado { display: block; gap: 0; }
+.page [data-bloque] { display: flow-root; padding-bottom: 12px; }
+.page [data-bloque][data-pegado] { padding-bottom: 0; }
+.page .pila { display: flex; flex-direction: column; gap: 12px; }
+.page .titulo-bloque { margin: 0 !important; padding-bottom: 6px; }
+.page ul.item { margin: 0 !important; padding-bottom: 4px; }
+.page ul.item.lg { padding-bottom: 5px; }
+.page ul.detalle { font-size: 10.5px; line-height: 1.55; color: #3C4E5A; }
+.page .nota-linea { font-size: 10px; line-height: 1.5; }
+/* Tablas partidas en bloques: mismas columnas; la línea entre filas la pone la fila de arriba. */
+.page table.partida { table-layout: fixed; }
+.page table.partida.fila-tabla td { border-top: 0; }
 
 /* Portadas a sangre */
 .cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -64,7 +81,15 @@
 .sv-cover .sub { font-size: 12px; color: #C6D3DF; }
 .sv-cover .month { font-size: 12px; letter-spacing: 1.5px; color: #C6D3DF; text-transform: uppercase; }
 
-.sv { color: #22333F; padding: 175px 88px 215px; background: #fff url(../assets/sv-letterhead.png) center / 100% 100% no-repeat; }
+.sv {
+  color: #22333F;
+  padding: 175px 88px 232px;
+  /* Hoja membretada armada por piezas para no deformarse en Carta ni en A4 */
+  background:
+    url(../assets/sv-header.png) top center / 100% auto no-repeat,
+    url(../assets/sv-footer.png) bottom center / 100% auto no-repeat,
+    linear-gradient(200deg, #FFFFFF 0%, #FDFDFD 25%, #EEF0F2 70%, #D9DDE1 100%);
+}
 .sv .content { gap: 12px; }
 .sv .content.block { display: block; }
 .sv .muted { color: #5C6C77; }

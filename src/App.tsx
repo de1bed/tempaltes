@@ -114,6 +114,9 @@ export default function App() {
   const [menuAbierto, setMenuAbierto] = useState<boolean>(() => leerPreferencia('menuAbierto', false))
   const [gruposCerrados, setGruposCerrados] = useState<string[]>(() => leerPreferencia('gruposCerrados', []))
   useEffect(() => guardarPreferencia('menuAbierto', menuAbierto), [menuAbierto])
+  // Tamaño de hoja: Carta (el papel que usan en México) o A4.
+  const [tamano, setTamano] = useState<'carta' | 'a4'>(() => leerPreferencia('tamano', 'carta'))
+  useEffect(() => guardarPreferencia('tamano', tamano), [tamano])
   useEffect(() => guardarPreferencia('gruposCerrados', gruposCerrados), [gruposCerrados])
 
   useEffect(() => {
@@ -143,7 +146,7 @@ export default function App() {
     setDesbordadas((prev) => (prev.join() === malas.join() ? prev : malas))
   }, [])
 
-  useLayoutEffect(revisarDesbordes, [estado, zoom, revisarDesbordes])
+  useLayoutEffect(revisarDesbordes, [estado, zoom, tamano, revisarDesbordes])
 
   // Los contratos se reparten en hojas después de medir; al cambiar las hojas se vuelve a revisar.
   useEffect(() => {
@@ -299,6 +302,19 @@ export default function App() {
               +
             </button>
           </div>
+          <div className="tamano" role="group" aria-label="Tamaño de hoja">
+            <span>Hoja</span>
+            {(
+              [
+                ['carta', 'Carta'],
+                ['a4', 'A4'],
+              ] as const
+            ).map(([id, texto]) => (
+              <button key={id} type="button" className={tamano === id ? 'activo' : undefined} aria-pressed={tamano === id} onClick={() => setTamano(id)}>
+                {texto}
+              </button>
+            ))}
+          </div>
           <span className="pista">Haz clic en cualquier texto resaltado de la hoja para editarlo.</span>
           {desbordadas.length > 0 && (
             <div className="alerta" role="status">
@@ -333,7 +349,9 @@ export default function App() {
             )}
           </div>
         </div>
-        <div className="hojas" ref={vistaRef} style={{ zoom }}>
+        {/* Tamaño de papel para imprimir / guardar como PDF */}
+        <style>{`@page { size: ${tamano === 'a4' ? 'A4' : 'letter'}; margin: 0; }`}</style>
+        <div className={`hojas ${tamano}`} ref={vistaRef} style={{ zoom }}>
           {plantilla === 'feedbak' && <Feedbak d={datos.feedbak} set={set('feedbak')} />}
           {plantilla === 'servicios' && <Servicios d={datos.servicios} set={set('servicios')} />}
           {plantilla === 'payroll' && <Payroll d={datos.payroll} set={set('payroll')} />}
