@@ -1,4 +1,5 @@
 import { PLANTILLAS, type PlantillaId, type TipoDocumento } from '../lib/modelo'
+import { IMG } from '../lib/imagenes'
 import { SECCIONES, type Seccion } from '../lib/secciones'
 
 function Icono({ tipo }: { tipo: Seccion['tipo'] }) {
@@ -33,7 +34,8 @@ export function Inicio({ abrir }: { abrir: (tipo: TipoDocumento, plantilla?: Pla
     <div className="inicio">
       <div className="inicio-centro">
         <header className="inicio-cab">
-          <div className="marca-kicker">TREVE · FEEDBAK · STAFFVIA · HAATS</div>
+          <img className="inicio-logo" src={IMG.treveLogo} alt="Treve · Better people, better business." />
+          <div className="marca-kicker">FEEDBAK · STAFFVIA · HAATS</div>
           <h1>¿Qué quieres hacer hoy?</h1>
         </header>
 

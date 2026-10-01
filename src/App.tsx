@@ -18,6 +18,7 @@ import {
   FormReclutamiento,
   FormServicios,
 } from './ui/Formularios'
+import { IMG } from './lib/imagenes'
 import { SECCIONES } from './lib/secciones'
 import { Inicio } from './ui/Inicio'
 
@@ -253,12 +254,17 @@ export default function App() {
     <div className="app">
       <aside className="panel">
         <header className="marca">
-          <button type="button" className="volver" onClick={irAInicio}>
-            <svg viewBox="0 0 12 12" aria-hidden="true">
-              <path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            Inicio
-          </button>
+          <div className="marca-fila">
+            <button type="button" className="marca-logo" onClick={irAInicio} aria-label="Ir al inicio">
+              <img src={IMG.treveLogo} alt="" />
+            </button>
+            <button type="button" className="volver" onClick={irAInicio}>
+              <svg viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Inicio
+            </button>
+          </div>
           <h1>{datosSeccion.titulo}</h1>
         </header>
 
