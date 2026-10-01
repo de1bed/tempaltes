@@ -467,9 +467,38 @@ function validacionesGenerales(libro: Libro, d: CorridaData, r: ReturnType<typeo
   ]
 }
 
+/**
+ * Hojas ocultas de la plantilla general (Sheet5 y "33 Hilos ") que son copias del resumen
+ * de Simulacion pegadas como valores de una corrida anterior. Nóminas pide que también
+ * reflejen la corrida nueva: se pegan los valores de Simulacion fila por fila, solo donde
+ * el concepto coincide. Regresa cuántas celdas se actualizaron.
+ */
+const COPIAS_RESUMEN: [hoja: string, columnas: [concepto: string, monto: string][]][] = [
+  ['Sheet5', [['C', 'D']]],
+  ['33 Hilos ', [['C', 'D'], ['H', 'I']]],
+]
+
+function actualizarCopiasResumen(libro: Libro): { hoja: string; celdas: number }[] {
+  return COPIAS_RESUMEN.filter(([hoja]) => libro.hojas.includes(hoja)).map(([hoja, columnas]) => {
+    let celdas = 0
+    for (const [colConcepto, colMonto] of columnas) {
+      for (let f = 6; f <= 29; f++) {
+        const concepto = libro.valor(hoja, `${colConcepto}${f}`)
+        const original = libro.valor('Simulacion', `C${f}`)
+        if (typeof concepto !== 'string' || typeof original !== 'string' || concepto.trim() !== original.trim()) continue
+        if (libro.formula(hoja, `${colMonto}${f}`) !== undefined) continue
+        libro.capturar(hoja, `${colMonto}${f}`, { valor: monto(libro, 'Simulacion', `D${f}`) })
+        celdas++
+      }
+    }
+    return { hoja: hoja.trim(), celdas }
+  })
+}
+
 function general(d: GeneralData): ResultadoCorrida {
   const tr = t(d.idioma)
   const { libro, objetivo } = libroGeneral(d)
+  const copias = actualizarCopiasResumen(libro)
   const r = lineasGenerales(libro, d)
   const total = linea(libro, 'Simulacion', 'D29', tr('Costo nómina semanal', 'Weekly payroll cost'), d.idioma)
   return {
@@ -481,7 +510,16 @@ function general(d: GeneralData): ResultadoCorrida {
     total,
     objetivo,
     supuestos: [tr('Plantilla: corrida general Treve – formato completo aprobado (2026-08-19).', 'Template: approved Treve general payroll run – full format (2026-08-19).'), ...supuestosGenerales(d, libro, objetivo)],
-    validaciones: [validarObjetivo(objetivo, d), ...validacionesGenerales(libro, d, r), noCero(total.monto, 'Costo nómina'), ...pendientes(d)],
+    validaciones: [
+      validarObjetivo(objetivo, d),
+      ...validacionesGenerales(libro, d, r),
+      noCero(total.monto, 'Costo nómina'),
+      ...copias.map(({ hoja, celdas }) => ({
+        ok: casi(monto(libro, hoja === '33 Hilos' ? '33 Hilos ' : hoja, 'D21'), r.netoSodexo.monto) && celdas > 0,
+        texto: `Hoja oculta ${hoja} (copia del resumen) actualizada con esta corrida (${celdas} montos)`,
+      })),
+      ...pendientes(d),
+    ],
     faltantes: datosCriticos('general', d),
     libros: [{ plantilla: 'general', libro }],
   }

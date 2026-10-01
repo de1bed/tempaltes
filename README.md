@@ -72,7 +72,7 @@ Tres formatos, cada uno con **su** plantilla aprobada (no se mezclan):
 
 **Descargas**
 
-- **Descargar Excel**: copia limpia de la plantilla aprobada con los datos capturados; **cada fórmula lleva su valor ya calculado** (nunca abre en ceros o en blanco) y el libro se marca para recalcular al abrir. Hojas, fórmulas, formato y comentarios quedan intactos.
+- **Descargar Excel**: copia limpia de la plantilla aprobada con los datos capturados; **cada fórmula lleva su valor ya calculado** (nunca abre en ceros o en blanco) y el libro se marca para recalcular al abrir. Hojas, fórmulas, formato y comentarios quedan intactos. En la corrida general, las hojas ocultas `Sheet5` y `33 Hilos ` (copias del resumen pegadas como valores) se actualizan con la corrida nueva, como pedía Nóminas; `Sheet1`–`Sheet3` son comparativos históricos y no se tocan.
 - **PDF**: resumen de una o dos hojas con la imagen de Treve.
 - **Validación**: JSON con entradas, supuestos, resultados, validaciones y las celdas capturadas.
 

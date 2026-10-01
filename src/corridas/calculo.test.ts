@@ -128,6 +128,20 @@ describe('Corrida general Treve', () => {
     expect(r.total.monto).toBeCloseTo(9894.26, 2)
   })
 
+  it('las hojas ocultas con copia del resumen (Sheet5, 33 Hilos) se actualizan con la corrida', () => {
+    const r = general({ objetivo: 'netoSodexo', monto: '6500', sodexo: '200' })
+    const libro = r.libros[0].libro
+    // Como en la entrega validada del 2026-07-20: Simulacion, Sheet5 y 33 Hilos muestran 6,500.
+    for (const [hoja, celda] of [['Simulacion', 'D21'], ['Sheet5', 'D21'], ['33 Hilos ', 'D21'], ['33 Hilos ', 'I21']]) {
+      expect(libro.numero(hoja, celda), `${hoja}!${celda}`).toBeCloseTo(6500, 1)
+    }
+    expect(libro.numero('Sheet5', 'D29')).toBeCloseTo(r.total.monto, 6)
+    // El caso del 2026-07-20 dio SD 916.75 con la plantilla anterior; con la aprobada el 2026-08-19
+    // da 914.62, el mismo salario del caso de Xochitl (SD 914.62 → neto + Sodexo 6,500.01).
+    expect(r.salarioDiario).toBe(914.62)
+    expect(sinErrores(r)).toEqual([])
+  })
+
   it('SD 1,000 sin Sodexo: ISR e IMSS documentados', () => {
     const r = general({ objetivo: 'salarioDiario', monto: '1000', sodexo: '0' })
     expect(r.deducciones[1].monto).toBe(1364.98)
