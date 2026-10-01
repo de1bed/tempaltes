@@ -4,7 +4,7 @@ import { ContratoLicencia, Nda } from './doc/Contratos'
 import { HaatsHoras, HaatsMensual } from './doc/Haats'
 import { Bonos, Gmm, Payroll, Reclutamiento, Servicios } from './doc/Staffvia'
 import { hoyISO } from './lib/formato'
-import { cambiarIdioma, datosIniciales, PLANTILLAS, type Datos, type Idioma, type PlantillaId } from './lib/modelo'
+import { cambiarIdioma, datosIniciales, PLANTILLAS, type Datos, type Idioma, type PlantillaId, type TipoDocumento } from './lib/modelo'
 import { PRODUCTOS } from './lib/tabuladores'
 import {
   FormBonos,
@@ -18,13 +18,17 @@ import {
   FormReclutamiento,
   FormServicios,
 } from './ui/Formularios'
+import { SECCIONES } from './lib/secciones'
+import { Inicio } from './ui/Inicio'
 
 const CLAVE = 'cotizador:v1'
 
-const GRUPOS = [
-  { tipo: 'cotizacion', titulo: 'Cotizaciones' },
-  { tipo: 'contrato', titulo: 'Contratos' },
-] as const
+/** Sección abierta según la dirección (#cotizaciones, #contratos); sin nada es la pantalla de inicio. */
+const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos' }
+function seccionDeRuta(): TipoDocumento | null {
+  const ruta = window.location.hash.replace(/^#\/?/, '')
+  return (Object.keys(RUTAS) as TipoDocumento[]).find((t) => RUTAS[t] === ruta) ?? null
+}
 
 interface Estado {
   plantilla: PlantillaId
@@ -102,8 +106,32 @@ function nombreArchivo(e: Estado): string {
   }
 }
 
+/** Formato a mostrar en una sección: el actual si es de ahí, si no el último usado o el primero. */
+function plantillaPara(tipo: TipoDocumento, actual: PlantillaId): PlantillaId {
+  if (PLANTILLAS.find((p) => p.id === actual)?.tipo === tipo) return actual
+  const ultima = leerPreferencia<Partial<Record<TipoDocumento, PlantillaId>>>('ultimas', {})[tipo]
+  return ultima && PLANTILLAS.some((p) => p.id === ultima && p.tipo === tipo) ? ultima : PLANTILLAS.find((p) => p.tipo === tipo)!.id
+}
+
+function enSeccion(e: Estado, tipo: TipoDocumento | null): Estado {
+  if (!tipo) return e
+  const plantilla = plantillaPara(tipo, e.plantilla)
+  return plantilla === e.plantilla ? e : { ...e, plantilla }
+}
+
 export default function App() {
-  const [estado, setEstado] = useState<Estado>(cargar)
+  const [estado, setEstado] = useState<Estado>(() => enSeccion(cargar(), seccionDeRuta()))
+  const [seccion, setSeccion] = useState<TipoDocumento | null>(seccionDeRuta)
+  // Atrás/Adelante del navegador: inicio ↔ sección.
+  useEffect(() => {
+    const alCambiar = () => {
+      const tipo = seccionDeRuta()
+      setSeccion(tipo)
+      setEstado((e) => enSeccion(e, tipo))
+    }
+    window.addEventListener('hashchange', alCambiar)
+    return () => window.removeEventListener('hashchange', alCambiar)
+  }, [])
   const { plantilla, datos } = estado
   const vistaRef = useRef<HTMLDivElement>(null)
   const [desbordadas, setDesbordadas] = useState<number[]>([])
@@ -112,12 +140,10 @@ export default function App() {
   const actual = PLANTILLAS.find((p) => p.id === plantilla) ?? PLANTILLAS[0]
   // Menú de plantillas plegable; se recuerda en este navegador.
   const [menuAbierto, setMenuAbierto] = useState<boolean>(() => leerPreferencia('menuAbierto', false))
-  const [gruposCerrados, setGruposCerrados] = useState<string[]>(() => leerPreferencia('gruposCerrados', []))
   useEffect(() => guardarPreferencia('menuAbierto', menuAbierto), [menuAbierto])
   // Tamaño de hoja: Carta (el papel que usan en México) o A4.
   const [tamano, setTamano] = useState<'carta' | 'a4'>(() => leerPreferencia('tamano', 'carta'))
   useEffect(() => guardarPreferencia('tamano', tamano), [tamano])
-  useEffect(() => guardarPreferencia('gruposCerrados', gruposCerrados), [gruposCerrados])
 
   useEffect(() => {
     try {
@@ -162,7 +188,27 @@ export default function App() {
       observador.disconnect()
       cancelAnimationFrame(cuadro)
     }
-  }, [revisarDesbordes])
+  }, [revisarDesbordes, seccion])
+
+  function elegir(id: PlantillaId) {
+    const tipo = PLANTILLAS.find((p) => p.id === id)?.tipo
+    setEstado((e) => ({ ...e, plantilla: id }))
+    // Último formato usado en cada sección, para regresar a él desde el inicio.
+    if (tipo) guardarPreferencia('ultimas', { ...leerPreferencia('ultimas', {}), [tipo]: id })
+  }
+
+  function abrir(tipo: TipoDocumento, id?: PlantillaId) {
+    elegir(id ?? plantillaPara(tipo, plantilla))
+    setMenuAbierto(false)
+    setSeccion(tipo)
+    window.location.hash = RUTAS[tipo]
+  }
+
+  function irAInicio() {
+    setSeccion(null)
+    // Quita el #seccion sin dejar un "#" suelto en la dirección.
+    history.pushState(null, '', window.location.pathname + window.location.search)
+  }
 
   function set<K extends PlantillaId>(k: K) {
     return (parcial: Partial<Datos[K]>) =>
@@ -199,12 +245,21 @@ export default function App() {
     setConfirmando(false)
   }
 
+  if (!seccion) return <Inicio abrir={abrir} />
+  const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
+  const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
+
   return (
     <div className="app">
       <aside className="panel">
         <header className="marca">
-          <div className="marca-kicker">TREVE · FEEDBAK · STAFFVIA · HAATS</div>
-          <h1>Cotizador</h1>
+          <button type="button" className="volver" onClick={irAInicio}>
+            <svg viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Inicio
+          </button>
+          <h1>{datosSeccion.titulo}</h1>
         </header>
 
         <nav className="menu" aria-label="Plantillas">
@@ -218,55 +273,35 @@ export default function App() {
           >
             <span className="menu-texto">
               <span className="plantilla-meta">
-                {actual.tipo === 'contrato' ? 'Contrato' : 'Cotización'} · {actual.marca} · {datos[plantilla].idioma.toUpperCase()}
+                {actual.marca} · {datos[plantilla].idioma.toUpperCase()}
               </span>
               <span>{actual.nombre}</span>
             </span>
-            <span className="menu-accion">{menuAbierto ? 'Ocultar' : 'Cambiar'}</span>
+            <span className="menu-accion">{menuAbierto ? 'Ocultar' : `Cambiar (${lista.length})`}</span>
             <svg className={menuAbierto ? 'chevron abierto' : 'chevron'} viewBox="0 0 12 12" aria-hidden="true">
               <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
 
           <div id="menu-plantillas" className="plantillas" hidden={!menuAbierto}>
-            {GRUPOS.map((g) => {
-              const lista = PLANTILLAS.filter((p) => p.tipo === g.tipo)
-              return (
-                <details
-                  key={g.tipo}
-                  className="grupo"
-                  open={!gruposCerrados.includes(g.tipo)}
-                  onToggle={(e) => {
-                    const abierto = (e.currentTarget as HTMLDetailsElement).open
-                    setGruposCerrados((prev) => (abierto ? prev.filter((x) => x !== g.tipo) : prev.includes(g.tipo) ? prev : [...prev, g.tipo]))
-                  }}
-                >
-                  <summary className="grupo-titulo">
-                    {g.titulo} <span className="grupo-cuenta">{lista.length}</span>
-                  </summary>
-                  <div className="grupo-lista">
-                    {lista.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className={p.id === plantilla ? 'plantilla activa' : 'plantilla'}
-                        style={{ borderLeftColor: p.color }}
-                        onClick={() => {
-                          setEstado((e) => ({ ...e, plantilla: p.id }))
-                          setMenuAbierto(false)
-                        }}
-                        aria-pressed={p.id === plantilla}
-                      >
-                        <span className="plantilla-meta">
-                          {p.marca} · {datos[p.id].idioma.toUpperCase()}
-                        </span>
-                        <span>{p.nombre}</span>
-                      </button>
-                    ))}
-                  </div>
-                </details>
-              )
-            })}
+            {lista.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className={p.id === plantilla ? 'plantilla activa' : 'plantilla'}
+                style={{ borderLeftColor: p.color }}
+                onClick={() => {
+                  elegir(p.id)
+                  setMenuAbierto(false)
+                }}
+                aria-pressed={p.id === plantilla}
+              >
+                <span className="plantilla-meta">
+                  {p.marca} · {datos[p.id].idioma.toUpperCase()}
+                </span>
+                <span>{p.nombre}</span>
+              </button>
+            ))}
           </div>
         </nav>
 

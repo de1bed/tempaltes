@@ -1,6 +1,10 @@
 # Cotizador · Treve / Feedbak / Staffvia / HAATS
 
-Mini app para generar cotizaciones y contratos en PDF a partir de un formulario. Se llenan los datos del cliente a la izquierda, la vista previa se actualiza en vivo a la derecha y **Descargar PDF** abre el diálogo de impresión (guardar como PDF, tamaño A4) con el nombre del archivo ya puesto.
+Mini app para generar cotizaciones y contratos en PDF a partir de un formulario. Se llenan los datos del cliente a la izquierda, la vista previa se actualiza en vivo a la derecha y **Descargar PDF** genera el PDF en la propia app (Carta o A4, igual en cualquier navegador, también iPhone) con el nombre del archivo ya puesto.
+
+## Pantalla de inicio
+
+Al abrir la app aparece **¿Qué quieres hacer hoy?** con tres secciones: **Cotizaciones**, **Contratos** y **Corridas** (próximamente). Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`.
 
 ## Tamaño de hoja y reparto en hojas
 
@@ -40,7 +44,7 @@ Feedbak permite elegir entre 3 portadas o ninguna. Staffvia y HAATS permiten la 
 
 ## Contratos
 
-En el menú, la sección **Contratos** tiene el contrato de licencia y servicios de Feedbak y el contrato de confidencialidad (NDA). Funcionan igual que las cotizaciones (formulario, edición en la hoja, español/inglés, PDF), con dos diferencias:
+La sección **Contratos** tiene el contrato de licencia y servicios de Feedbak y el contrato de confidencialidad (NDA). Funcionan igual que las cotizaciones (formulario, edición en la hoja, español/inglés, PDF), con dos diferencias:
 
 - **Las hojas se reparten solas**: el texto se mide y se acomoda en hojas A4; un título de cláusula nunca queda solo al final de una hoja. El pie lleva "Página X de N" y, en el contrato, el número de contrato.
 - **Formato del texto**: `## ` cláusula (se numera sola), `### ` subtítulo, `- ` inciso a), b)…, cualquier otra línea es un párrafo. `{cliente}`, `{proveedor}`, `{vigencia}`, `{inicio}`, `{renovacion}`, `{representante}`, `{fecha}`, etc. se llenan con el formulario. La fecha de renovación se calcula con la vigencia (anual o semestral).
