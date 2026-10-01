@@ -18,6 +18,11 @@ import {
   FormReclutamiento,
   FormServicios,
 } from './ui/Formularios'
+import { calcularCorrida } from './corridas/calculo'
+import { Corrida } from './corridas/Documento'
+import { descargarExcel, descargarValidacion, nombreCorrida } from './corridas/descargas'
+import { FormCorrida } from './corridas/Formulario'
+import type { CorridaId } from './corridas/tipos'
 import { IMG } from './lib/imagenes'
 import { SECCIONES } from './lib/secciones'
 import { Inicio } from './ui/Inicio'
@@ -25,7 +30,7 @@ import { Inicio } from './ui/Inicio'
 const CLAVE = 'cotizador:v1'
 
 /** Sección abierta según la dirección (#cotizaciones, #contratos); sin nada es la pantalla de inicio. */
-const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos' }
+const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos', corrida: 'corridas' }
 function seccionDeRuta(): TipoDocumento | null {
   const ruta = window.location.hash.replace(/^#\/?/, '')
   return (Object.keys(RUTAS) as TipoDocumento[]).find((t) => RUTAS[t] === ruta) ?? null
@@ -104,6 +109,10 @@ function nombreArchivo(e: Estado): string {
       return `${es ? 'Contrato' : 'Agreement'} Feedbak ${e.datos.licencia.numero} - ${empresa} - ${fecha}`
     case 'nda':
       return `NDA Feedbak - ${empresa} - ${fecha}`
+    case 'kofile':
+    case 'general':
+    case 'hilos33':
+      return nombreCorrida(e.plantilla, e.datos[e.plantilla])
   }
 }
 
@@ -241,6 +250,26 @@ export default function App() {
     }
   }
 
+  // Corridas: Excel sobre la plantilla aprobada y resumen de validación.
+  const esCorrida = actual.tipo === 'corrida'
+  const corrida = esCorrida ? (plantilla as CorridaId) : null
+  // Si falta un dato crítico no se genera nada (el formulario dice qué falta).
+  const corridaBloqueada = corrida ? calcularCorrida(corrida, datos[corrida]).faltantes.length > 0 : false
+  const [generandoExcel, setGenerandoExcel] = useState(false)
+  async function bajarExcel() {
+    if (!corrida) return
+    setErrorPdf('')
+    setGenerandoExcel(true)
+    try {
+      await descargarExcel(corrida, datos[corrida])
+    } catch (e) {
+      console.error(e)
+      setErrorPdf(`No se pudo generar el Excel: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setGenerandoExcel(false)
+    }
+  }
+
   function reiniciar() {
     setEstado((e) => ({ ...e, datos: { ...e.datos, [e.plantilla]: datosIniciales()[e.plantilla] } }))
     setConfirmando(false)
@@ -343,6 +372,7 @@ export default function App() {
           {plantilla === 'haatsHoras' && <FormHaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
           {plantilla === 'licencia' && <FormLicencia d={datos.licencia} set={set('licencia')} />}
           {plantilla === 'nda' && <FormNda d={datos.nda} set={set('nda')} />}
+          {corrida && <FormCorrida id={corrida} d={datos[corrida]} set={set(corrida)} />}
         </form>
       </aside>
 
@@ -370,7 +400,9 @@ export default function App() {
               </button>
             ))}
           </div>
-          <span className="pista">Haz clic en cualquier texto resaltado de la hoja para editarlo.</span>
+          <span className="pista">
+            {esCorrida ? 'Los montos salen de la plantilla aprobada; cambia los datos en el formulario.' : 'Haz clic en cualquier texto resaltado de la hoja para editarlo.'}
+          </span>
           {desbordadas.length > 0 && (
             <div className="alerta" role="status">
               El contenido no cabe en la hoja {desbordadas.join(', ')}: acorta textos o quita filas.
@@ -395,8 +427,20 @@ export default function App() {
             {/* El visor de artifacts bloquea window.print(); ahí se ofrece la versión desplegada. */}
             {import.meta.env.MODE === 'artifact' ? (
               <span className="aviso-pdf" title="Clona el repo de1bed/tempaltes o usa la versión en Vercel para descargar PDF">
-                Vista previa · el PDF se descarga desde la app desplegada
+                {esCorrida ? 'Vista previa · el Excel y el PDF se descargan desde la app desplegada' : 'Vista previa · el PDF se descarga desde la app desplegada'}
               </span>
+            ) : corrida ? (
+              <>
+                <button type="button" className="btn secundario" onClick={() => descargarValidacion(corrida, datos[corrida])} title="Entradas, supuestos, resultados y validaciones en JSON">
+                  Validación
+                </button>
+                <button type="button" className="btn secundario" onClick={descargarPdf} disabled={exportando !== null || corridaBloqueada}>
+                  {exportando ? 'Generando PDF…' : 'PDF'}
+                </button>
+                <button type="button" className="btn primario" onClick={bajarExcel} disabled={generandoExcel || corridaBloqueada} title={corridaBloqueada ? 'Completa los datos marcados en el formulario' : undefined}>
+                  {generandoExcel ? 'Generando Excel…' : 'Descargar Excel'}
+                </button>
+              </>
             ) : (
               <button type="button" className="btn primario" onClick={descargarPdf} disabled={exportando !== null}>
                 {exportando ? (exportando.total ? `Generando PDF… ${exportando.hoja}/${exportando.total}` : 'Generando PDF…') : 'Descargar PDF'}
@@ -423,6 +467,7 @@ export default function App() {
           {plantilla === 'haatsHoras' && <HaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
           {plantilla === 'licencia' && <ContratoLicencia d={datos.licencia} set={set('licencia')} />}
           {plantilla === 'nda' && <Nda d={datos.nda} set={set('nda')} />}
+          {corrida && <Corrida id={corrida} d={datos[corrida]} />}
         </div>
       </main>
     </div>

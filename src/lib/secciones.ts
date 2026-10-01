@@ -2,7 +2,7 @@ import type { TipoDocumento } from './modelo'
 
 /** Lo que se puede hacer desde la pantalla de inicio. */
 export interface Seccion {
-  tipo: TipoDocumento | 'corrida'
+  tipo: TipoDocumento
   titulo: string
   singular: string
   descripcion: string
@@ -28,7 +28,7 @@ export const SECCIONES: Seccion[] = [
     tipo: 'corrida',
     titulo: 'Corridas',
     singular: 'Corrida',
-    descripcion: 'Aquí van a estar los formatos de corridas.',
+    descripcion: 'Simulaciones salariales Kofile, General Treve y 33 Hilos con las plantillas aprobadas, en Excel y PDF.',
     color: '#E2601A',
   },
 ]

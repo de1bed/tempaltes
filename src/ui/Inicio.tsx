@@ -42,14 +42,14 @@ export function Inicio({ abrir }: { abrir: (tipo: TipoDocumento, plantilla?: Pla
         <div className="inicio-tarjetas">
           {SECCIONES.map((s) => {
             const lista = PLANTILLAS.filter((p) => p.tipo === s.tipo)
-            const disponible = s.tipo !== 'corrida' && lista.length > 0
+            const disponible = lista.length > 0
             return (
               <section key={s.tipo} className={disponible ? 'tarjeta' : 'tarjeta pronto'} style={{ borderTopColor: s.color }}>
                 <button
                   type="button"
                   className="tarjeta-cab"
                   disabled={!disponible}
-                  onClick={() => disponible && abrir(s.tipo as TipoDocumento)}
+                  onClick={() => disponible && abrir(s.tipo)}
                 >
                   <span className="tarjeta-icono" style={{ color: s.color }}>
                     <Icono tipo={s.tipo} />
@@ -62,7 +62,7 @@ export function Inicio({ abrir }: { abrir: (tipo: TipoDocumento, plantilla?: Pla
                   <ul className="tarjeta-lista" aria-label={`Formatos de ${s.titulo.toLowerCase()}`}>
                     {lista.map((p) => (
                       <li key={p.id}>
-                        <button type="button" onClick={() => abrir(s.tipo as TipoDocumento, p.id)}>
+                        <button type="button" onClick={() => abrir(s.tipo, p.id)}>
                           <span className="punto" style={{ background: p.color }} />
                           <span className="tarjeta-marca">{p.marca}</span>
                           {p.nombre}

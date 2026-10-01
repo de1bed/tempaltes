@@ -4,7 +4,7 @@ Mini app para generar cotizaciones y contratos en PDF a partir de un formulario.
 
 ## Pantalla de inicio
 
-Al abrir la app aparece **¿Qué quieres hacer hoy?** con tres secciones: **Cotizaciones**, **Contratos** y **Corridas** (próximamente). Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`.
+Al abrir la app aparece **¿Qué quieres hacer hoy?** con tres secciones: **Cotizaciones**, **Contratos** y **Corridas**. Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`, `#corridas`.
 
 ## Tamaño de hoja y reparto en hojas
 
@@ -50,6 +50,33 @@ La sección **Contratos** tiene el contrato de licencia y servicios de Feedbak y
 - **Formato del texto**: `## ` cláusula (se numera sola), `### ` subtítulo, `- ` inciso a), b)…, cualquier otra línea es un párrafo. `{cliente}`, `{proveedor}`, `{vigencia}`, `{inicio}`, `{renovacion}`, `{representante}`, `{fecha}`, etc. se llenan con el formulario. La fecha de renovación se calcula con la vigencia (anual o semestral).
 
 Los textos de los contratos están en `src/lib/contratos.ts`.
+
+## Corridas (simulaciones salariales)
+
+Tres formatos, cada uno con **su** plantilla aprobada (no se mezclan):
+
+| Formato | Plantilla aprobada | Periodo |
+| --- | --- | --- |
+| Simulación extendida **Kofile** | `Simulaciones_2026_cat_10082026_KOFILE_BASE_RECIBIDA_2026-08-19.xlsx` | Catorcenal |
+| Corrida **General Treve** (formato completo) | `Simulaciones_2026_para_David_FORMATO_COMPLETO_APROBADO_2026-08-19.xlsx` | Semanal |
+| Formato **33 Hilos** | `Estructura_Corrida_33_Hilos_BASE.xlsx` (montos de la corrida general) | Semanal |
+
+**Cómo funciona**
+
+- **Se calcula con las fórmulas del propio Excel.** La app trae un motor que lee y evalúa las fórmulas de la plantilla tal cual (`src/corridas/motor/`): no hay fórmulas propias de nómina. Las pruebas verifican que reproduce *todas* las fórmulas de las 3 plantillas igual que Excel y que da los mismos números que los ejemplos enviados por Nóminas.
+- **Se elige qué fijar**: salario diario, bruto del periodo (total de percepciones), bruto mensual, neto o neto + Sodexo. Para un bruto o neto, la app **busca el salario diario** que llega al monto (lo que antes se hacía "jugando con los números") con 2 decimales (centavos) o 6 (cierre exacto).
+- Los datos se capturan en las mismas celdas que se usaban a mano (`Calculo!D19` salario diario, `Calculo!D64` Sodexo, etc.). En Kofile, "sin séptimo día" pone `Calculo!D36 = 0`, los días de vacaciones ajustan la fórmula de `Calculo!D44` y el bono de desempeño fijo va en `Calculo!E19`, como en los ejemplos.
+- **Kofile, esquema**: *Nómina* (hoja Simulacion: ISR por tabla + IMSS) o *Asimilado* (bloque "Genérica" de Simulacion Asimilado: ISR catorcenal de IMPUESTOS KOFILE + invoice bi-weekly con service fee, medical, life insurance y TC).
+- **Bloqueos y pendientes**: sin puesto o sin monto no se genera nada. Los conceptos que la plantilla no tiene (prima dominical, bono de turno, transporte, horas extra, fondo de ahorro en la general…) se marcan como **pendientes**: aparecen en la corrida y en la validación, pero no se calculan.
+- **Validación** (panel del formulario): objetivo alcanzado, resumen = `Calculo` (percepciones `D55`, deducciones `D62`), neto = percepciones − deducciones, neto + Sodexo, invoice = subtotal + fee, celdas clave sin ceros ni errores.
+
+**Descargas**
+
+- **Descargar Excel**: copia limpia de la plantilla aprobada con los datos capturados; **cada fórmula lleva su valor ya calculado** (nunca abre en ceros o en blanco) y el libro se marca para recalcular al abrir. Hojas, fórmulas, formato y comentarios quedan intactos.
+- **PDF**: resumen de una o dos hojas con la imagen de Treve.
+- **Validación**: JSON con entradas, supuestos, resultados, validaciones y las celdas capturadas.
+
+**Actualizar una plantilla** (p. ej. nuevas tablas de ISR o UMA): reemplazar el `.xlsx` en `src/corridas/plantillas/` (mismo nombre: `kofile.xlsx`, `general.xlsx` o `hilos33.xlsx`), correr `python3 scripts/extraer-plantillas-corridas.py` (requiere `openpyxl`) y `npm test`. Si las celdas de captura cambian de lugar, ajustar `src/corridas/calculo.ts`. Los ejemplos de Nóminas usados en las pruebas están en `src/corridas/pruebas/`.
 
 ## Tabuladores Feedbak
 

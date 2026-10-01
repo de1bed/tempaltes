@@ -1,6 +1,7 @@
 import { hoyISO } from './formato'
 import { LICENCIA, NDA, type ContratoLicenciaData, type NdaData } from './contratos'
 import type { Moneda, ProductoFeedbak } from './tabuladores'
+import { corridasIniciales, type GeneralData, type Hilos33Data, type KofileData } from '../corridas/tipos'
 
 export type { ContratoLicenciaData, NdaData } from './contratos'
 
@@ -185,11 +186,14 @@ export interface Datos {
   haatsHoras: HaatsHorasData
   licencia: ContratoLicenciaData
   nda: NdaData
+  kofile: KofileData
+  general: GeneralData
+  hilos33: Hilos33Data
 }
 
 export type PlantillaId = keyof Datos
 
-export type TipoDocumento = 'cotizacion' | 'contrato'
+export type TipoDocumento = 'cotizacion' | 'contrato' | 'corrida'
 
 export const PLANTILLAS: { id: PlantillaId; marca: string; nombre: string; color: string; tipo: TipoDocumento }[] = [
   { id: 'feedbak', marca: 'Feedbak', nombre: 'Licenciamiento Mi Kiosko / Checador', color: '#6FC08D', tipo: 'cotizacion' },
@@ -203,6 +207,9 @@ export const PLANTILLAS: { id: PlantillaId; marca: string; nombre: string; color
   { id: 'haatsHoras', marca: 'HAATS', nombre: 'Tiempo extra por horas', color: '#1B944B', tipo: 'cotizacion' },
   { id: 'licencia', marca: 'Feedbak', nombre: 'Contrato de licencia y servicios', color: '#0B4C5E', tipo: 'contrato' },
   { id: 'nda', marca: 'Feedbak', nombre: 'Contrato de confidencialidad (NDA)', color: '#6FC08D', tipo: 'contrato' },
+  { id: 'kofile', marca: 'Kofile', nombre: 'Simulación extendida Kofile', color: '#E2601A', tipo: 'corrida' },
+  { id: 'general', marca: 'Treve', nombre: 'Corrida general Treve', color: '#13294B', tipo: 'corrida' },
+  { id: 'hilos33', marca: '33 Hilos', nombre: 'Corrida formato 33 Hilos', color: '#C9A227', tipo: 'corrida' },
 ]
 
 /* ───────── Textos editables con versión en cada idioma ───────── */
@@ -652,6 +659,10 @@ const TEXTOS: { [K in PlantillaId]: Textos<Datos[K]> } = {
   haatsHoras: HAATS_HORAS,
   licencia: LICENCIA,
   nda: NDA,
+  // Las corridas no tienen textos largos que traducir: el idioma solo cambia las etiquetas.
+  kofile: { es: {}, en: {} },
+  general: { es: {}, en: {} },
+  hilos33: { es: {}, en: {} },
 }
 
 /**
@@ -859,6 +870,7 @@ export function datosIniciales(): Datos {
       cuerpo: '',
       ...NDA.es,
     },
+    ...corridasIniciales(),
   }
 }
 
