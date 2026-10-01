@@ -22,7 +22,45 @@ function valorXml(v: Valor, esFormula: boolean): { t?: string; contenido: string
   return esFormula ? { t: 'str', contenido: `<v>${escapar(v)}</v>` } : { t: 'inlineStr', contenido: `<is><t xml:space="preserve">${escapar(v)}</t></is>` }
 }
 
-function reescribirHoja(xml: string, hoja: string, cambios: Map<string, Cambio>): string {
+const columna = (ref: string) => {
+  let c = 0
+  for (const ch of /^[A-Z]+/.exec(ref)![0]) c = c * 26 + ch.charCodeAt(0) - 64
+  return c
+}
+const fila = (ref: string) => Number(/\d+$/.exec(ref)![0])
+
+function celdaXml(ref: string, estilo: string, formulaOriginal: string, cambio: Cambio): string {
+  const formula = cambio.formula !== undefined ? `<f>${escapar(cambio.formula)}</f>` : cambio.quitarFormula ? '' : formulaOriginal
+  const { t, contenido } = valorXml(cambio.valor, Boolean(formula))
+  return `<c r="${ref}"${estilo}${t ? ` t="${t}"` : ''}>${formula}${contenido}</c>`
+}
+
+/** Agrega una celda que la plantilla no tiene, en su fila y columna (creando la fila si hace falta). */
+function insertarCelda(xml: string, ref: string, celda: string): string {
+  const f = fila(ref)
+  const filaRe = new RegExp(`<row r="${f}"([^>]*?)(\\/>|>([\\s\\S]*?)<\\/row>)`)
+  const m = filaRe.exec(xml)
+  if (m) {
+    const interior = m[3] ?? ''
+    // Antes de la primera celda con columna mayor, o al final de la fila.
+    let pos = interior.length
+    for (const c of interior.matchAll(/<c r="([A-Z]+)\d+"/g)) {
+      if (columna(c[1]) > columna(ref)) {
+        pos = c.index!
+        break
+      }
+    }
+    const nueva = `<row r="${f}"${m[1]}>${interior.slice(0, pos)}${celda}${interior.slice(pos)}</row>`
+    return xml.slice(0, m.index) + nueva + xml.slice(m.index + m[0].length)
+  }
+  // La fila no existe: va antes de la primera fila mayor (o al final de sheetData).
+  for (const r of xml.matchAll(/<row r="(\d+)"/g)) {
+    if (Number(r[1]) > f) return xml.slice(0, r.index) + `<row r="${f}">${celda}</row>` + xml.slice(r.index)
+  }
+  return xml.replace('</sheetData>', `<row r="${f}">${celda}</row></sheetData>`)
+}
+
+function reescribirHoja(xml: string, hoja: string, cambios: Map<string, Cambio>, estilos: Record<string, string> = {}): string {
   const pendientes = new Set(cambios.keys())
   const resultado = xml.replace(/<c r="([A-Z]+\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, (original, ref: string, attrs: string, interior = '') => {
     const cambio = cambios.get(ref)
@@ -33,12 +71,18 @@ function reescribirHoja(xml: string, hoja: string, cambios: Map<string, Cambio>)
     if (f && /t="shared"/.test(f) && /\sref="/.test(f) && (cambio.quitarFormula || cambio.formula !== undefined)) {
       throw new Error(`${hoja}!${ref} es la fórmula base de un grupo compartido; no se puede reemplazar sin romper las demás`)
     }
-    const formula = cambio.formula !== undefined ? `<f>${escapar(cambio.formula)}</f>` : cambio.quitarFormula ? '' : f
-    const { t, contenido } = valorXml(cambio.valor, Boolean(formula))
-    return `<c r="${ref}"${estilo}${t ? ` t="${t}"` : ''}>${formula}${contenido}</c>`
+    return celdaXml(ref, estilo, f, cambio)
   })
-  if (pendientes.size) throw new Error(`La hoja ${hoja} no tiene las celdas ${[...pendientes].join(', ')} en la plantilla`)
-  return resultado
+  // Celdas nuevas (p. ej. la línea "Otras percepciones" del resumen): solo las que se pidieron
+  // con formato de referencia; cualquier otra celda faltante es un error de mapeo.
+  let salida = resultado
+  for (const ref of pendientes) {
+    const fuente = estilos[ref]
+    if (!fuente) throw new Error(`La hoja ${hoja} no tiene la celda ${ref} en la plantilla`)
+    const estilo = new RegExp(`<c r="${fuente}"[^>]*?(\\ss="\\d+")`).exec(salida)?.[1] ?? ''
+    salida = insertarCelda(salida, ref, celdaXml(ref, estilo, '', cambios.get(ref)!))
+  }
+  return salida
 }
 
 /** Rutas de las hojas dentro del .xlsx, por nombre. */
@@ -62,7 +106,11 @@ async function rutasDeHojas(zip: JSZip): Promise<Map<string, string>> {
 
 const desescapar = (s: string) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
 
-export async function escribirExcel(plantilla: ArrayBuffer | Uint8Array, libro: Libro): Promise<Uint8Array> {
+/**
+ * @param estilos celdas nuevas → celda de la misma hoja de la que toman el formato,
+ *   con clave "Hoja!Celda" (ver ResultadoCorrida.estilosExcel).
+ */
+export async function escribirExcel(plantilla: ArrayBuffer | Uint8Array, libro: Libro, estilos: Record<string, string> = {}): Promise<Uint8Array> {
   const zip = await JSZip.loadAsync(plantilla)
   const rutas = await rutasDeHojas(zip)
 
@@ -81,7 +129,12 @@ export async function escribirExcel(plantilla: ArrayBuffer | Uint8Array, libro: 
     const ruta = rutas.get(hoja)
     if (!ruta) throw new Error(`El archivo no tiene la hoja "${hoja}"`)
     const xml = await zip.file(ruta)!.async('string')
-    zip.file(ruta, reescribirHoja(xml, hoja, cambios))
+    const estilosHoja = Object.fromEntries(
+      Object.entries(estilos)
+        .filter(([k]) => k.slice(0, k.lastIndexOf('!')) === hoja)
+        .map(([k, v]) => [k.slice(k.lastIndexOf('!') + 1), v]),
+    )
+    zip.file(ruta, reescribirHoja(xml, hoja, cambios, estilosHoja))
   }
 
   // La cadena de cálculo guardada ya no corresponde si se reemplazó alguna fórmula: Excel la reconstruye.

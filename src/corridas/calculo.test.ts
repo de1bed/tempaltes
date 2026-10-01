@@ -97,11 +97,14 @@ describe('Kofile (simulación extendida)', () => {
     expect(kofile({ esquema: 'asimilado', objetivo: 'netoSodexo', monto: '1' }).faltantes).toHaveLength(1)
   })
 
-  it('marca conceptos no soportados como pendientes, sin calcularlos', () => {
-    const r = kofile({ objetivo: 'salarioDiario', monto: '1000', pendientes: ['primaDominical'] })
+  it('marca como pendientes los conceptos que el formato no tiene, sin calcularlos', () => {
+    // Kofile no tiene renglón para bono de turno: no se calcula, queda como pendiente.
+    const base = kofile({ objetivo: 'salarioDiario', monto: '1000' })
+    const r = kofile({ objetivo: 'salarioDiario', monto: '1000', extras: { bonoTurno: '500' } })
     const p = r.validaciones.filter((v) => v.nivel === 'pendiente')
     expect(p).toHaveLength(1)
-    expect(p[0].texto).toMatch(/Prima dominical/)
+    expect(p[0].texto).toMatch(/Bono de turno/)
+    expect(r.totalPercepciones.monto).toBe(base.totalPercepciones.monto)
   })
 })
 
@@ -176,5 +179,46 @@ describe('robustez', () => {
         }
       }
     }
+  })
+})
+
+describe('otros conceptos (prima dominical, horas extra, bonos)', () => {
+  it('general: entran a Calculo, el resumen los incluye y todo cuadra con Calculo!D55', () => {
+    const r = general({ objetivo: 'salarioDiario', monto: '560.39', sodexo: '0', extras: { primaDominical: '140.10', bonoTransporte: '300', bonoTurno: '200' } })
+    const libro = r.libros[0].libro
+    expect(libro.numero('Calculo', 'D41')).toBe(140.1)
+    expect(libro.numero('Calculo', 'D49')).toBe(500)
+    expect(libro.numero('Simulacion', 'D11')).toBeCloseTo(640.1, 6)
+    expect(r.totalPercepciones.monto).toBeCloseTo(libro.numero('Calculo', 'D55'), 6)
+    expect(r.percepciones.map((l) => l.concepto)).toEqual(expect.arrayContaining(['Prima dominical', 'Bono de turno', 'Bono de transporte']))
+    expect(sinErrores(r)).toEqual([])
+  })
+
+  it('general: con un neto objetivo, el salario se ajusta contando los conceptos', () => {
+    const sin = general({ objetivo: 'neto', monto: '8000', sodexo: '0' })
+    const con = general({ objetivo: 'neto', monto: '8000', sodexo: '0', extras: { bonoTransporte: '500' } })
+    expect(con.salarioDiario).toBeLessThan(sin.salarioDiario)
+    expect(Math.abs(con.neto.monto - 8000)).toBeLessThan(0.5)
+    expect(sinErrores(con)).toEqual([])
+  })
+
+  it('Kofile: prima dominical y horas extra en Calculo; nómina y asimilado cuadran', () => {
+    for (const esquema of ['nomina', 'asimilado'] as const) {
+      const r = kofile({ esquema, objetivo: 'salarioDiario', monto: '1000', extras: { primaDominical: '250', horasExtraDobles: '800' } })
+      const libro = r.libros[0].libro
+      expect(libro.numero('Calculo', 'D41')).toBe(250)
+      expect(libro.numero('Calculo', 'D37')).toBe(800)
+      expect(libro.numero('Simulacion', 'D16')).toBeCloseTo(libro.numero('Calculo', 'D55'), 6)
+      expect(libro.numero('Simulacion Asimilado ', 'AW16')).toBeCloseTo(libro.numero('Calculo', 'D55'), 6)
+      expect(sinErrores(r)).toEqual([])
+    }
+  })
+
+  it('33 Hilos: la línea de otras percepciones entra al bruto y a la factura', () => {
+    const r = hilos({ objetivo: 'salarioDiario', monto: '914.62', extras: { bonoTurno: '300' } })
+    const libro = r.libros[0].libro
+    expect(libro.numero('33 Hilos ', 'F11')).toBe(300)
+    expect(libro.numero('33 Hilos ', 'F10')).toBeCloseTo(7682.808 + 300, 6)
+    expect(sinErrores(r)).toEqual([])
   })
 })

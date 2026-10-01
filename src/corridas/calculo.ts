@@ -3,7 +3,8 @@ import generalJson from './plantillas/general.json'
 import hilos33Json from './plantillas/hilos33.json'
 import kofileJson from './plantillas/kofile.json'
 import {
-  CONCEPTOS_NO_SOPORTADOS,
+  CONCEPTOS_EXTRA,
+  type ConceptoExtra,
   type CorridaData,
   type CorridaId,
   type GeneralData,
@@ -73,6 +74,8 @@ export interface ResultadoCorrida {
   faltantes: string[]
   /** Libros con los datos capturados, para escribir el Excel. */
   libros: { plantilla: CorridaId; libro: Libro }[]
+  /** Celdas nuevas en el Excel → celda de la que toman el formato (misma hoja). */
+  estilosExcel: Record<string, string>
 }
 
 const num = (s: string | undefined) => {
@@ -211,13 +214,74 @@ function datosCriticos(id: CorridaId, d: CorridaData): string[] {
   return faltan
 }
 
-function pendientes(d: CorridaData): Validacion[] {
-  return d.pendientes.map((p) => ({
-    ok: false,
-    nivel: 'pendiente' as const,
-    texto: `${CONCEPTOS_NO_SOPORTADOS[p]}: no existe en la plantilla aprobada; queda pendiente de confirmar con Nóminas (no se calculó).`,
-  }))
+/**
+ * Renglón de la hoja Calculo donde entra cada concepto adicional. Son renglones que ya
+ * existen en la plantilla y que Calculo suma a percepciones y grava con sus propias
+ * exenciones (horas extra: Calculo!E37; prima dominical: Calculo!E41). Los conceptos sin
+ * renglón en un formato no se calculan: quedan como pendientes.
+ */
+const CELDAS_EXTRA: Record<'kofile' | 'general', Partial<Record<ConceptoExtra, string>>> = {
+  kofile: { primaDominical: 'D41', horasExtraDobles: 'D37', horasExtraTriples: 'D38' },
+  general: {
+    primaDominical: 'D41',
+    horasExtraDobles: 'D37',
+    horasExtraTriples: 'D38',
+    // "Otras Percepciones" (Calculo!D49): gravado completo.
+    bonoTurno: 'D49',
+    bonoTransporte: 'D49',
+    fondoAhorro: 'D49',
+    otrasPercepciones: 'D49',
+  },
 }
+
+/** Celda de Calculo donde entra el concepto en esta corrida (undefined = la plantilla no lo tiene). */
+export function celdaConcepto(id: CorridaId, c: ConceptoExtra): string | undefined {
+  return CELDAS_EXTRA[id === 'kofile' ? 'kofile' : 'general'][c]
+}
+
+const EXTRAS_EN: Record<ConceptoExtra, string> = {
+  primaDominical: 'Sunday premium',
+  horasExtraDobles: 'Double overtime',
+  horasExtraTriples: 'Triple overtime',
+  bonoTurno: 'Shift bonus',
+  bonoTransporte: 'Transportation bonus',
+  fondoAhorro: 'Savings fund',
+  otrasPercepciones: 'Other income',
+}
+
+/** Captura los conceptos adicionales en Calculo y regresa una línea por concepto (para la hoja y los números). */
+function capturarExtras(libro: Libro, id: CorridaId, d: CorridaData): Linea[] {
+  const lineasExtra: Linea[] = []
+  const porCelda = new Map<string, number>()
+  for (const c of Object.keys(CONCEPTOS_EXTRA) as ConceptoExtra[]) {
+    const m = num(d.extras?.[c])
+    const celda = celdaConcepto(id, c)
+    if (!m || !celda) continue
+    porCelda.set(celda, (porCelda.get(celda) ?? 0) + m)
+    lineasExtra.push({ concepto: d.idioma === 'es' ? CONCEPTOS_EXTRA[c] : EXTRAS_EN[c], monto: m, celda: `Calculo!${celda}` })
+  }
+  for (const [celda, m] of porCelda) libro.capturar('Calculo', celda, { valor: m })
+  return lineasExtra
+}
+
+/** Conceptos con monto que este formato no tiene: se informan, no se calculan. */
+function pendientes(id: CorridaId, d: CorridaData): Validacion[] {
+  return (Object.keys(CONCEPTOS_EXTRA) as ConceptoExtra[])
+    .filter((c) => num(d.extras?.[c]) !== 0 && !celdaConcepto(id, c))
+    .map((c) => ({
+      ok: false,
+      nivel: 'pendiente' as const,
+      texto: `${CONCEPTOS_EXTRA[c]} (${dinero(num(d.extras?.[c]))}): la plantilla ${id === 'kofile' ? 'Kofile' : ''} no tiene renglón para este concepto; queda pendiente de confirmar con Nóminas (no se calculó).`.replace('  ', ' '),
+    }))
+}
+
+function supuestoExtras(extras: Linea[], idioma: 'es' | 'en'): string[] {
+  if (!extras.length) return []
+  const lista = extras.map((l) => `${l.concepto} ${dinero(l.monto)} (${l.celda})`).join(', ')
+  return [idioma === 'es' ? `Otros conceptos capturados en la hoja Calculo de la plantilla: ${lista}.` : `Other items captured in the template's Calculo sheet: ${lista}.`]
+}
+
+const ETIQUETA_OTRAS = { es: 'Otras percepciones (incluidas en el total)', en: 'Other income (included in total)' }
 
 function noCero(valor: number, nombre: string): Validacion {
   return { ok: Number.isFinite(valor) && valor > 0, texto: `${nombre} con valor (${dinero(valor)})` }
@@ -298,6 +362,17 @@ function kofile(d: KofileData): ResultadoCorrida {
   const tr = t(d.idioma)
   const libro = new Libro(PLANTILLAS_CORRIDA.kofile)
   capturarKofile(libro, d)
+  const extras = capturarExtras(libro, 'kofile', d)
+  const estilosExcel: Record<string, string> = {}
+  if (extras.length) {
+    // El resumen (Simulacion) no lista estos renglones de Calculo: se agrega una línea que los
+    // incluye en el total, para que percepciones, ISR y neto sigan cuadrando con Calculo!D55.
+    libro.capturar('Simulacion', 'C17', { valor: ETIQUETA_OTRAS.es })
+    libro.capturar('Simulacion', 'D17', { formula: 'SUM(Calculo!D37:D43)+SUM(Calculo!D52:D54)' })
+    libro.capturar('Simulacion', 'D16', { formula: 'SUM(D6:D15)+D17' })
+    libro.capturar(SIM_ASIM, 'AW16', { formula: 'SUM(AW6:AW15)+Simulacion!D17' })
+    Object.assign(estilosExcel, { 'Simulacion!C17': 'C15', 'Simulacion!D17': 'D15' })
+  }
   const asim = d.esquema === 'asimilado'
   const objetivo = resolverObjetivo(
     'kofile',
@@ -325,13 +400,14 @@ function kofile(d: KofileData): ResultadoCorrida {
       : tr('Bono de desempeño mensual según la plantilla (salario mensual ÷ 2.17 por catorcena).', 'Monthly performance bonus per template (monthly salary ÷ 2.17 per period).'),
   ]
   if (objetivo.tipo === 'brutoMensual') supuestos.push(tr(`Salario diario = bruto mensual ÷ ${monto(libro, 'Calculo', 'J55')} (factor mensual de la plantilla).`, `Daily salary = gross monthly ÷ ${monto(libro, 'Calculo', 'J55')} (template monthly factor).`))
+  supuestos.push(...supuestoExtras(extras, d.idioma))
 
   const validaciones: Validacion[] = [validarObjetivo(objetivo, d), noCero(sd, 'Salario diario')]
-  let r: Omit<ResultadoCorrida, 'objetivo' | 'supuestos' | 'validaciones' | 'faltantes' | 'libros' | 'id' | 'salarioDiario' | 'periodo'>
+  let r: Omit<ResultadoCorrida, 'objetivo' | 'supuestos' | 'validaciones' | 'faltantes' | 'libros' | 'id' | 'salarioDiario' | 'periodo' | 'estilosExcel'>
   if (!asim) {
     const S = 'Simulacion'
     r = {
-      percepciones: lineas(libro, S, 'C', 'D', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15], i),
+      percepciones: [...lineas(libro, S, 'C', 'D', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15], i), ...extras],
       totalPercepciones: linea(libro, S, 'D16', tr('Total percepciones', 'Total income'), i),
       deducciones: lineas(libro, S, 'C', 'D', [19, 20, 21], i),
       totalDeducciones: linea(libro, S, 'D22', tr('Total deducciones', 'Total deductions'), i),
@@ -358,7 +434,7 @@ function kofile(d: KofileData): ResultadoCorrida {
   } else {
     const A = SIM_ASIM
     r = {
-      percepciones: lineas(libro, A, 'AV', 'AW', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15], i).map((l) => ({ ...l, concepto: limpiarBilingue(l.concepto, i) })),
+      percepciones: [...lineas(libro, A, 'AV', 'AW', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15], i).map((l) => ({ ...l, concepto: limpiarBilingue(l.concepto, i) })), ...extras],
       totalPercepciones: linea(libro, A, 'AW16', tr('Total percepciones', 'Total income'), i),
       deducciones: [linea(libro, A, 'AW20', tr('ISR asimilado (IMPUESTOS KOFILE)', 'Assimilated income tax (IMPUESTOS KOFILE)'), i)],
       totalDeducciones: linea(libro, A, 'AW21', tr('Total deducciones', 'Total deductions'), i),
@@ -396,9 +472,10 @@ function kofile(d: KofileData): ResultadoCorrida {
     ...r,
     objetivo,
     supuestos,
-    validaciones: [...validaciones, ...pendientes(d)],
+    validaciones: [...validaciones, ...pendientes('kofile', d)],
     faltantes: datosCriticos('kofile', d),
     libros: [{ plantilla: 'kofile', libro }],
+    estilosExcel,
   }
 }
 
@@ -415,15 +492,25 @@ function libroGeneral(d: CorridaData) {
   const libro = new Libro(PLANTILLAS_CORRIDA.general)
   libro.capturar('Calculo', 'D64', { valor: num(d.sodexo) })
   libro.capturar('Simulacion', 'D15', { valor: num(d.ajusteMoneda) })
+  const extras = capturarExtras(libro, 'general', d)
+  const estilosExcel: Record<string, string> = {}
+  if (extras.length) {
+    // Simulacion solo suma sueldo, séptimo y bonos (D6:D9): se agrega una línea con el resto
+    // de percepciones de Calculo para que el total siga igual a Calculo!D55.
+    libro.capturar('Simulacion', 'C11', { valor: ETIQUETA_OTRAS.es })
+    libro.capturar('Simulacion', 'D11', { formula: 'SUM(Calculo!D37:D46)+SUM(Calculo!D49:D54)' })
+    libro.capturar('Simulacion', 'D10', { formula: 'SUM(D6:D9)+D11' })
+    Object.assign(estilosExcel, { 'Simulacion!C11': 'C9', 'Simulacion!D11': 'D9' })
+  }
   const objetivo = resolverObjetivo('general', d, libro, {
     brutoPeriodo: ['Simulacion', 'D10'],
     neto: ['Simulacion', 'D19'],
     netoSodexo: ['Simulacion', 'D21'],
   })
-  return { libro, objetivo }
+  return { libro, objetivo, extras, estilosExcel }
 }
 
-function supuestosGenerales(d: CorridaData, libro: Libro, objetivo: ResultadoCorrida['objetivo']): string[] {
+function supuestosGenerales(d: CorridaData, libro: Libro, objetivo: ResultadoCorrida['objetivo'], extras: Linea[]): string[] {
   const tr = t(d.idioma)
   const s = [
     tr(`Periodo semanal (${monto(libro, 'Calculo', 'D9')} días de pago), como en la plantilla.`, `Weekly period (${monto(libro, 'Calculo', 'D9')} pay days), as in the template.`),
@@ -432,15 +519,16 @@ function supuestosGenerales(d: CorridaData, libro: Libro, objetivo: ResultadoCor
   ]
   if (objetivo.tipo === 'brutoMensual') s.push(tr(`Salario diario = bruto mensual ÷ ${monto(libro, 'Calculo', 'J55')} (factor mensual de la plantilla).`, `Daily salary = gross monthly ÷ ${monto(libro, 'Calculo', 'J55')} (template monthly factor).`))
   if (num(d.ajusteMoneda) !== 0) s.push(tr(`Ajuste moneda: ${dinero(num(d.ajusteMoneda))}.`, `Currency adjustment: ${dinero(num(d.ajusteMoneda))}.`))
+  s.push(...supuestoExtras(extras, d.idioma))
   return s
 }
 
-function lineasGenerales(libro: Libro, d: CorridaData) {
+function lineasGenerales(libro: Libro, d: CorridaData, extras: Linea[]) {
   const tr = t(d.idioma)
   const i = d.idioma
   const S = 'Simulacion'
   return {
-    percepciones: lineas(libro, S, 'C', 'D', [6, 7, 8, 9], i),
+    percepciones: [...lineas(libro, S, 'C', 'D', [6, 7, 8, 9], i), ...extras],
     totalPercepciones: linea(libro, S, 'D10', tr('Total percepciones', 'Total income'), i),
     deducciones: lineas(libro, S, 'C', 'D', [13, 14, 15], i),
     totalDeducciones: linea(libro, S, 'D16', tr('Total deducciones', 'Total deductions'), i),
@@ -497,9 +585,9 @@ function actualizarCopiasResumen(libro: Libro): { hoja: string; celdas: number }
 
 function general(d: GeneralData): ResultadoCorrida {
   const tr = t(d.idioma)
-  const { libro, objetivo } = libroGeneral(d)
+  const { libro, objetivo, extras, estilosExcel } = libroGeneral(d)
   const copias = actualizarCopiasResumen(libro)
-  const r = lineasGenerales(libro, d)
+  const r = lineasGenerales(libro, d, extras)
   const total = linea(libro, 'Simulacion', 'D29', tr('Costo nómina semanal', 'Weekly payroll cost'), d.idioma)
   return {
     id: 'general',
@@ -509,7 +597,7 @@ function general(d: GeneralData): ResultadoCorrida {
     costos: [linea(libro, 'Simulacion', 'D31', tr('Provisión de finiquito (FQ)', 'Termination provision'), d.idioma)],
     total,
     objetivo,
-    supuestos: [tr('Plantilla: corrida general Treve – formato completo aprobado (2026-08-19).', 'Template: approved Treve general payroll run – full format (2026-08-19).'), ...supuestosGenerales(d, libro, objetivo)],
+    supuestos: [tr('Plantilla: corrida general Treve – formato completo aprobado (2026-08-19).', 'Template: approved Treve general payroll run – full format (2026-08-19).'), ...supuestosGenerales(d, libro, objetivo, extras)],
     validaciones: [
       validarObjetivo(objetivo, d),
       ...validacionesGenerales(libro, d, r),
@@ -518,10 +606,11 @@ function general(d: GeneralData): ResultadoCorrida {
         ok: casi(monto(libro, hoja === '33 Hilos' ? '33 Hilos ' : hoja, 'D21'), r.netoSodexo.monto) && celdas > 0,
         texto: `Hoja oculta ${hoja} (copia del resumen) actualizada con esta corrida (${celdas} montos)`,
       })),
-      ...pendientes(d),
+      ...pendientes('general', d),
     ],
     faltantes: datosCriticos('general', d),
     libros: [{ plantilla: 'general', libro }],
+    estilosExcel,
   }
 }
 
@@ -529,8 +618,8 @@ function general(d: GeneralData): ResultadoCorrida {
 
 function hilos33(d: Hilos33Data): ResultadoCorrida {
   const tr = t(d.idioma)
-  const { libro: gen, objetivo } = libroGeneral(d)
-  const r = lineasGenerales(gen, d)
+  const { libro: gen, objetivo, extras } = libroGeneral(d)
+  const r = lineasGenerales(gen, d, extras)
   // El formato 33 Hilos es de presentación: recibe los montos de la corrida general.
   const h = new Libro(PLANTILLAS_CORRIDA.hilos33)
   const S = (c: string) => monto(gen, 'Simulacion', c)
@@ -553,6 +642,12 @@ function hilos33(d: Hilos33Data): ResultadoCorrida {
     ['N3', num(d.costosAdministrativos)],
   ]
   for (const [celda, valor] of pasar) h.capturar(HILOS, celda, { valor })
+  if (extras.length) {
+    // Igual que en la corrida general: una línea con las otras percepciones, incluida en el bruto.
+    h.capturar(HILOS, 'D11', { valor: d.idioma === 'es' ? ETIQUETA_OTRAS.es : 'Other income (included in gross)' })
+    h.capturar(HILOS, 'F11', { valor: S('D11') })
+    h.capturar(HILOS, 'F10', { formula: 'SUM(F6:F9)+F11' })
+  }
   if (d.puesto.trim()) {
     h.capturar(HILOS, 'B3', { valor: d.puesto.trim() })
     h.capturar(HILOS, 'I3', { valor: d.puesto.trim() })
@@ -570,6 +665,7 @@ function hilos33(d: Hilos33Data): ResultadoCorrida {
       L('F7', 'Séptimo día', 'Seventh day'),
       L('F8', 'Bono de puntualidad', 'Punctuality bonus'),
       L('F9', 'Bono de asistencia', 'Attendance bonus'),
+      ...extras,
     ],
     totalPercepciones: L('F10', 'Salario bruto semanal', 'Weekly gross salary'),
     deducciones: [L('F13', 'IMSS (trabajador)', 'IMSS (Housing Fund)'), L('F14', 'ISPT (impuesto trabajador)', 'ISPT (Tax Worker)'), L('F15', 'Ajuste moneda', 'Currency adjustments')],
@@ -589,7 +685,7 @@ function hilos33(d: Hilos33Data): ResultadoCorrida {
     objetivo,
     supuestos: [
       tr('Formato 33 Hilos (Estructura_Corrida_33_Hilos_BASE) con montos de la corrida general Treve aprobada.', '33 Hilos format (Estructura_Corrida_33_Hilos_BASE) with amounts from the approved Treve general payroll run.'),
-      ...supuestosGenerales(d, gen, objetivo),
+      ...supuestosGenerales(d, gen, objetivo, extras),
       tr(`Costo de servicio ${num(d.servicio)}% y costos administrativos ${dinero(num(d.costosAdministrativos))}.`, `Service cost ${num(d.servicio)}% and administrative costs ${dinero(num(d.costosAdministrativos))}.`),
     ],
     validaciones: [
@@ -602,13 +698,14 @@ function hilos33(d: Hilos33Data): ResultadoCorrida {
       { ok: casi(H('F34'), H('F32') + H('F33')), texto: '33 Hilos: factura = total base + costo de servicio' },
       { ok: casi(H('Q3'), H('F34')) && casi(H('J3'), H('F20')) && casi(H('K3'), H('F10')), texto: '33 Hilos: tabla resumen (fila 3) = desglose' },
       noCero(total.monto, 'Factura semanal'),
-      ...pendientes(d),
+      ...pendientes('hilos33', d),
     ],
     faltantes: datosCriticos('hilos33', d),
     libros: [
       { plantilla: 'hilos33', libro: h },
       { plantilla: 'general', libro: gen },
     ],
+    estilosExcel: {},
   }
 }
 

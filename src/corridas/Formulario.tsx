@@ -1,8 +1,8 @@
 import { Area, Fecha, Fila, Numero, Opciones, Seccion, Texto } from '../ui/campos'
-import { calcularCorrida, etiquetaObjetivo, OBJETIVOS, ARCHIVOS_APROBADOS } from './calculo'
+import { ARCHIVOS_APROBADOS, calcularCorrida, celdaConcepto, etiquetaObjetivo, OBJETIVOS } from './calculo'
 import {
-  CONCEPTOS_NO_SOPORTADOS,
-  type ConceptoPendiente,
+  CONCEPTOS_EXTRA,
+  type ConceptoExtra,
   type CorridaData,
   type CorridaId,
   type Hilos33Data,
@@ -18,19 +18,39 @@ const DESCRIPCION: Record<CorridaId, string> = {
   hilos33: 'Formato 33 Hilos: montos de la corrida general Treve presentados en la estructura 33 Hilos.',
 }
 
-function Casillas({ valores, onChange }: { valores: ConceptoPendiente[]; onChange: (v: ConceptoPendiente[]) => void }) {
+/** Montos de conceptos adicionales: los que la plantilla tiene van a su renglón de Calculo. */
+function OtrosConceptos({ id, d, set }: { id: CorridaId; d: CorridaData; set: (p: Partial<CorridaData>) => void }) {
+  const periodo = id === 'kofile' ? 'catorcena' : 'semana'
+  // En Kofile el fondo de ahorro ya viene en la plantilla (Calculo!D47).
+  const conceptos = (Object.keys(CONCEPTOS_EXTRA) as ConceptoExtra[]).filter((c) => !(id === 'kofile' && c === 'fondoAhorro'))
+  const soportados = conceptos.filter((c) => celdaConcepto(id, c))
+  const sinRenglon = conceptos.filter((c) => !celdaConcepto(id, c))
+  const cambiar = (c: ConceptoExtra, v: string) => set({ extras: { ...d.extras, [c]: v } })
+  const ayuda = (c: ConceptoExtra) => {
+    const celda = celdaConcepto(id, c)
+    if (c === 'primaDominical') return `Calculo!${celda} · exento según la plantilla. Referencia: 25% del salario diario por domingo.`
+    if (c.startsWith('horasExtra')) return `Calculo!${celda} · exención de horas extra de la plantilla.`
+    return `Calculo!${celda} (Otras Percepciones) · gravado.`
+  }
   return (
-    <div className="casillas" role="group" aria-label="Conceptos no incluidos en la plantilla">
-      {(Object.entries(CONCEPTOS_NO_SOPORTADOS) as [ConceptoPendiente, string][]).map(([id, texto]) => {
-        const marcado = valores.includes(id)
-        return (
-          <label key={id} className={marcado ? 'casilla marcada' : 'casilla'}>
-            <input type="checkbox" checked={marcado} onChange={() => onChange(marcado ? valores.filter((x) => x !== id) : [...valores, id])} />
-            {texto}
-          </label>
-        )
-      })}
-    </div>
+    <>
+      <small className="nota">Montos por {periodo}. Entran al cálculo de ISR/IMSS de la plantilla y, si buscas un neto, la app ajusta el salario diario contando con ellos.</small>
+      {soportados.map((c) => (
+        <Numero key={c} label={CONCEPTOS_EXTRA[c]} prefijo="$" value={d.extras?.[c] ?? ''} onChange={(v) => cambiar(c, v)} ayuda={ayuda(c)} />
+      ))}
+      {sinRenglon.length > 0 && (
+        <>
+          <small className="nota">
+            <strong>Sin renglón en la plantilla {id === 'kofile' ? 'Kofile' : ''}:</strong> si los capturas, quedan como <strong>pendientes</strong> en la corrida y no se calculan.
+          </small>
+          <Fila>
+            {sinRenglon.map((c) => (
+              <Numero key={c} label={CONCEPTOS_EXTRA[c]} prefijo="$" value={d.extras?.[c] ?? ''} onChange={(v) => cambiar(c, v)} />
+            ))}
+          </Fila>
+        </>
+      )}
+    </>
   )
 }
 
@@ -205,11 +225,8 @@ export function FormCorrida<T extends CorridaData>({ id, d, set }: { id: Corrida
         </Seccion>
       )}
 
-      <Seccion titulo="Conceptos que no están en la plantilla" abierta={d.pendientes.length > 0}>
-        <small className="nota">
-          Si la solicitud pide alguno, márcalo: queda como <strong>pendiente</strong> en la corrida y en la validación, sin inventarle fórmula.
-        </small>
-        <Casillas valores={d.pendientes} onChange={(v) => set({ pendientes: v } as Partial<T>)} />
+      <Seccion titulo="Otros conceptos (prima dominical, horas extra, bonos…)" abierta={Object.values(d.extras ?? {}).some((v) => Number(v) > 0)}>
+        <OtrosConceptos id={id} d={d} set={set as (p: Partial<CorridaData>) => void} />
       </Seccion>
 
       <Seccion titulo="Observaciones" abierta={false}>

@@ -22,6 +22,7 @@ import { calcularCorrida } from './corridas/calculo'
 import { Corrida } from './corridas/Documento'
 import { descargarExcel, descargarValidacion, nombreCorrida } from './corridas/descargas'
 import { FormCorrida } from './corridas/Formulario'
+import { NumerosCorrida } from './corridas/Numeros'
 import type { CorridaId } from './corridas/tipos'
 import { IMG } from './lib/imagenes'
 import { SECCIONES } from './lib/secciones'
@@ -237,6 +238,12 @@ export default function App() {
     setErrorPdf('')
     setExportando({ hoja: 0, total: 0 })
     try {
+      // El PDF sale de las hojas: si se están viendo los números, se muestra el documento
+      // mientras se genera y al terminar se regresa a los números.
+      if (verNumeros) {
+        setVistaCorrida('documento')
+        await new Promise((r) => setTimeout(r, 500))
+      }
       // Esperar a que la vista quede sin zoom y en modo impresión antes de capturar.
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
       const hojas = Array.from(vistaRef.current?.querySelectorAll<HTMLElement>('.page:not(.medidor)') ?? [])
@@ -247,6 +254,7 @@ export default function App() {
       setErrorPdf('No se pudo generar el PDF. Intenta de nuevo; si sigue fallando, recarga la página.')
     } finally {
       setExportando(null)
+      if (verNumeros) setVistaCorrida('numeros')
     }
   }
 
@@ -256,6 +264,10 @@ export default function App() {
   // Si falta un dato crítico no se genera nada (el formulario dice qué falta).
   const corridaBloqueada = corrida ? calcularCorrida(corrida, datos[corrida]).faltantes.length > 0 : false
   const [generandoExcel, setGenerandoExcel] = useState(false)
+  // Vista de la corrida: el documento (hojas) o solo los números para copiar.
+  const [vistaCorrida, setVistaCorrida] = useState<'documento' | 'numeros'>(() => leerPreferencia('vistaCorrida', 'documento'))
+  useEffect(() => guardarPreferencia('vistaCorrida', vistaCorrida), [vistaCorrida])
+  const verNumeros = esCorrida && vistaCorrida === 'numeros'
   async function bajarExcel() {
     if (!corrida) return
     setErrorPdf('')
@@ -378,28 +390,42 @@ export default function App() {
 
       <main className="vista">
         <div className="barra">
-          <div className="zoom">
-            <button type="button" className="btn secundario" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(1)))} aria-label="Alejar">
-              −
-            </button>
-            <span>{Math.round(zoom * 100)}%</span>
-            <button type="button" className="btn secundario" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(1)))} aria-label="Acercar">
-              +
-            </button>
-          </div>
-          <div className="tamano" role="group" aria-label="Tamaño de hoja">
-            <span>Hoja</span>
-            {(
-              [
-                ['carta', 'Carta'],
-                ['a4', 'A4'],
-              ] as const
-            ).map(([id, texto]) => (
-              <button key={id} type="button" className={tamano === id ? 'activo' : undefined} aria-pressed={tamano === id} onClick={() => setTamano(id)}>
-                {texto}
+          {esCorrida && (
+            <div className="vista-toggle" role="group" aria-label="Vista de la corrida">
+              <button type="button" className={verNumeros ? undefined : 'activo'} aria-pressed={!verNumeros} onClick={() => setVistaCorrida('documento')}>
+                Documento
               </button>
-            ))}
-          </div>
+              <button type="button" className={verNumeros ? 'activo' : undefined} aria-pressed={verNumeros} onClick={() => setVistaCorrida('numeros')}>
+                Números
+              </button>
+            </div>
+          )}
+          {!verNumeros && (
+            <>
+              <div className="zoom">
+                <button type="button" className="btn secundario" onClick={() => setZoom((z) => Math.max(0.3, +(z - 0.1).toFixed(1)))} aria-label="Alejar">
+                  −
+                </button>
+                <span>{Math.round(zoom * 100)}%</span>
+                <button type="button" className="btn secundario" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(1)))} aria-label="Acercar">
+                  +
+                </button>
+              </div>
+              <div className="tamano" role="group" aria-label="Tamaño de hoja">
+                <span>Hoja</span>
+                {(
+                  [
+                    ['carta', 'Carta'],
+                    ['a4', 'A4'],
+                  ] as const
+                ).map(([id, texto]) => (
+                  <button key={id} type="button" className={tamano === id ? 'activo' : undefined} aria-pressed={tamano === id} onClick={() => setTamano(id)}>
+                    {texto}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <span className="pista">
             {esCorrida ? 'Los montos salen de la plantilla aprobada; cambia los datos en el formulario.' : 'Haz clic en cualquier texto resaltado de la hoja para editarlo.'}
           </span>
@@ -455,20 +481,24 @@ export default function App() {
             {errorPdf}
           </div>
         )}
-        <div className={`hojas ${tamano}${exportando ? ' modo-pdf' : ''}`} ref={vistaRef} style={{ zoom: exportando ? 1 : zoom }}>
-          {plantilla === 'feedbak' && <Feedbak d={datos.feedbak} set={set('feedbak')} />}
-          {plantilla === 'servicios' && <Servicios d={datos.servicios} set={set('servicios')} />}
-          {plantilla === 'payroll' && <Payroll d={datos.payroll} set={set('payroll')} />}
-          {plantilla === 'gmm' && <Gmm d={datos.gmm} set={set('gmm')} />}
-          {plantilla === 'bonos' && <Bonos d={datos.bonos} set={set('bonos')} />}
-          {plantilla === 'estudios' && <Servicios d={datos.estudios} set={set('estudios')} />}
-          {plantilla === 'reclutamiento' && <Reclutamiento d={datos.reclutamiento} set={set('reclutamiento')} />}
-          {plantilla === 'haatsMensual' && <HaatsMensual d={datos.haatsMensual} set={set('haatsMensual')} />}
-          {plantilla === 'haatsHoras' && <HaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
-          {plantilla === 'licencia' && <ContratoLicencia d={datos.licencia} set={set('licencia')} />}
-          {plantilla === 'nda' && <Nda d={datos.nda} set={set('nda')} />}
-          {corrida && <Corrida id={corrida} d={datos[corrida]} />}
-        </div>
+        {verNumeros && corrida ? (
+          <NumerosCorrida id={corrida} d={datos[corrida]} />
+        ) : (
+          <div className={`hojas ${tamano}${exportando ? ' modo-pdf' : ''}`} ref={vistaRef} style={{ zoom: exportando ? 1 : zoom }}>
+            {plantilla === 'feedbak' && <Feedbak d={datos.feedbak} set={set('feedbak')} />}
+            {plantilla === 'servicios' && <Servicios d={datos.servicios} set={set('servicios')} />}
+            {plantilla === 'payroll' && <Payroll d={datos.payroll} set={set('payroll')} />}
+            {plantilla === 'gmm' && <Gmm d={datos.gmm} set={set('gmm')} />}
+            {plantilla === 'bonos' && <Bonos d={datos.bonos} set={set('bonos')} />}
+            {plantilla === 'estudios' && <Servicios d={datos.estudios} set={set('estudios')} />}
+            {plantilla === 'reclutamiento' && <Reclutamiento d={datos.reclutamiento} set={set('reclutamiento')} />}
+            {plantilla === 'haatsMensual' && <HaatsMensual d={datos.haatsMensual} set={set('haatsMensual')} />}
+            {plantilla === 'haatsHoras' && <HaatsHoras d={datos.haatsHoras} set={set('haatsHoras')} />}
+            {plantilla === 'licencia' && <ContratoLicencia d={datos.licencia} set={set('licencia')} />}
+            {plantilla === 'nda' && <Nda d={datos.nda} set={set('nda')} />}
+            {corrida && <Corrida id={corrida} d={datos[corrida]} />}
+          </div>
+        )}
       </main>
     </div>
   )

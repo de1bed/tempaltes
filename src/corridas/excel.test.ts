@@ -42,6 +42,17 @@ describe('Excel de salida', () => {
     expect(calculo).toMatch(/<c r="D44" s="130"><f>\+\(D19\*12\)\*0\.25\/12\/2\.17<\/f><v>/)
   })
 
+  it('con otros conceptos agrega la línea "Otras percepciones" al resumen', async () => {
+    const g = calcularCorrida('general', { ...ini.general, puesto: 'Operador', objetivo: 'salarioDiario', monto: '560.39', extras: { primaDominical: '140.10', bonoTransporte: '300' } })
+    const datos = await escribirExcel(plantilla('general'), g.libros[0].libro, g.estilosExcel)
+    guardar('general-con-extras.xlsx', datos)
+    const sim = await (await JSZip.loadAsync(datos)).file('xl/worksheets/sheet6.xml')!.async('string')
+    expect(sim).toMatch(/<row r="11"><c r="C11"(?: s="\d+")? t="inlineStr"><is><t xml:space="preserve">Otras percepciones \(incluidas en el total\)<\/t><\/is><\/c><c r="D11" s="\d+"><f>SUM\(Calculo!D37:D46\)\+SUM\(Calculo!D49:D54\)<\/f><v>440\.1<\/v><\/c><\/row>/)
+    expect(sim).toMatch(/<c r="D10" s="\d+"><f>SUM\(D6:D9\)\+D11<\/f>/)
+    const k = calcularCorrida('kofile', { ...ini.kofile, puesto: 'Analista', objetivo: 'salarioDiario', monto: '1000', extras: { horasExtraDobles: '800' } })
+    guardar('kofile-con-extras.xlsx', await escribirExcel(plantilla('kofile'), k.libros[0].libro, k.estilosExcel))
+  })
+
   it('General y 33 Hilos se escriben sin errores', async () => {
     const g = calcularCorrida('general', { ...ini.general, puesto: 'Operador', objetivo: 'netoSodexo', monto: '17000' })
     guardar('general-neto-sodexo-17000.xlsx', await escribirExcel(plantilla('general'), g.libros[0].libro))

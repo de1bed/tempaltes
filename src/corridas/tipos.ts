@@ -14,16 +14,21 @@ export type CorridaId = 'kofile' | 'general' | 'hilos33'
  */
 export type Objetivo = 'salarioDiario' | 'brutoPeriodo' | 'brutoMensual' | 'neto' | 'netoSodexo'
 
-/** Conceptos que a veces piden pero que la plantilla aprobada no tiene: se marcan como pendientes, no se calculan. */
-export const CONCEPTOS_NO_SOPORTADOS = {
+/**
+ * Conceptos adicionales que a veces piden. Los que tienen renglón en la hoja Calculo de la
+ * plantilla se capturan ahí (entran a ISR con las exenciones del propio Excel); los que no
+ * tienen renglón en ese formato quedan como pendientes y no se calculan (ver calculo.ts).
+ */
+export const CONCEPTOS_EXTRA = {
   primaDominical: 'Prima dominical',
+  horasExtraDobles: 'Horas extra dobles',
+  horasExtraTriples: 'Horas extra triples',
   bonoTurno: 'Bono de turno',
   bonoTransporte: 'Bono de transporte',
-  horasExtra: 'Horas extra',
   fondoAhorro: 'Fondo de ahorro',
-  otro: 'Otro concepto (ver observaciones)',
+  otrasPercepciones: 'Otras percepciones',
 } as const
-export type ConceptoPendiente = keyof typeof CONCEPTOS_NO_SOPORTADOS
+export type ConceptoExtra = keyof typeof CONCEPTOS_EXTRA
 
 interface CorridaBase {
   idioma: 'es' | 'en'
@@ -37,7 +42,8 @@ interface CorridaBase {
   decimales: '2' | '6'
   sodexo: string
   ajusteMoneda: string
-  pendientes: ConceptoPendiente[]
+  /** Montos por periodo de pago (texto tal cual se escribe). */
+  extras: Partial<Record<ConceptoExtra, string>>
   observaciones: string
   elaboro: string
 }
@@ -78,7 +84,7 @@ const base = (): Omit<CorridaBase, 'decimales' | 'idioma'> => ({
   monto: '',
   sodexo: '0',
   ajusteMoneda: '0',
-  pendientes: [],
+  extras: {},
   observaciones: '',
   elaboro: '',
 })

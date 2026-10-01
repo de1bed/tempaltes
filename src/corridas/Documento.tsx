@@ -2,7 +2,7 @@ import { Paginado, type Bloque } from '../doc/Paginado'
 import { fechaEn, fechaEs } from '../lib/formato'
 import { IMG } from '../lib/imagenes'
 import { ARCHIVOS_APROBADOS, calcularCorrida, type Linea, type ResultadoCorrida } from './calculo'
-import { CONCEPTOS_NO_SOPORTADOS, type CorridaData, type CorridaId, type KofileData } from './tipos'
+import type { CorridaData, CorridaId, KofileData } from './tipos'
 
 const TITULOS: Record<CorridaId, [es: string, en: string]> = {
   kofile: ['Simulación extendida Kofile', 'Kofile extended simulation'],
@@ -50,7 +50,8 @@ export function Corrida({ id, d }: { id: CorridaId; d: CorridaData }) {
   const t = (a: string, b: string) => (es ? a : b)
   const asimilado = id === 'kofile' && (d as KofileData).esquema === 'asimilado'
   const listo = r.faltantes.length === 0
-  const pendientes = d.pendientes.map((p) => CONCEPTOS_NO_SOPORTADOS[p])
+  // Conceptos pedidos que este formato no tiene (no se calcularon).
+  const pendientes = r.validaciones.filter((v) => v.nivel === 'pendiente').map((v) => v.texto.split(':')[0])
 
   const datos: [string, string][] = [
     [t('Cliente / proyecto', 'Client / project'), d.empresa.trim() || '—'],

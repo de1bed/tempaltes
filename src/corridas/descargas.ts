@@ -43,7 +43,7 @@ export async function descargarExcel(id: CorridaId, d: CorridaData) {
   const r = calcularCorrida(id, d)
   if (r.faltantes.length) throw new Error(`Faltan datos: ${r.faltantes.join(', ')}`)
   const [{ escribirExcel }, plantilla] = await Promise.all([import('./excel'), fetch(PLANTILLAS_XLSX[id]).then((res) => res.arrayBuffer())])
-  const datos = await escribirExcel(plantilla, r.libros[0].libro)
+  const datos = await escribirExcel(plantilla, r.libros[0].libro, r.estilosExcel)
   guardar(datos as BlobPart, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', `${nombreSeguro(nombreCorrida(id, d))}.xlsx`)
 }
 
