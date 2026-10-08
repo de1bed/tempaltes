@@ -248,6 +248,25 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .credenciales strong { font-size: 14px; color: var(--marca); }
 .credenciales pre { margin: 4px 0; padding: 10px 12px; border-radius: 8px; background: #fff; border: 1px solid #bfe0cb; font-size: 13px; color: var(--tinta); white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Cambiar contraseña (ventana) */
+.modal-fondo { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(27, 43, 48, 0.45); }
+.modal { box-shadow: 0 18px 50px rgba(11, 76, 94, 0.25); }
+.admin-sesion { margin-left: auto; display: flex; gap: 14px; }
+
+/* Bitácora */
+.bitacora-cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.bitacora-filtro { width: 220px; max-width: 100%; }
+.bitacora { list-style: none; margin: 0; padding: 0; }
+.bitacora li { display: grid; grid-template-columns: 150px 1fr auto; align-items: start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--linea); font-size: 13px; }
+.bitacora li:first-child { border-top: 0; }
+.bitacora-fecha { font-size: 12px; color: var(--suave); font-variant-numeric: tabular-nums; }
+.bitacora-que { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.bitacora-doc { font-size: 12px; color: var(--suave); }
+.bitacora details summary { cursor: pointer; font-size: 12px; color: var(--marca); }
+.bitacora pre { margin: 6px 0 0; padding: 8px 10px; border-radius: 6px; background: #f6f8f9; font-size: 11.5px; white-space: pre-wrap; }
+.bitacora .btn { padding: 5px 10px; font-size: 12px; }
+@media (max-width: 600px) { .bitacora li { grid-template-columns: 1fr; gap: 4px; } .bitacora .btn { justify-self: start; } }
+
 /* ───── Vista previa ───── */
 .vista { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .barra { display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: #fff; border-bottom: 1px solid var(--linea); flex-wrap: wrap; }

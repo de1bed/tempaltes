@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { IMG } from '../lib/imagenes'
-import type { TipoDocumento } from '../lib/modelo'
+import { PLANTILLAS, type PlantillaId, type TipoDocumento } from '../lib/modelo'
 import { SECCIONES } from '../lib/secciones'
-import { adminUsuarios, type Perfil, type Usuario } from '../lib/supabase'
+import { adminUsuarios, type Perfil, type Registro, type Usuario } from '../lib/supabase'
+import { CambiarPassword } from './CambiarPassword'
 
 /** Contraseña aleatoria fácil de dictar (sin 0/O, 1/l/I). */
 function generarPassword(largo = 12): string {
@@ -200,8 +201,136 @@ function FilaUsuario({ u, yo, recargar, alCambiarPassword }: { u: Usuario; yo: b
   )
 }
 
-/** Panel del administrador: alta de cuentas y permisos por sección. */
-export function Admin({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio: () => void; salir: () => void }) {
+const ACCIONES: Record<string, string> = {
+  pdf: 'Descargó PDF',
+  excel: 'Descargó Excel',
+  validacion: 'Descargó validación',
+  inicio_sesion: 'Inició sesión',
+  contrasena_cambiada: 'Cambió su contraseña',
+  admin_configurado: 'Configuró la cuenta de administrador',
+  cuenta_creada: 'Creó la cuenta',
+  cuenta_actualizada: 'Cambió permisos de',
+  contrasena_asignada: 'Asignó contraseña nueva a',
+  cuenta_eliminada: 'Eliminó la cuenta',
+}
+
+/** Qué hizo cada quien: documentos generados y cambios de cuentas. */
+function Bitacora({ usuarios, abrirDocumento }: { usuarios: Usuario[] | null; abrirDocumento: (plantilla: PlantillaId, datos: unknown) => void }) {
+  const [filtro, setFiltro] = useState('')
+  const [registros, setRegistros] = useState<Registro[] | null>(null)
+  const [hayMas, setHayMas] = useState(false)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
+
+  // Quien llama marca "cargando" antes (en el clic), para no cambiar estado dentro del efecto.
+  const cargar = useCallback((usuarioId: string, antesId?: number) => {
+    return adminUsuarios<{ registros: Registro[] }>('bitacora', { usuario_id: usuarioId || undefined, antes_id: antesId })
+      .then(
+        (r) => {
+          setRegistros((previos) => (antesId && previos ? [...previos, ...r.registros] : r.registros))
+          setHayMas(r.registros.length === 100)
+          setError('')
+        },
+        (err: unknown) => setError(err instanceof Error ? err.message : String(err)),
+      )
+      .finally(() => setCargando(false))
+  }, [])
+
+  useEffect(() => {
+    cargar(filtro)
+  }, [cargar, filtro])
+
+  return (
+    <section className="admin-caja">
+      <div className="bitacora-cab">
+        <h2>Bitácora</h2>
+        <div className="campo bitacora-filtro">
+          <label htmlFor="bitacora-persona">Persona</label>
+          <select
+            id="bitacora-persona"
+            value={filtro}
+            onChange={(e) => {
+              setCargando(true)
+              setRegistros(null)
+              setFiltro(e.target.value)
+            }}
+          >
+            <option value="">Todas</option>
+            {usuarios?.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre || u.email}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p className="nota">Cada PDF, Excel o validación que se descarga queda aquí con los datos que se usaron. "Abrir documento" lo carga en el formulario tal cual se generó.</p>
+      {error && <div className="alerta" role="alert">{error}</div>}
+      {registros?.length === 0 && <p className="nota">Todavía no hay movimientos.</p>}
+      {registros && registros.length > 0 && (
+        <ul className="bitacora">
+          {registros.map((r) => {
+            const plantilla = PLANTILLAS.find((p) => p.id === r.plantilla)
+            const persona = usuarios?.find((u) => u.id === r.usuario_id)
+            const esDocumento = !!plantilla && typeof r.detalle === 'object' && r.detalle !== null
+            return (
+              <li key={r.id}>
+                <span className="bitacora-fecha">{fecha(r.creado)}</span>
+                <div className="bitacora-que">
+                  <span>
+                    <strong>{persona?.nombre || r.email}</strong> · {ACCIONES[r.accion] ?? r.accion}
+                    {plantilla && ` · ${plantilla.marca} ${plantilla.nombre}`}
+                  </span>
+                  {r.documento && <span className="bitacora-doc">{r.documento}</span>}
+                  {r.detalle != null && !esDocumento && (
+                    <details>
+                      <summary>Ver detalle</summary>
+                      <pre>{JSON.stringify(r.detalle, null, 2)}</pre>
+                    </details>
+                  )}
+                </div>
+                {plantilla && esDocumento && (
+                  <button type="button" className="btn secundario" onClick={() => abrirDocumento(plantilla.id, r.detalle)}>
+                    Abrir documento
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {(hayMas || (cargando && !registros)) && (
+        <div className="admin-acciones">
+          <button
+            type="button"
+            className="btn secundario"
+            disabled={cargando}
+            onClick={() => {
+              if (!registros) return
+              setCargando(true)
+              cargar(filtro, registros[registros.length - 1].id)
+            }}
+          >
+            {cargando ? 'Cargando…' : 'Ver más'}
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Panel del administrador: alta de cuentas, permisos por sección y bitácora. */
+export function Admin({
+  perfil,
+  irAInicio,
+  salir,
+  abrirDocumento,
+}: {
+  perfil: Perfil
+  irAInicio: () => void
+  salir: () => void
+  abrirDocumento: (plantilla: PlantillaId, datos: unknown) => void
+}) {
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null)
   const [error, setError] = useState('')
   const [credenciales, setCredenciales] = useState<{ email: string; password: string } | null>(null)
@@ -237,9 +366,12 @@ export function Admin({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
             </svg>
             Inicio
           </button>
-          <button type="button" className="link sesion-salir" onClick={salir}>
-            Cerrar sesión
-          </button>
+          <span className="admin-sesion">
+            <CambiarPassword email={perfil.email} />
+            <button type="button" className="link sesion-salir" onClick={salir}>
+              Cerrar sesión
+            </button>
+          </span>
         </header>
         <h1>Administración</h1>
         <p className="admin-intro">Solo las personas que des de alta aquí pueden entrar, y solo a las secciones que marques.</p>
@@ -264,6 +396,8 @@ export function Admin({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
             </ul>
           )}
         </section>
+
+        <Bitacora usuarios={usuarios} abrirDocumento={abrirDocumento} />
       </div>
     </div>
   )

@@ -60,15 +60,27 @@ async function hayAdmin(): Promise<boolean> {
   return (count ?? 0) > 0
 }
 
-/** Devuelve el id del administrador que hace la petición o lanza 401/403. */
-async function exigirAdmin(req: Request): Promise<string> {
+/** Devuelve al administrador que hace la petición o lanza 401/403. */
+async function exigirAdmin(req: Request): Promise<{ id: string; email: string }> {
   const token = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '')
   if (!token) throw new ErrorAcceso('Inicia sesión', 401)
   const { data, error } = await admin.auth.getUser(token)
   if (error || !data.user) throw new ErrorAcceso('Sesión no válida', 401)
   const { data: perfil } = await admin.from('perfiles').select('es_admin, activo').eq('id', data.user.id).maybeSingle()
   if (!perfil?.es_admin || !perfil.activo) throw new ErrorAcceso('Solo el administrador puede hacer esto', 403)
-  return data.user.id
+  return { id: data.user.id, email: data.user.email ?? '' }
+}
+
+/** Anota en la bitácora; si falla no detiene la acción (se registra en los logs). */
+async function registrar(quien: { id: string; email: string }, accion: string, documento: string, detalle?: unknown) {
+  const { error } = await admin.from('bitacora').insert({ usuario_id: quien.id, email: quien.email, accion, documento, detalle: detalle ?? null })
+  if (error) console.error('bitácora', error)
+}
+
+async function emailDe(id: string): Promise<string> {
+  const { data } = await admin.from('perfiles').select('email').eq('id', id).maybeSingle()
+  if (!data) throw new ErrorAcceso('No existe esa cuenta', 404)
+  return data.email
 }
 
 /** Crea la cuenta en Auth y su perfil; si el perfil falla, borra la cuenta para no dejar huérfanos. */
@@ -108,23 +120,36 @@ async function manejar(req: Request) {
   if (accion === 'configurar_admin') {
     if (await hayAdmin()) throw new ErrorAcceso('El administrador ya está configurado', 403)
     const password = validarPassword(cuerpo.password)
-    await crearCuenta(ADMIN_EMAIL, password, { nombre: texto(cuerpo.nombre ?? '', 'nombre'), es_admin: true, secciones: SECCIONES })
+    const id = await crearCuenta(ADMIN_EMAIL, password, { nombre: texto(cuerpo.nombre ?? '', 'nombre'), es_admin: true, secciones: SECCIONES })
+    await registrar({ id, email: ADMIN_EMAIL }, 'admin_configurado', ADMIN_EMAIL)
     return { ok: true, email: ADMIN_EMAIL }
   }
 
-  const yo = await exigirAdmin(req)
+  const quien = await exigirAdmin(req)
+  const yo = quien.id
   switch (accion) {
     case 'listar':
       return { usuarios: await listar() }
 
+    case 'bitacora': {
+      // Lo más reciente primero, de 100 en 100 (antes_id = último id de la página anterior).
+      let consulta = admin.from('bitacora').select('*').order('id', { ascending: false }).limit(100)
+      if (cuerpo.usuario_id) consulta = consulta.eq('usuario_id', validarId(cuerpo.usuario_id))
+      if (cuerpo.antes_id !== undefined) {
+        if (!Number.isSafeInteger(cuerpo.antes_id)) throw new ErrorAcceso('antes_id no válido')
+        consulta = consulta.lt('id', cuerpo.antes_id as number)
+      }
+      const { data, error } = await consulta
+      if (error) throw error
+      return { registros: data }
+    }
+
     case 'crear': {
       const email = texto(cuerpo.email, 'correo').toLowerCase()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ErrorAcceso('Correo no válido')
-      const id = await crearCuenta(email, validarPassword(cuerpo.password), {
-        nombre: texto(cuerpo.nombre ?? '', 'nombre'),
-        es_admin: false,
-        secciones: validarSecciones(cuerpo.secciones ?? []),
-      })
+      const perfil = { nombre: texto(cuerpo.nombre ?? '', 'nombre'), es_admin: false, secciones: validarSecciones(cuerpo.secciones ?? []) }
+      const id = await crearCuenta(email, validarPassword(cuerpo.password), perfil)
+      await registrar(quien, 'cuenta_creada', email, { nombre: perfil.nombre, secciones: perfil.secciones })
       return { ok: true, id }
     }
 
@@ -140,28 +165,33 @@ async function manejar(req: Request) {
       }
       // El administrador siempre conserva todas las secciones.
       if (id === yo) delete cambios.secciones
-      const { data, error } = await admin.from('perfiles').update(cambios).eq('id', id).select('id').maybeSingle()
+      const { data, error } = await admin.from('perfiles').update(cambios).eq('id', id).select('email').maybeSingle()
       if (error) throw error
       if (!data) throw new ErrorAcceso('No existe esa cuenta', 404)
       if (cambios.activo !== undefined) {
         const { error: errBan } = await admin.auth.admin.updateUserById(id, { ban_duration: cambios.activo ? 'none' : BLOQUEO })
         if (errBan) throw errBan
       }
+      await registrar(quien, 'cuenta_actualizada', data.email, cambios)
       return { ok: true }
     }
 
     case 'cambiar_password': {
       const id = validarId(cuerpo.id)
+      const email = await emailDe(id)
       const { error } = await admin.auth.admin.updateUserById(id, { password: validarPassword(cuerpo.password) })
       if (error) throw new ErrorAcceso(`No se pudo cambiar la contraseña: ${error.message}`)
+      await registrar(quien, 'contrasena_asignada', email)
       return { ok: true }
     }
 
     case 'eliminar': {
       const id = validarId(cuerpo.id)
       if (id === yo) throw new ErrorAcceso('No puedes eliminar tu propia cuenta')
+      const email = await emailDe(id)
       const { error } = await admin.auth.admin.deleteUser(id)
       if (error) throw new ErrorAcceso(`No se pudo eliminar: ${error.message}`)
+      await registrar(quien, 'cuenta_eliminada', email)
       return { ok: true }
     }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { IMG } from '../lib/imagenes'
-import { adminUsuarios, supabase, type Perfil } from '../lib/supabase'
+import { adminUsuarios, registrar, supabase, type Perfil } from '../lib/supabase'
 
 /** Correo del administrador (el mismo que valida la Edge Function). */
 const ADMIN_EMAIL = 'davidrocha0520@gmail.com'
@@ -114,6 +114,7 @@ function Login({ aviso }: { aviso?: string }) {
     setEnviando(true)
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
     setEnviando(false)
+    if (!error) registrar('inicio_sesion')
     if (error) setError(error.message.toLowerCase().includes('invalid') ? 'Correo o contraseña incorrectos.' : 'No se pudo iniciar sesión. Intenta de nuevo.')
   }
 

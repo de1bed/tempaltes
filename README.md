@@ -9,6 +9,8 @@ La app pide **iniciar sesión** (Supabase Auth, proyecto `treve automatizaciones
 - **Administrador** (`davidrocha0520@gmail.com`): entra a todas las secciones y a **Administración** (`#admin`), donde da de alta cuentas (correo, nombre, contraseña y secciones), cambia permisos al momento, asigna una contraseña nueva, desactiva o elimina cuentas y ve el último acceso de cada quien.
 - **Las demás personas** solo ven en el inicio las secciones que tienen activadas; una dirección como `#contratos` sin permiso regresa al inicio.
 - **Contraseñas**: Supabase las guarda cifradas y nadie puede leerlas, ni el administrador. Al crear una cuenta o asignar una contraseña nueva se muestra **una sola vez** para compartirla.
+- **Cambiar contraseña**: cada persona la cambia desde el inicio (pide la contraseña actual).
+- **Bitácora** (en Administración): cada PDF, Excel o validación que se descarga queda registrado con quién, cuándo y los datos usados; "Abrir documento" lo vuelve a cargar tal cual. También se anotan inicios de sesión, cambios de contraseña y lo que hace el administrador con las cuentas. Nadie puede registrar a nombre de otro, editar ni borrar la bitácora, y solo el administrador la ve.
 - **Primera vez**: mientras no exista el administrador, el login muestra "Configurar la cuenta de administrador" (solo para ese correo y solo una vez).
 
 Cómo está hecho:

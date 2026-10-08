@@ -2,6 +2,7 @@ import { PLANTILLAS, type PlantillaId, type TipoDocumento } from '../lib/modelo'
 import { IMG } from '../lib/imagenes'
 import { SECCIONES, type Seccion } from '../lib/secciones'
 import type { Perfil } from '../lib/supabase'
+import { CambiarPassword } from '../auth/CambiarPassword'
 
 function Icono({ tipo }: { tipo: Seccion['tipo'] }) {
   const comun = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
@@ -45,6 +46,7 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, salir }: Props) 
       <div className="inicio-centro">
         <div className="sesion">
           <span>{perfil.nombre || perfil.email}</span>
+          <CambiarPassword email={perfil.email} />
           <button type="button" className="link sesion-salir" onClick={salir}>
             Cerrar sesión
           </button>

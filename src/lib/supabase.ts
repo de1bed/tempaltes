@@ -33,3 +33,27 @@ export async function adminUsuarios<T = { ok: true }>(accion: string, datos: Rec
   }
   return data as T
 }
+
+export interface Registro {
+  id: number
+  usuario_id: string | null
+  email: string
+  accion: string
+  plantilla: string | null
+  documento: string | null
+  detalle: unknown
+  creado: string
+}
+
+/**
+ * Anota en la bitácora lo que hace la persona (a su nombre: lo pone la base de datos).
+ * Nunca detiene ni retrasa lo que se está haciendo: si falla, solo se avisa en la consola.
+ */
+export function registrar(accion: string, extra: { plantilla?: string; documento?: string; detalle?: unknown } = {}) {
+  void supabase
+    .from('bitacora')
+    .insert({ accion, plantilla: extra.plantilla ?? null, documento: extra.documento?.slice(0, 300) ?? null, detalle: extra.detalle ?? null })
+    .then(({ error }) => {
+      if (error) console.warn('No se pudo registrar en la bitácora', error.message)
+    })
+}

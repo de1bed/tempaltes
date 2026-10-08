@@ -28,7 +28,7 @@ import { IMG } from './lib/imagenes'
 import { SECCIONES } from './lib/secciones'
 import { Inicio } from './ui/Inicio'
 import { Admin } from './auth/Admin'
-import type { Perfil } from './lib/supabase'
+import { registrar, type Perfil } from './lib/supabase'
 
 const CLAVE = 'cotizador:v1'
 
@@ -233,6 +233,15 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     window.location.hash = RUTA_ADMIN
   }
 
+  /** Desde la bitácora: carga los datos con que se generó un documento (reemplaza el borrador de esa plantilla). */
+  function abrirDocumento(id: PlantillaId, d: unknown) {
+    const p = PLANTILLAS.find((x) => x.id === id)
+    if (!p || !d || typeof d !== 'object') return
+    setEstado((e) => ({ ...e, datos: { ...e.datos, [id]: { ...datosIniciales()[id], ...d } } }))
+    setEnAdmin(false)
+    abrir(p.tipo, id)
+  }
+
   function irAInicio() {
     setSeccion(null)
     setEnAdmin(false)
@@ -268,6 +277,8 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
       const hojas = Array.from(vistaRef.current?.querySelectorAll<HTMLElement>('.page:not(.medidor)') ?? [])
       const { generarPdf } = await import('./lib/pdf')
       await generarPdf(hojas, tamano, nombreArchivo(estado), (hoja, total) => setExportando({ hoja, total }))
+      // Bitácora: quién generó qué, con los datos tal cual para poder revisarlo después.
+      registrar('pdf', { plantilla, documento: nombreArchivo(estado), detalle: datos[plantilla] })
     } catch (e) {
       console.error(e)
       setErrorPdf('No se pudo generar el PDF. Intenta de nuevo; si sigue fallando, recarga la página.')
@@ -293,6 +304,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     setGenerandoExcel(true)
     try {
       await descargarExcel(corrida, datos[corrida])
+      registrar('excel', { plantilla: corrida, documento: nombreCorrida(corrida, datos[corrida]), detalle: datos[corrida] })
     } catch (e) {
       console.error(e)
       setErrorPdf(`No se pudo generar el Excel: ${e instanceof Error ? e.message : String(e)}`)
@@ -306,7 +318,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     setConfirmando(false)
   }
 
-  if (enAdmin) return <Admin perfil={perfil} irAInicio={irAInicio} salir={salir} />
+  if (enAdmin) return <Admin perfil={perfil} irAInicio={irAInicio} salir={salir} abrirDocumento={abrirDocumento} />
   if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={abrirAdmin} salir={salir} />
   const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
   const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
@@ -477,7 +489,10 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
               </span>
             ) : corrida ? (
               <>
-                <button type="button" className="btn secundario" onClick={() => descargarValidacion(corrida, datos[corrida])} title="Entradas, supuestos, resultados y validaciones en JSON">
+                <button type="button" className="btn secundario" onClick={() => {
+                    descargarValidacion(corrida, datos[corrida])
+                    registrar('validacion', { plantilla: corrida, documento: nombreCorrida(corrida, datos[corrida]), detalle: datos[corrida] })
+                  }} title="Entradas, supuestos, resultados y validaciones en JSON">
                   Validación
                 </button>
                 <button type="button" className="btn secundario" onClick={descargarPdf} disabled={exportando !== null || corridaBloqueada}>
