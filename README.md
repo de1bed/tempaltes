@@ -26,7 +26,7 @@ Reservación de la **Sala principal** y la **Salita 2** (permiso "Salas" en Admi
 - Se elige sala, día y duración; la app muestra los horarios libres y lo que ya está ocupado ese día (reservaciones de la app y eventos que estén directamente en Outlook).
 - Cada quien mueve o cancela sus reservaciones; el administrador ve y puede cambiar todas. Todo queda en la bitácora.
 - La base de datos no permite dos reservaciones encimadas en la misma sala.
-- **Outlook**: la Edge Function `salas` copia cada reservación al calendario de la sala (Microsoft Graph) e invita a los invitados. Necesita los secretos `MS_TENANT_ID`, `MS_CLIENT_ID` y `MS_CLIENT_SECRET` en Supabase y el correo del buzón de cada sala en la tabla `salas` (columna `buzon`). Sin eso funciona solo en la app.
+- **Outlook** (cuenta personal, outlook.live.com): la Edge Function `salas` copia cada reservación al calendario de su sala (Microsoft Graph) e invita a los invitados. Necesita los secretos `MS_CLIENT_ID` y `MS_CLIENT_SECRET` (app registrada en Azure para cuentas personales, con redirección a `https://ficswawndpxegjkzxkvj.supabase.co/functions/v1/salas`). Luego el administrador da clic en **Conectar Outlook** (en Salas) y elige qué calendario es cada sala. Sin eso funciona solo en la app.
 
 ## Pantalla de inicio
 

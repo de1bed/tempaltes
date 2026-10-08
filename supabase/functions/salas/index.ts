@@ -1,6 +1,7 @@
 // Reservación de salas: valida horario y permisos, evita choques (la base de datos no permite
 // reservaciones encimadas) y copia cada reservación al calendario Outlook de la sala.
-// Sin las credenciales de Microsoft (MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET) funciona solo en la app.
+// Outlook es una cuenta personal (outlook.live.com): el administrador la conecta una vez (OAuth) y elige
+// qué calendario es cada sala. Sin MS_CLIENT_ID / MS_CLIENT_SECRET o sin conexión funciona solo en la app.
 import { createClient } from 'npm:@supabase/supabase-js@2.117.1'
 
 const ZONA = 'America/Mexico_City'
@@ -42,7 +43,7 @@ interface Persona {
 interface Sala {
   id: string
   nombre: string
-  buzon: string | null
+  calendario_id: string | null
 }
 
 interface Reservacion {
@@ -124,24 +125,33 @@ function textoHorario(inicio: Date, fin: Date) {
   return `${f(inicio, { weekday: 'short', day: 'numeric', month: 'short' })} ${f(inicio, { hour: 'numeric', minute: '2-digit' })}–${f(fin, { hour: 'numeric', minute: '2-digit' })}`
 }
 
-// ───── Microsoft Graph (Outlook) ─────
+// ───── Microsoft Graph (Outlook personal) ─────
 
-const MS = {
-  tenant: Deno.env.get('MS_TENANT_ID'),
-  cliente: Deno.env.get('MS_CLIENT_ID'),
-  secreto: Deno.env.get('MS_CLIENT_SECRET'),
-}
-const outlookConfigurado = Boolean(MS.tenant && MS.cliente && MS.secreto)
+const MS = { cliente: Deno.env.get('MS_CLIENT_ID'), secreto: Deno.env.get('MS_CLIENT_SECRET') }
+const outlookConfigurado = Boolean(MS.cliente && MS.secreto)
+const LOGIN = 'https://login.microsoftonline.com/consumers/oauth2/v2.0'
+const PERMISOS_MS = 'offline_access User.Read Calendars.ReadWrite'
+/** A donde regresa Microsoft después de conectar: esta misma función. */
+const REDIRECCION = `${Deno.env.get('SUPABASE_URL')}/functions/v1/salas`
 let tokenGraph: { valor: string; vence: number } | null = null
+
+async function pedirToken(parametros: Record<string, string>) {
+  const r = await fetch(`${LOGIN}/token`, {
+    method: 'POST',
+    body: new URLSearchParams({ client_id: MS.cliente!, client_secret: MS.secreto!, scope: PERMISOS_MS, ...parametros }),
+  })
+  const j = await r.json()
+  if (!r.ok) throw new Error(`Microsoft no dio acceso: ${j.error_description ?? j.error ?? r.status}`)
+  return j as { access_token: string; refresh_token?: string; expires_in: number }
+}
 
 async function graph(ruta: string, init: RequestInit = {}): Promise<Response> {
   if (!tokenGraph || tokenGraph.vence < Date.now() + 60_000) {
-    const r = await fetch(`https://login.microsoftonline.com/${MS.tenant}/oauth2/v2.0/token`, {
-      method: 'POST',
-      body: new URLSearchParams({ client_id: MS.cliente!, client_secret: MS.secreto!, scope: 'https://graph.microsoft.com/.default', grant_type: 'client_credentials' }),
-    })
-    const j = await r.json()
-    if (!r.ok) throw new Error(`Microsoft no dio acceso: ${j.error_description ?? j.error ?? r.status}`)
+    const { data: conexion } = await admin.from('outlook_conexion').select('refresh_token').eq('id', 1).maybeSingle()
+    if (!conexion) throw new Error('Outlook no está conectado')
+    const j = await pedirToken({ grant_type: 'refresh_token', refresh_token: conexion.refresh_token })
+    // Microsoft cambia el refresh token en cada uso: se guarda el nuevo.
+    if (j.refresh_token) await admin.from('outlook_conexion').update({ refresh_token: j.refresh_token, actualizado: new Date().toISOString() }).eq('id', 1)
     tokenGraph = { valor: j.access_token, vence: Date.now() + j.expires_in * 1000 }
   }
   return fetch(`https://graph.microsoft.com/v1.0${ruta}`, {
@@ -150,9 +160,33 @@ async function graph(ruta: string, init: RequestInit = {}): Promise<Response> {
   })
 }
 
-const usaOutlook = (sala: Sala) => outlookConfigurado && Boolean(sala.buzon)
+const usaOutlook = (sala: Sala) => outlookConfigurado && Boolean(sala.calendario_id)
+const calendario = (sala: Sala) => `/me/calendars/${encodeURIComponent(sala.calendario_id!)}`
 const utc = (d: Date) => ({ dateTime: d.toISOString().replace('Z', ''), timeZone: 'UTC' })
 const desdeGraph = (t: { dateTime: string }) => new Date(t.dateTime.endsWith('Z') ? t.dateTime : `${t.dateTime}Z`)
+
+/** Microsoft regresa aquí (GET) después de que el administrador conecta la cuenta. */
+async function terminarConexion(url: URL): Promise<Response> {
+  const estado = url.searchParams.get('state') ?? ''
+  const { data: guardado } = await admin.from('outlook_oauth_estados').delete().eq('estado', estado).select('volver, creado').maybeSingle()
+  if (!guardado || Date.parse(guardado.creado) < Date.now() - 15 * 60_000) return new Response('El enlace venció. Vuelve a dar clic en "Conectar Outlook".', { status: 400 })
+  const volver = (resultado: string) => Response.redirect(`${guardado.volver}${guardado.volver.includes('?') ? '&' : '?'}outlook=${resultado}#salas`, 302)
+  const codigo = url.searchParams.get('code')
+  if (!codigo) return volver('cancelado')
+  try {
+    const j = await pedirToken({ grant_type: 'authorization_code', code: codigo, redirect_uri: REDIRECCION })
+    if (!j.refresh_token) throw new Error('Microsoft no dio permiso permanente (offline_access)')
+    const yo = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${j.access_token}` } }).then((r) => r.json())
+    const cuenta = yo.mail ?? yo.userPrincipalName ?? 'cuenta de Outlook'
+    const { error } = await admin.from('outlook_conexion').upsert({ id: 1, cuenta, refresh_token: j.refresh_token, actualizado: new Date().toISOString() })
+    if (error) throw error
+    tokenGraph = { valor: j.access_token, vence: Date.now() + j.expires_in * 1000 }
+    return volver('conectado')
+  } catch (e) {
+    console.error(e)
+    return volver('error')
+  }
+}
 
 interface Ocupado {
   inicio: string
@@ -165,7 +199,7 @@ interface Ocupado {
 async function ocupadoEnOutlook(sala: Sala, desde: Date, hasta: Date, propios: Set<string>): Promise<Ocupado[]> {
   if (!usaOutlook(sala)) return []
   const q = new URLSearchParams({ startDateTime: desde.toISOString(), endDateTime: hasta.toISOString(), $select: 'id,subject,start,end,showAs,isCancelled', $top: '200' })
-  const r = await graph(`/users/${encodeURIComponent(sala.buzon!)}/calendarView?${q}`)
+  const r = await graph(`${calendario(sala)}/calendarView?${q}`)
   if (!r.ok) throw new Error(`No se pudo leer el calendario de Outlook (${r.status}): ${await r.text()}`)
   const j = await r.json()
   return (j.value as { id: string; start: { dateTime: string }; end: { dateTime: string }; showAs: string; isCancelled: boolean }[])
@@ -192,7 +226,7 @@ function eventoOutlook(r: Reservacion, sala: Sala, conInvitados: boolean) {
 
 /** Crea el evento en Outlook; si Outlook rechaza las invitaciones, lo crea sin invitados. */
 async function crearEnOutlook(r: Reservacion, sala: Sala): Promise<string> {
-  const ruta = `/users/${encodeURIComponent(sala.buzon!)}/events`
+  const ruta = `${calendario(sala)}/events`
   let res = await graph(ruta, { method: 'POST', body: JSON.stringify(eventoOutlook(r, sala, true)) })
   if (!res.ok && res.status < 500) res = await graph(ruta, { method: 'POST', body: JSON.stringify(eventoOutlook(r, sala, false)) })
   if (!res.ok) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
@@ -219,7 +253,7 @@ async function registrar(quien: Persona, accion: string, sala: Sala, r: Reservac
 
 async function leerSala(id: unknown): Promise<Sala> {
   if (typeof id !== 'string') throw new ErrorSalas('Falta la sala')
-  const { data } = await admin.from('salas').select('id, nombre, buzon').eq('id', id).eq('activa', true).maybeSingle()
+  const { data } = await admin.from('salas').select('id, nombre, calendario_id').eq('id', id).eq('activa', true).maybeSingle()
   if (!data) throw new ErrorSalas('Esa sala no existe')
   return data
 }
@@ -251,6 +285,10 @@ async function revisarOutlook(sala: Sala, inicio: Date, fin: Date, ignorar?: str
   if (ignorar) propios.add(ignorar)
   const choques = await ocupadoEnOutlook(sala, inicio, fin, propios)
   if (choques.length) throw new ErrorSalas('Ese horario ya está ocupado en el calendario de Outlook de la sala', 409)
+}
+
+function exigirAdmin(quien: Persona) {
+  if (!quien.es_admin) throw new ErrorSalas('Solo el administrador puede hacer esto', 403)
 }
 
 function choque(error: { code?: string } | null) {
@@ -337,14 +375,14 @@ async function manejar(req: Request) {
       try {
         const salaAnterior = mismaSala ? sala : await leerSala(anterior.sala_id)
         if (mismaSala && usaOutlook(sala) && anterior.outlook_event_id) {
-          const res = await graph(`/users/${encodeURIComponent(sala.buzon!)}/events/${anterior.outlook_event_id}`, {
+          const res = await graph(`/me/events/${encodeURIComponent(anterior.outlook_event_id)}`, {
             method: 'PATCH',
             body: JSON.stringify({ start: utc(inicio), end: utc(fin) }),
           })
           if (!res.ok) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
           await guardarSync(r.id, { sync_error: null })
         } else {
-          if (usaOutlook(salaAnterior) && anterior.outlook_event_id) await cancelarEnOutlook(salaAnterior, anterior.outlook_event_id, 'La reunión se cambió de sala.')
+          if (usaOutlook(salaAnterior) && anterior.outlook_event_id) await cancelarEnOutlook(anterior.outlook_event_id, 'La reunión se cambió de sala.')
           if (usaOutlook(sala)) {
             r.outlook_event_id = await crearEnOutlook(r, sala)
             await guardarSync(r.id, { outlook_event_id: r.outlook_event_id, sync_error: null })
@@ -365,7 +403,7 @@ async function manejar(req: Request) {
       if (error) throw error
       if (usaOutlook(sala) && r.outlook_event_id) {
         try {
-          await cancelarEnOutlook(sala, r.outlook_event_id, 'Reservación cancelada desde la app de Treve.')
+          await cancelarEnOutlook(r.outlook_event_id, 'Reservación cancelada desde la app de Treve.')
         } catch (e) {
           console.error(e)
           await guardarSync(r.id, { sync_error: String(e).slice(0, 500) })
@@ -375,14 +413,65 @@ async function manejar(req: Request) {
       return { ok: true }
     }
 
+    // ───── Conexión con Outlook (solo administrador) ─────
+    case 'outlook_estado': {
+      exigirAdmin(quien)
+      const { data: conexion } = await admin.from('outlook_conexion').select('cuenta, actualizado').eq('id', 1).maybeSingle()
+      const { data: salas } = await admin.from('salas').select('id, nombre, calendario_id, calendario_nombre').order('orden')
+      let calendarios: { id: string; nombre: string }[] = []
+      let aviso: string | null = null
+      if (conexion && outlookConfigurado) {
+        try {
+          const r = await graph('/me/calendars?$select=id,name&$top=100')
+          if (!r.ok) throw new Error(`Outlook (${r.status}): ${await r.text()}`)
+          calendarios = (await r.json()).value.map((c: { id: string; name: string }) => ({ id: c.id, nombre: c.name }))
+        } catch (e) {
+          console.error(e)
+          aviso = 'La conexión con Outlook dejó de funcionar. Vuelve a conectar la cuenta.'
+        }
+      }
+      return { configurado: outlookConfigurado, conexion, calendarios, salas, aviso }
+    }
+
+    case 'outlook_iniciar': {
+      exigirAdmin(quien)
+      if (!outlookConfigurado) throw new ErrorSalas('Faltan MS_CLIENT_ID y MS_CLIENT_SECRET en los secretos de Supabase')
+      const volver = typeof cuerpo.volver === 'string' ? cuerpo.volver : ''
+      if (!/^https?:\/\/[^\s#]+$/.test(volver)) throw new ErrorSalas('Dirección de regreso no válida')
+      const estado = crypto.randomUUID()
+      await admin.from('outlook_oauth_estados').delete().lt('creado', new Date(Date.now() - 3600_000).toISOString())
+      const { error } = await admin.from('outlook_oauth_estados').insert({ estado, volver })
+      if (error) throw error
+      const q = new URLSearchParams({ client_id: MS.cliente!, response_type: 'code', redirect_uri: REDIRECCION, response_mode: 'query', scope: PERMISOS_MS, state: estado, prompt: 'select_account' })
+      return { url: `${LOGIN}/authorize?${q}` }
+    }
+
+    case 'outlook_asignar': {
+      exigirAdmin(quien)
+      const sala = await leerSala(cuerpo.sala_id)
+      const calendarioId = typeof cuerpo.calendario_id === 'string' && cuerpo.calendario_id ? cuerpo.calendario_id : null
+      const nombre = typeof cuerpo.calendario_nombre === 'string' ? cuerpo.calendario_nombre.slice(0, 200) : null
+      const { error } = await admin.from('salas').update({ calendario_id: calendarioId, calendario_nombre: calendarioId ? nombre : null }).eq('id', sala.id)
+      if (error) throw error
+      return { ok: true }
+    }
+
+    case 'outlook_desconectar': {
+      exigirAdmin(quien)
+      await admin.from('outlook_conexion').delete().eq('id', 1)
+      await admin.from('salas').update({ calendario_id: null, calendario_nombre: null }).neq('id', '')
+      tokenGraph = null
+      return { ok: true }
+    }
+
     default:
       throw new ErrorSalas('Acción no válida')
   }
 }
 
 /** Cancela el evento (avisa a los invitados); si no se puede, lo borra. */
-async function cancelarEnOutlook(sala: Sala, eventoId: string, comentario: string) {
-  const ruta = `/users/${encodeURIComponent(sala.buzon!)}/events/${eventoId}`
+async function cancelarEnOutlook(eventoId: string, comentario: string) {
+  const ruta = `/me/events/${encodeURIComponent(eventoId)}`
   let res = await graph(`${ruta}/cancel`, { method: 'POST', body: JSON.stringify({ Comment: comentario }) })
   if (!res.ok && res.status !== 404) res = await graph(ruta, { method: 'DELETE' })
   if (!res.ok && res.status !== 404) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
@@ -390,6 +479,10 @@ async function cancelarEnOutlook(sala: Sala, eventoId: string, comentario: strin
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (req.method === 'GET') {
+    const url = new URL(req.url)
+    if (url.searchParams.has('state')) return terminarConexion(url).catch((e) => (console.error(e), new Response('Error interno', { status: 500 })))
+  }
   if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405)
   try {
     return responder(await manejar(req))

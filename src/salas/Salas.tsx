@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CambiarPassword } from '../auth/CambiarPassword'
 import { IMG } from '../lib/imagenes'
+import { ConexionOutlook } from './ConexionOutlook'
 import { salasApi, supabase, type Perfil, type Reservacion, type Sala } from '../lib/supabase'
 import { aFecha, diasHabiles, horaDe, horariosLibres, local, textoDia, textoHora, type Bloque } from './tiempo'
 
@@ -36,14 +37,14 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
   useEffect(() => {
     supabase
       .from('salas')
-      .select('id, nombre, buzon, capacidad')
+      .select('id, nombre, calendario_id, calendario_nombre, capacidad')
       .eq('activa', true)
       .order('orden')
       .then(({ data }) => {
         setSalas(data ?? [])
         if (data?.[0]) setSalaId((actual) => actual || data[0].id)
       })
-  }, [])
+  }, [version])
 
   const clave = `${salaId}|${dia}|${version}`
   useEffect(() => {
@@ -250,7 +251,7 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
                   r={r}
                   sala={nombreSala(r.sala_id)}
                   mostrarQuien={perfil.es_admin}
-                  verSync={perfil.es_admin && Boolean(salas?.find((s) => s.id === r.sala_id)?.buzon)}
+                  verSync={perfil.es_admin && Boolean(salas?.find((s) => s.id === r.sala_id)?.calendario_id)}
                   mover={() => empezarAMover(r)}
                   alCancelar={() => recargar('Reservación cancelada.')}
                 />
@@ -258,6 +259,8 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
             </ul>
           )}
         </section>
+
+        {perfil.es_admin && <ConexionOutlook alCambiar={() => recargar()} />}
       </div>
     </div>
   )

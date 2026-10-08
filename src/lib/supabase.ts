@@ -70,7 +70,8 @@ export function registrar(accion: string, extra: { plantilla?: string; documento
 export interface Sala {
   id: string
   nombre: string
-  buzon: string | null
+  calendario_id: string | null
+  calendario_nombre: string | null
   capacidad: number | null
 }
 
