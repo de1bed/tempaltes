@@ -2,6 +2,21 @@
 
 Mini app para generar cotizaciones y contratos en PDF a partir de un formulario. Se llenan los datos del cliente a la izquierda, la vista previa se actualiza en vivo a la derecha y **Descargar PDF** genera el PDF en la propia app (Carta o A4, igual en cualquier navegador, también iPhone) con el nombre del archivo ya puesto.
 
+## Acceso y permisos
+
+La app pide **iniciar sesión** (Supabase Auth, proyecto `treve automatizaciones`). No hay registro: solo entran las cuentas que da de alta el administrador.
+
+- **Administrador** (`davidrocha0520@gmail.com`): entra a todas las secciones y a **Administración** (`#admin`), donde da de alta cuentas (correo, nombre, contraseña y secciones), cambia permisos al momento, asigna una contraseña nueva, desactiva o elimina cuentas y ve el último acceso de cada quien.
+- **Las demás personas** solo ven en el inicio las secciones que tienen activadas; una dirección como `#contratos` sin permiso regresa al inicio.
+- **Contraseñas**: Supabase las guarda cifradas y nadie puede leerlas, ni el administrador. Al crear una cuenta o asignar una contraseña nueva se muestra **una sola vez** para compartirla.
+- **Primera vez**: mientras no exista el administrador, el login muestra "Configurar la cuenta de administrador" (solo para ese correo y solo una vez).
+
+Cómo está hecho:
+
+- `supabase/migrations/`: tabla `perfiles` (secciones, activo, es_admin) con RLS; cada persona solo puede leer su propio perfil y nadie puede escribir desde el navegador.
+- `supabase/functions/admin-usuarios/`: Edge Function que crea, cambia y elimina cuentas con la llave secreta (nunca llega al navegador); revisa en cada llamada que quien la usa sea el administrador. Desactivar bloquea el inicio de sesión en Supabase Auth.
+- `src/auth/`: login, primera configuración y panel de administración. `src/lib/supabase.ts` usa la llave publicable, que está hecha para ir en el navegador.
+
 ## Pantalla de inicio
 
 Al abrir la app aparece **¿Qué quieres hacer hoy?** con tres secciones: **Cotizaciones**, **Contratos** y **Corridas**. Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`, `#corridas`.

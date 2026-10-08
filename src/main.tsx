@@ -14,9 +14,10 @@ import '@fontsource/poppins/latin-ext-700.css'
 import '@fontsource/poppins/latin-400-italic.css'
 import './index.css'
 import App from './App.tsx'
+import { Acceso } from './auth/Acceso'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Acceso>{(perfil, salir) => <App perfil={perfil} salir={salir} />}</Acceso>
   </StrictMode>,
 )

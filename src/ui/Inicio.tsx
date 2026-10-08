@@ -1,6 +1,7 @@
 import { PLANTILLAS, type PlantillaId, type TipoDocumento } from '../lib/modelo'
 import { IMG } from '../lib/imagenes'
 import { SECCIONES, type Seccion } from '../lib/secciones'
+import type { Perfil } from '../lib/supabase'
 
 function Icono({ tipo }: { tipo: Seccion['tipo'] }) {
   const comun = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
@@ -28,11 +29,26 @@ function Icono({ tipo }: { tipo: Seccion['tipo'] }) {
   )
 }
 
-/** Pantalla de inicio: elegir qué hacer (cotizaciones, contratos o corridas). */
-export function Inicio({ abrir }: { abrir: (tipo: TipoDocumento, plantilla?: PlantillaId) => void }) {
+interface Props {
+  abrir: (tipo: TipoDocumento, plantilla?: PlantillaId) => void
+  permitidas: TipoDocumento[]
+  perfil: Perfil
+  abrirAdmin: () => void
+  salir: () => void
+}
+
+/** Pantalla de inicio: elegir qué hacer entre las secciones a las que tiene acceso la persona. */
+export function Inicio({ abrir, permitidas, perfil, abrirAdmin, salir }: Props) {
+  const secciones = SECCIONES.filter((s) => permitidas.includes(s.tipo))
   return (
     <div className="inicio">
       <div className="inicio-centro">
+        <div className="sesion">
+          <span>{perfil.nombre || perfil.email}</span>
+          <button type="button" className="link sesion-salir" onClick={salir}>
+            Cerrar sesión
+          </button>
+        </div>
         <header className="inicio-cab">
           <img className="inicio-logo" src={IMG.treveLogo} alt="Treve · Better people, better business." />
           <div className="marca-kicker">FEEDBAK · STAFFVIA · HAATS</div>
@@ -40,7 +56,10 @@ export function Inicio({ abrir }: { abrir: (tipo: TipoDocumento, plantilla?: Pla
         </header>
 
         <div className="inicio-tarjetas">
-          {SECCIONES.map((s) => {
+          {secciones.length === 0 && !perfil.es_admin && (
+            <p className="inicio-vacio">Todavía no tienes acceso a ninguna sección. Pídele al administrador que te lo active.</p>
+          )}
+          {secciones.map((s) => {
             const lista = PLANTILLAS.filter((p) => p.tipo === s.tipo)
             const disponible = lista.length > 0
             return (
@@ -74,6 +93,23 @@ export function Inicio({ abrir }: { abrir: (tipo: TipoDocumento, plantilla?: Pla
               </section>
             )
           })}
+          {perfil.es_admin && (
+            <section className="tarjeta" style={{ borderTopColor: '#13294b' }}>
+              <button type="button" className="tarjeta-cab" onClick={abrirAdmin}>
+                <span className="tarjeta-icono" style={{ color: '#13294b' }}>
+                  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="9" cy="8" r="3.5" />
+                      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2 .7 3 2.9 3 6" />
+                    </g>
+                  </svg>
+                </span>
+                <span className="tarjeta-titulo">Administración</span>
+                <span className="tarjeta-desc">Da de alta a las personas y decide a qué secciones puede entrar cada una.</span>
+                <span className="tarjeta-pie">Cuentas y permisos →</span>
+              </button>
+            </section>
+          )}
         </div>
       </div>
     </div>

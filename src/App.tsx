@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Feedbak } from './doc/Feedbak'
 import { ContratoLicencia, Nda } from './doc/Contratos'
 import { HaatsHoras, HaatsMensual } from './doc/Haats'
@@ -27,14 +27,19 @@ import type { CorridaId } from './corridas/tipos'
 import { IMG } from './lib/imagenes'
 import { SECCIONES } from './lib/secciones'
 import { Inicio } from './ui/Inicio'
+import { Admin } from './auth/Admin'
+import type { Perfil } from './lib/supabase'
 
 const CLAVE = 'cotizador:v1'
 
 /** Sección abierta según la dirección (#cotizaciones, #contratos); sin nada es la pantalla de inicio. */
 const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos', corrida: 'corridas' }
-function seccionDeRuta(): TipoDocumento | null {
-  const ruta = window.location.hash.replace(/^#\/?/, '')
-  return (Object.keys(RUTAS) as TipoDocumento[]).find((t) => RUTAS[t] === ruta) ?? null
+const RUTA_ADMIN = 'admin'
+const ruta = () => window.location.hash.replace(/^#\/?/, '')
+/** Solo abre por dirección las secciones a las que la persona tiene acceso. */
+function seccionDeRuta(permitidas: TipoDocumento[]): TipoDocumento | null {
+  const r = ruta()
+  return permitidas.find((t) => RUTAS[t] === r) ?? null
 }
 
 interface Estado {
@@ -130,19 +135,26 @@ function enSeccion(e: Estado, tipo: TipoDocumento | null): Estado {
   return plantilla === e.plantilla ? e : { ...e, plantilla }
 }
 
-export default function App() {
-  const [estado, setEstado] = useState<Estado>(() => enSeccion(cargar(), seccionDeRuta()))
-  const [seccion, setSeccion] = useState<TipoDocumento | null>(seccionDeRuta)
+export default function App({ perfil, salir }: { perfil: Perfil; salir: () => void }) {
+  // El administrador entra a todo; los demás, a lo que les activó.
+  const permitidas = useMemo<TipoDocumento[]>(
+    () => (perfil.es_admin ? (Object.keys(RUTAS) as TipoDocumento[]) : perfil.secciones),
+    [perfil],
+  )
+  const [estado, setEstado] = useState<Estado>(() => enSeccion(cargar(), seccionDeRuta(permitidas)))
+  const [seccion, setSeccion] = useState<TipoDocumento | null>(() => seccionDeRuta(permitidas))
+  const [enAdmin, setEnAdmin] = useState(() => perfil.es_admin && ruta() === RUTA_ADMIN)
   // Atrás/Adelante del navegador: inicio ↔ sección.
   useEffect(() => {
     const alCambiar = () => {
-      const tipo = seccionDeRuta()
+      const tipo = seccionDeRuta(permitidas)
       setSeccion(tipo)
+      setEnAdmin(perfil.es_admin && ruta() === RUTA_ADMIN)
       setEstado((e) => enSeccion(e, tipo))
     }
     window.addEventListener('hashchange', alCambiar)
     return () => window.removeEventListener('hashchange', alCambiar)
-  }, [])
+  }, [permitidas, perfil.es_admin])
   const { plantilla, datos } = estado
   const vistaRef = useRef<HTMLDivElement>(null)
   const [desbordadas, setDesbordadas] = useState<number[]>([])
@@ -215,8 +227,15 @@ export default function App() {
     window.location.hash = RUTAS[tipo]
   }
 
+  function abrirAdmin() {
+    setSeccion(null)
+    setEnAdmin(true)
+    window.location.hash = RUTA_ADMIN
+  }
+
   function irAInicio() {
     setSeccion(null)
+    setEnAdmin(false)
     // Quita el #seccion sin dejar un "#" suelto en la dirección.
     history.pushState(null, '', window.location.pathname + window.location.search)
   }
@@ -287,7 +306,8 @@ export default function App() {
     setConfirmando(false)
   }
 
-  if (!seccion) return <Inicio abrir={abrir} />
+  if (enAdmin) return <Admin perfil={perfil} irAInicio={irAInicio} salir={salir} />
+  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={abrirAdmin} salir={salir} />
   const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
   const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
 

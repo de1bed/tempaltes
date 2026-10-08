@@ -200,6 +200,54 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 @media (prefers-reduced-motion: reduce) { .tarjeta { transition: none; } .tarjeta:not(.pronto):hover { transform: none; } }
 @media (max-width: 600px) { .inicio { padding: 36px 16px; } }
 
+/* ───── Acceso (login) ───── */
+.acceso { min-height: 100vh; display: grid; place-items: center; padding: 40px 16px; background: radial-gradient(1200px 500px at 50% -10%, #ffffff, var(--fondo)); }
+.acceso-caja { width: 100%; max-width: 380px; padding: 32px 28px; background: #fff; border: 1px solid var(--linea); border-radius: 12px; box-shadow: 0 2px 10px rgba(11, 76, 94, 0.06); }
+.acceso-logo { display: block; width: 170px; height: auto; margin: 0 0 22px -3px; }
+.acceso-caja h1 { margin: 0 0 18px; font-size: 22px; font-weight: 600; color: var(--marca); }
+.acceso-form { display: flex; flex-direction: column; gap: 12px; }
+.acceso-form .btn { padding: 9px 14px; }
+.acceso-nota { margin: 0; font-size: 12px; line-height: 1.5; color: var(--suave); }
+.acceso-link { align-self: flex-start; color: var(--marca); font-size: 12px; }
+.acceso-link:hover { text-decoration: underline; }
+.campo input[readonly] { background: #f3f6f7; color: var(--suave); }
+
+/* Sesión en la pantalla de inicio */
+.sesion { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin: -36px 0 12px; font-size: 12.5px; color: var(--suave); }
+.sesion-salir { color: var(--marca); font-size: 12.5px; font-weight: 500; }
+.sesion-salir:hover { text-decoration: underline; }
+.inicio-vacio { grid-column: 1 / -1; margin: 0; padding: 16px 18px; border-radius: 10px; background: #fff; border: 1px solid var(--linea); color: var(--suave); font-size: 14px; }
+@media (max-width: 600px) { .sesion { margin-top: -16px; } }
+
+/* ───── Administración ───── */
+.admin-centro { max-width: 860px; }
+.admin-cab { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.admin-cab .marca-logo img { height: 34px; }
+.admin-cab .sesion-salir { margin-left: auto; }
+.admin h1 { margin: 0; font-size: clamp(26px, 4vw, 34px); font-weight: 600; color: var(--marca); letter-spacing: -0.5px; }
+.admin-intro { margin: 4px 0 22px; font-size: 13.5px; color: var(--suave); }
+.admin-caja { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; padding: 20px 22px; background: #fff; border: 1px solid var(--linea); border-radius: 12px; box-shadow: 0 2px 10px rgba(11, 76, 94, 0.06); }
+.admin-caja h2 { margin: 0; font-size: 16px; font-weight: 600; color: var(--marca); }
+.admin-alta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.admin-password { display: flex; gap: 6px; }
+.admin-password input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.admin-password .btn { flex: none; padding: 6px 10px; }
+.admin-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.casilla.permiso.marcada { background: #edf6f1; border-color: var(--verde); color: #1f5c38; }
+.admin-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.admin-usuario { display: flex; flex-direction: column; gap: 10px; padding: 14px 0; border-top: 1px solid var(--linea); }
+.admin-usuario:first-child { border-top: 0; padding-top: 0; }
+.admin-usuario.inactivo .admin-quien { opacity: 0.6; }
+.admin-quien { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.admin-quien strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.admin-quien span { font-size: 12.5px; color: var(--suave); overflow-wrap: anywhere; }
+.admin-quien small { font-size: 11.5px; color: #8a98a2; }
+.admin-usuario .nota { margin: 0; }
+.link:disabled { opacity: 0.6; cursor: progress; }
+.credenciales { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; padding: 16px 18px; border-radius: 12px; background: #edf6f1; border: 1px solid #bfe0cb; font-size: 12.5px; color: #1f5c38; }
+.credenciales strong { font-size: 14px; color: var(--marca); }
+.credenciales pre { margin: 4px 0; padding: 10px 12px; border-radius: 8px; background: #fff; border: 1px solid #bfe0cb; font-size: 13px; color: var(--tinta); white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* ───── Vista previa ───── */
 .vista { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .barra { display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: #fff; border-bottom: 1px solid var(--linea); flex-wrap: wrap; }
