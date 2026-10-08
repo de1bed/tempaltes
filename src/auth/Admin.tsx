@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { IMG } from '../lib/imagenes'
-import { PLANTILLAS, type PlantillaId, type TipoDocumento } from '../lib/modelo'
-import { SECCIONES } from '../lib/secciones'
+import { PLANTILLAS, type PlantillaId } from '../lib/modelo'
+import { PERMISOS, type Permiso } from '../lib/secciones'
 import { adminUsuarios, type Perfil, type Registro, type Usuario } from '../lib/supabase'
 import { CambiarPassword } from './CambiarPassword'
 
@@ -17,18 +17,18 @@ function fecha(iso: string | null): string {
   return new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function Casillas({ valor, onChange, deshabilitado }: { valor: TipoDocumento[]; onChange: (v: TipoDocumento[]) => void; deshabilitado?: boolean }) {
+function Casillas({ valor, onChange, deshabilitado }: { valor: Permiso[]; onChange: (v: Permiso[]) => void; deshabilitado?: boolean }) {
   return (
     <div className="casillas">
-      {SECCIONES.map((s) => {
-        const marcada = valor.includes(s.tipo)
+      {PERMISOS.map((s) => {
+        const marcada = valor.includes(s.id)
         return (
-          <label key={s.tipo} className={marcada ? 'casilla permiso marcada' : 'casilla permiso'}>
+          <label key={s.id} className={marcada ? 'casilla permiso marcada' : 'casilla permiso'}>
             <input
               type="checkbox"
               checked={marcada}
               disabled={deshabilitado}
-              onChange={() => onChange(marcada ? valor.filter((t) => t !== s.tipo) : [...valor, s.tipo])}
+              onChange={() => onChange(marcada ? valor.filter((t) => t !== s.id) : [...valor, s.id])}
             />
             {s.titulo}
           </label>
@@ -67,7 +67,7 @@ function Alta({ alCrear }: { alCrear: (email: string, password: string) => void 
   const [email, setEmail] = useState('')
   const [nombre, setNombre] = useState('')
   const [password, setPassword] = useState(generarPassword)
-  const [secciones, setSecciones] = useState<TipoDocumento[]>([])
+  const [secciones, setSecciones] = useState<Permiso[]>([])
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
 
@@ -212,6 +212,9 @@ const ACCIONES: Record<string, string> = {
   cuenta_actualizada: 'Cambió permisos de',
   contrasena_asignada: 'Asignó contraseña nueva a',
   cuenta_eliminada: 'Eliminó la cuenta',
+  sala_reservada: 'Reservó sala',
+  sala_movida: 'Movió reservación',
+  sala_cancelada: 'Canceló reservación',
 }
 
 /** Qué hizo cada quien: documentos generados y cambios de cuentas. */
@@ -264,7 +267,7 @@ function Bitacora({ usuarios, abrirDocumento }: { usuarios: Usuario[] | null; ab
           </select>
         </div>
       </div>
-      <p className="nota">Cada PDF, Excel o validación que se descarga queda aquí con los datos que se usaron. "Abrir documento" lo carga en el formulario tal cual se generó.</p>
+      <p className="nota">Cada PDF, Excel o validación que se descarga y cada reservación de sala queda aquí. "Abrir documento" lo carga en el formulario tal cual se generó.</p>
       {error && <div className="alerta" role="alert">{error}</div>}
       {registros?.length === 0 && <p className="nota">Todavía no hay movimientos.</p>}
       {registros && registros.length > 0 && (

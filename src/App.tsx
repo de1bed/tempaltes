@@ -28,13 +28,15 @@ import { IMG } from './lib/imagenes'
 import { SECCIONES } from './lib/secciones'
 import { Inicio } from './ui/Inicio'
 import { Admin } from './auth/Admin'
+import { Salas } from './salas/Salas'
 import { registrar, type Perfil } from './lib/supabase'
 
 const CLAVE = 'cotizador:v1'
 
 /** Sección abierta según la dirección (#cotizaciones, #contratos); sin nada es la pantalla de inicio. */
 const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos', corrida: 'corridas' }
-const RUTA_ADMIN = 'admin'
+/** Pantallas fuera de los documentos. */
+type Pantalla = 'admin' | 'salas'
 const ruta = () => window.location.hash.replace(/^#\/?/, '')
 /** Solo abre por dirección las secciones a las que la persona tiene acceso. */
 function seccionDeRuta(permitidas: TipoDocumento[]): TipoDocumento | null {
@@ -138,23 +140,30 @@ function enSeccion(e: Estado, tipo: TipoDocumento | null): Estado {
 export default function App({ perfil, salir }: { perfil: Perfil; salir: () => void }) {
   // El administrador entra a todo; los demás, a lo que les activó.
   const permitidas = useMemo<TipoDocumento[]>(
-    () => (perfil.es_admin ? (Object.keys(RUTAS) as TipoDocumento[]) : perfil.secciones),
+    () => (Object.keys(RUTAS) as TipoDocumento[]).filter((t) => perfil.es_admin || perfil.secciones.includes(t)),
     [perfil],
   )
+  const puedeSalas = perfil.es_admin || perfil.secciones.includes('salas')
+  const pantallaDeRuta = useCallback((): Pantalla | null => {
+    const r = ruta()
+    if (r === 'admin' && perfil.es_admin) return 'admin'
+    if (r === 'salas' && puedeSalas) return 'salas'
+    return null
+  }, [perfil.es_admin, puedeSalas])
   const [estado, setEstado] = useState<Estado>(() => enSeccion(cargar(), seccionDeRuta(permitidas)))
   const [seccion, setSeccion] = useState<TipoDocumento | null>(() => seccionDeRuta(permitidas))
-  const [enAdmin, setEnAdmin] = useState(() => perfil.es_admin && ruta() === RUTA_ADMIN)
+  const [pantalla, setPantalla] = useState<Pantalla | null>(pantallaDeRuta)
   // Atrás/Adelante del navegador: inicio ↔ sección.
   useEffect(() => {
     const alCambiar = () => {
       const tipo = seccionDeRuta(permitidas)
       setSeccion(tipo)
-      setEnAdmin(perfil.es_admin && ruta() === RUTA_ADMIN)
+      setPantalla(pantallaDeRuta())
       setEstado((e) => enSeccion(e, tipo))
     }
     window.addEventListener('hashchange', alCambiar)
     return () => window.removeEventListener('hashchange', alCambiar)
-  }, [permitidas, perfil.es_admin])
+  }, [permitidas, pantallaDeRuta])
   const { plantilla, datos } = estado
   const vistaRef = useRef<HTMLDivElement>(null)
   const [desbordadas, setDesbordadas] = useState<number[]>([])
@@ -227,10 +236,10 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     window.location.hash = RUTAS[tipo]
   }
 
-  function abrirAdmin() {
+  function abrirPantalla(p: Pantalla) {
     setSeccion(null)
-    setEnAdmin(true)
-    window.location.hash = RUTA_ADMIN
+    setPantalla(p)
+    window.location.hash = p
   }
 
   /** Desde la bitácora: carga los datos con que se generó un documento (reemplaza el borrador de esa plantilla). */
@@ -238,13 +247,13 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     const p = PLANTILLAS.find((x) => x.id === id)
     if (!p || !d || typeof d !== 'object') return
     setEstado((e) => ({ ...e, datos: { ...e.datos, [id]: { ...datosIniciales()[id], ...d } } }))
-    setEnAdmin(false)
+    setPantalla(null)
     abrir(p.tipo, id)
   }
 
   function irAInicio() {
     setSeccion(null)
-    setEnAdmin(false)
+    setPantalla(null)
     // Quita el #seccion sin dejar un "#" suelto en la dirección.
     history.pushState(null, '', window.location.pathname + window.location.search)
   }
@@ -318,8 +327,9 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     setConfirmando(false)
   }
 
-  if (enAdmin) return <Admin perfil={perfil} irAInicio={irAInicio} salir={salir} abrirDocumento={abrirDocumento} />
-  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={abrirAdmin} salir={salir} />
+  if (pantalla === 'admin') return <Admin perfil={perfil} irAInicio={irAInicio} salir={salir} abrirDocumento={abrirDocumento} />
+  if (pantalla === 'salas') return <Salas perfil={perfil} irAInicio={irAInicio} salir={salir} />
+  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} salir={salir} />
   const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
   const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
 

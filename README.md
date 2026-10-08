@@ -19,6 +19,15 @@ Cómo está hecho:
 - `supabase/functions/admin-usuarios/`: Edge Function que crea, cambia y elimina cuentas con la llave secreta (nunca llega al navegador); revisa en cada llamada que quien la usa sea el administrador. Desactivar bloquea el inicio de sesión en Supabase Auth.
 - `src/auth/`: login, primera configuración y panel de administración. `src/lib/supabase.ts` usa la llave publicable, que está hecha para ir en el navegador.
 
+## Salas
+
+Reservación de la **Sala principal** y la **Salita 2** (permiso "Salas" en Administración). Lunes a viernes, 7:00 a.m. a 9:00 p.m., hasta 30 días adelante, en hora de la Ciudad de México.
+
+- Se elige sala, día y duración; la app muestra los horarios libres y lo que ya está ocupado ese día (reservaciones de la app y eventos que estén directamente en Outlook).
+- Cada quien mueve o cancela sus reservaciones; el administrador ve y puede cambiar todas. Todo queda en la bitácora.
+- La base de datos no permite dos reservaciones encimadas en la misma sala.
+- **Outlook**: la Edge Function `salas` copia cada reservación al calendario de la sala (Microsoft Graph) e invita a los invitados. Necesita los secretos `MS_TENANT_ID`, `MS_CLIENT_ID` y `MS_CLIENT_SECRET` en Supabase y el correo del buzón de cada sala en la tabla `salas` (columna `buzon`). Sin eso funciona solo en la app.
+
 ## Pantalla de inicio
 
 Al abrir la app aparece **¿Qué quieres hacer hoy?** con tres secciones: **Cotizaciones**, **Contratos** y **Corridas**. Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`, `#corridas`.

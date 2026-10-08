@@ -1,5 +1,8 @@
 import type { TipoDocumento } from './modelo'
 
+/** Lo que el administrador puede activar a cada persona: las secciones de documentos y Salas. */
+export type Permiso = TipoDocumento | 'salas'
+
 /** Lo que se puede hacer desde la pantalla de inicio. */
 export interface Seccion {
   tipo: TipoDocumento
@@ -32,3 +35,5 @@ export const SECCIONES: Seccion[] = [
     color: '#E2601A',
   },
 ]
+
+export const PERMISOS: { id: Permiso; titulo: string }[] = [...SECCIONES.map((s) => ({ id: s.tipo, titulo: s.titulo })), { id: 'salas', titulo: 'Salas' }]

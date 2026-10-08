@@ -267,6 +267,34 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .bitacora .btn { padding: 5px 10px; font-size: 12px; }
 @media (max-width: 600px) { .bitacora li { grid-template-columns: 1fr; gap: 4px; } .bitacora .btn { justify-self: start; } }
 
+/* ───── Salas ───── */
+.salas-controles { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.salas-controles .vista-toggle button { padding: 6px 16px; font-size: 13px; }
+.salas-duracion { width: 150px; }
+.salas-dias { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; }
+.salas-dia { flex: none; display: flex; flex-direction: column; align-items: center; gap: 0; width: 58px; padding: 6px 0; border: 1px solid var(--linea); border-radius: 10px; background: #fff; font: inherit; font-size: 11px; color: var(--suave); cursor: pointer; text-transform: capitalize; }
+.salas-dia strong { font-size: 18px; font-weight: 600; color: var(--tinta); }
+.salas-dia:hover { background: #f1f5f6; }
+.salas-dia.activo { background: var(--marca); border-color: var(--marca); color: #d9e7ea; }
+.salas-dia.activo strong { color: #fff; }
+.salas-dia:focus-visible, .salas-hora:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+.salas-titulo { text-transform: none; }
+.salas-titulo::first-letter { text-transform: uppercase; }
+.salas-sub { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--suave); }
+.salas-cuerpo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+.salas-horas { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+.salas-hora { padding: 7px 0; border: 1px solid #c9d3d7; border-radius: 8px; background: #fff; font: inherit; font-size: 13px; font-weight: 500; color: var(--marca); cursor: pointer; font-variant-numeric: tabular-nums; }
+.salas-hora:hover { background: #edf6f1; border-color: var(--verde); }
+.salas-hora.activo { background: var(--marca); border-color: var(--marca); color: #fff; }
+.salas-agenda { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.salas-agenda li { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px; border-left: 3px solid #c9d3d7; border-radius: 0 6px 6px 0; background: #f6f8f9; font-size: 12.5px; overflow-wrap: anywhere; }
+.salas-agenda li.propia { border-left-color: var(--verde); background: #edf6f1; }
+.salas-agenda small { color: var(--suave); }
+.salas-agenda-hora { font-size: 11.5px; font-weight: 600; color: var(--marca); font-variant-numeric: tabular-nums; }
+.salas-form { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--linea); }
+.salas-moviendo { background: #fff4e0; border-color: #f0cf8f; color: #6b4300; }
+@media (max-width: 700px) { .salas-cuerpo { grid-template-columns: 1fr; } }
+
 /* ───── Vista previa ───── */
 .vista { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .barra { display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: #fff; border-bottom: 1px solid var(--linea); flex-wrap: wrap; }

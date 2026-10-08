@@ -4,7 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.117.1'
 
 /** Único correo que puede ser administrador. */
 const ADMIN_EMAIL = 'davidrocha0520@gmail.com'
-const SECCIONES = ['cotizacion', 'contrato', 'corrida']
+const SECCIONES = ['cotizacion', 'contrato', 'corrida', 'salas']
 const MIN_PASSWORD = 8
 /** "Desactivar" bloquea el inicio de sesión ~100 años; se quita al reactivar. */
 const BLOQUEO = '876000h'

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { TipoDocumento } from './modelo'
+import type { Permiso } from './secciones'
 
 // La llave publicable está hecha para ir en el navegador: sin sesión no da acceso a nada
 // (la tabla de perfiles solo deja leer el propio y las cuentas se administran en la Edge Function).
@@ -14,7 +14,7 @@ export interface Perfil {
   nombre: string
   es_admin: boolean
   activo: boolean
-  secciones: TipoDocumento[]
+  secciones: Permiso[]
   creado: string
 }
 
@@ -23,8 +23,17 @@ export interface Usuario extends Perfil {
 }
 
 /** Llama a la Edge Function de administración; lanza el mensaje de error que devuelve. */
-export async function adminUsuarios<T = { ok: true }>(accion: string, datos: Record<string, unknown> = {}): Promise<T> {
-  const { data, error } = await supabase.functions.invoke('admin-usuarios', { body: { accion, ...datos } })
+export function adminUsuarios<T = { ok: true }>(accion: string, datos: Record<string, unknown> = {}): Promise<T> {
+  return llamar<T>('admin-usuarios', accion, datos)
+}
+
+/** Llama a la Edge Function de salas (reservar, mover, cancelar, disponibilidad). */
+export function salasApi<T = { ok: true }>(accion: string, datos: Record<string, unknown> = {}): Promise<T> {
+  return llamar<T>('salas', accion, datos)
+}
+
+async function llamar<T>(funcion: string, accion: string, datos: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(funcion, { body: { accion, ...datos } })
   if (error) {
     // FunctionsHttpError trae la respuesta: se muestra el mensaje en español de la función.
     const respuesta = (error as { context?: Response }).context
@@ -56,4 +65,28 @@ export function registrar(accion: string, extra: { plantilla?: string; documento
     .then(({ error }) => {
       if (error) console.warn('No se pudo registrar en la bitácora', error.message)
     })
+}
+
+export interface Sala {
+  id: string
+  nombre: string
+  buzon: string | null
+  capacidad: number | null
+}
+
+export interface Reservacion {
+  id: string
+  codigo: string
+  sala_id: string
+  inicio: string
+  fin: string
+  motivo: string
+  personas: number
+  invitados: string[]
+  creado_por: string | null
+  creado_por_email: string
+  creado_por_nombre: string
+  estado: 'activa' | 'cancelada'
+  outlook_event_id: string | null
+  sync_error: string | null
 }
