@@ -6,7 +6,8 @@ import { adminUsuarios, supabase, type Perfil } from '../lib/supabase'
 /** Correo del administrador (el mismo que valida la Edge Function). */
 const ADMIN_EMAIL = 'davidrocha0520@gmail.com'
 
-type Resultado = { usuarioId: string; perfil: Perfil | null; aviso?: string }
+/** Perfil cargado para un usuario, o `null` si falló la conexión (se puede reintentar sin cerrar sesión). */
+type Resultado = { usuarioId: string; perfil: Perfil | null }
 
 /**
  * Puerta de entrada: sin sesión muestra el login (no hay registro); con sesión carga el perfil
@@ -17,6 +18,7 @@ export function Acceso({ children }: { children: (perfil: Perfil, salir: () => v
   const [resultado, setResultado] = useState<Resultado | null>(null)
   // Aviso que se queda en el login después de sacar a alguien sin acceso.
   const [aviso, setAviso] = useState<string>()
+  const [intento, setIntento] = useState(0)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSesion(data.session))
@@ -36,13 +38,11 @@ export function Acceso({ children }: { children: (perfil: Perfil, salir: () => v
       .maybeSingle()
       .then(async ({ data, error }) => {
         if (!vigente) return
-        const sinAcceso = error
-          ? 'No se pudo cargar tu cuenta. Intenta de nuevo.'
-          : !data || !data.activo
-            ? 'Tu cuenta no tiene acceso. Pide al administrador que te dé de alta.'
-            : undefined
-        if (sinAcceso) {
-          setAviso(sinAcceso)
+        // Un error de red no cierra la sesión: la sesión dura hasta "Cerrar sesión".
+        if (error) {
+          setResultado({ usuarioId, perfil: null })
+        } else if (!data || !data.activo) {
+          setAviso('Tu cuenta no tiene acceso. Pide al administrador que te dé de alta.')
           await supabase.auth.signOut()
         } else {
           setAviso(undefined)
@@ -52,11 +52,32 @@ export function Acceso({ children }: { children: (perfil: Perfil, salir: () => v
     return () => {
       vigente = false
     }
-  }, [usuarioId])
+  }, [usuarioId, intento])
 
   if (sesion === undefined) return <Pantalla><p className="acceso-nota">Cargando…</p></Pantalla>
   if (!usuarioId) return <Login aviso={aviso} />
-  if (resultado?.usuarioId !== usuarioId || !resultado.perfil) return <Pantalla><p className="acceso-nota">Cargando…</p></Pantalla>
+  if (resultado?.usuarioId !== usuarioId) return <Pantalla><p className="acceso-nota">Cargando…</p></Pantalla>
+  if (!resultado.perfil)
+    return (
+      <Pantalla titulo="Sin conexión">
+        <div className="acceso-form">
+          <p className="acceso-nota">No se pudo cargar tu cuenta. Revisa tu internet; tu sesión sigue abierta.</p>
+          <button
+            type="button"
+            className="btn primario"
+            onClick={() => {
+              setResultado(null)
+              setIntento((i) => i + 1)
+            }}
+          >
+            Reintentar
+          </button>
+          <button type="button" className="link acceso-link" onClick={() => void supabase.auth.signOut()}>
+            Cerrar sesión
+          </button>
+        </div>
+      </Pantalla>
+    )
   return <>{children(resultado.perfil, () => void supabase.auth.signOut())}</>
 }
 
