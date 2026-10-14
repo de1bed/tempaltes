@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aFecha, diasHabiles, horariosLibres, local, textoHora } from './tiempo'
+import { aFecha, diasHabiles, horariosLibres, indiceSemana, local, mesesDelRango, semanasDelMes, sumarDias, textoHora } from './tiempo'
 
 describe('horario de salas (Ciudad de México)', () => {
   it('convierte hora local a UTC (UTC-6, sin horario de verano)', () => {
@@ -26,6 +26,22 @@ describe('horario de salas (Ciudad de México)', () => {
     expect(libres).toContain(10 * 60)
     expect(libres.at(-1)).toBe(20 * 60)
     expect(textoHora(20 * 60)).toBe('8:00 p.m.')
+  })
+
+  it('arma el mes de lunes a domingo y solo habilita los días reservables', () => {
+    expect(indiceSemana('2026-10-12')).toBe(0)
+    expect(indiceSemana('2026-10-13')).toBe(1)
+    expect(indiceSemana('2026-10-18')).toBe(6)
+    expect(sumarDias('2026-10-31', 1)).toBe('2026-11-01')
+    expect(sumarDias('2026-03-01', -1)).toBe('2026-02-28')
+
+    const habiles = diasHabiles(new Date('2026-10-13T18:00:00Z'))
+    expect(mesesDelRango(habiles)).toEqual(['2026-10', '2026-11'])
+    const semanas = semanasDelMes('2026-10', new Set(habiles))
+    expect(semanas.every((s) => s.length === 7)).toBe(true)
+    expect(semanas[0][0].dia).toBe('2026-09-28')
+    expect(semanas.flat().find((c) => c.dia === '2026-10-13')?.habil).toBe(true)
+    expect(semanas.flat().find((c) => c.dia === '2026-10-18')?.habil).toBe(false)
   })
 
   it('no ofrece horarios que ya pasaron', () => {

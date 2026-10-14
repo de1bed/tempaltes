@@ -268,18 +268,49 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 @media (max-width: 600px) { .bitacora li { grid-template-columns: 1fr; gap: 4px; } .bitacora .btn { justify-self: start; } }
 
 /* ───── Salas ───── */
+.salas .admin-centro { max-width: 980px; }
 .salas-controles { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .salas-controles .vista-toggle button { padding: 6px 16px; font-size: 13px; }
 .salas-duracion { width: 150px; }
-.salas-dias { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; }
-.salas-dia { flex: none; display: flex; flex-direction: column; align-items: center; gap: 0; width: 58px; padding: 6px 0; border: 1px solid var(--linea); border-radius: 10px; background: #fff; font: inherit; font-size: 11px; color: var(--suave); cursor: pointer; text-transform: capitalize; }
-.salas-dia strong { font-size: 18px; font-weight: 600; color: var(--tinta); }
-.salas-dia:hover { background: #f1f5f6; }
-.salas-dia.activo { background: var(--marca); border-color: var(--marca); color: #d9e7ea; }
-.salas-dia.activo strong { color: #fff; }
-.salas-dia:focus-visible, .salas-hora:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
-.salas-titulo { text-transform: none; }
-.salas-titulo::first-letter { text-transform: uppercase; }
+.salas-panel { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 22px; align-items: start; }
+.salas-dia-panel, .salas-cal { min-width: 0; }
+.salas-dia-cab { display: flex; align-items: center; gap: 8px; }
+.salas-dia-titulo { flex: 1; min-width: 0; }
+.salas-dia-titulo h2 { margin: 0; }
+.salas-dia-titulo p { margin: 0; font-size: 13px; color: var(--suave); }
+.salas-flecha { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border: 1px solid var(--linea); border-radius: 8px; background: #fff; color: var(--marca); cursor: pointer; }
+.salas-flecha svg { width: 12px; height: 12px; }
+.salas-flecha:not(:disabled):hover { background: #f1f5f6; }
+.salas-flecha:disabled { opacity: 0.35; cursor: default; }
+.salas-flecha:focus-visible, .salas-celda:focus-visible, .salas-hora:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+.salas-cal { display: flex; flex-direction: column; gap: 8px; }
+.salas-cal-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.salas-cal-nav strong { font-size: 15px; font-weight: 600; color: var(--marca); text-align: center; }
+.salas-cal-letras, .salas-cal-semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.salas-cal-letras span { text-align: center; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; color: var(--suave); }
+.salas-cal-grid { display: flex; flex-direction: column; gap: 2px; }
+.salas-celda { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 40px; padding: 2px 0 4px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--tinta); cursor: pointer; }
+.salas-celda i { width: 4px; height: 4px; border-radius: 50%; background: transparent; }
+.salas-celda.ocupado i { background: var(--verde); }
+.salas-celda.fuera, .salas-celda:disabled { color: #c5ced2; cursor: default; }
+.salas-celda:not(:disabled):hover { background: #f1f5f6; }
+.salas-celda.hoy:not(.activo) { box-shadow: inset 0 0 0 1.5px var(--verde); }
+.salas-celda.activo { background: var(--marca); color: #fff; }
+.salas-celda.activo i { background: #fff; }
+.salas-celda.activo.ocupado i { background: #fff; }
+.salas-cal-nota { margin: 2px 0 0; }
+.salas-cinta-wrap { display: flex; flex-direction: column; gap: 4px; }
+.salas-cinta { position: relative; height: 22px; border: 1px solid var(--linea); border-radius: 7px; background: repeating-linear-gradient(90deg, #f4f7f8 0, #f4f7f8 calc(100% / 14 - 1px), #fff calc(100% / 14 - 1px), #fff calc(100% / 14)); overflow: hidden; }
+.salas-cinta-bloque, .salas-cinta-sel { position: absolute; top: 3px; bottom: 3px; border-radius: 4px; }
+.salas-cinta-bloque { background: #c5d0d4; }
+.salas-cinta-bloque.propia { background: var(--verde); }
+.salas-cinta-sel { background: var(--marca); }
+.salas-cinta-horas { position: relative; height: 14px; font-size: 10px; color: var(--suave); font-variant-numeric: tabular-nums; }
+.salas-cinta-horas span { position: absolute; transform: translateX(-50%); }
+.salas-cinta-horas span:first-child { transform: none; }
+.salas-cinta-horas span:last-child { transform: translateX(-100%); }
+.salas-turno h4 { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--suave); }
+.salas-turnos { display: flex; flex-direction: column; gap: 12px; }
 .salas-sub { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--suave); }
 .salas-cuerpo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
 .salas-horas { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
@@ -293,7 +324,9 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .salas-agenda-hora { font-size: 11.5px; font-weight: 600; color: var(--marca); font-variant-numeric: tabular-nums; }
 .salas-form { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--linea); }
 .salas-moviendo { background: #fff4e0; border-color: #f0cf8f; color: #6b4300; }
-@media (max-width: 700px) { .salas-cuerpo { grid-template-columns: 1fr; } }
+@media (max-width: 800px) {
+  .salas-panel, .salas-cuerpo { grid-template-columns: 1fr; }
+}
 
 /* ───── Vista previa ───── */
 .vista { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }

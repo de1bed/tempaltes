@@ -3,9 +3,15 @@ import { CambiarPassword } from '../auth/CambiarPassword'
 import { IMG } from '../lib/imagenes'
 import { ConexionOutlook } from './ConexionOutlook'
 import { salasApi, supabase, type Perfil, type Reservacion, type Sala } from '../lib/supabase'
-import { aFecha, diasHabiles, horaDe, horariosLibres, local, textoDia, textoHora, type Bloque } from './tiempo'
+import { aFecha, diasHabiles, horaDe, horariosLibres, HORA_FIN, HORA_INICIO, local, mesesDelRango, semanasDelMes, sumarDias, textoDia, textoHora, type Bloque } from './tiempo'
 
 const DURACIONES = [30, 60, 90, 120, 180, 240]
+const TURNOS = [
+  { id: 'manana', nombre: 'Mañana', desde: 7 * 60, hasta: 12 * 60 },
+  { id: 'tarde', nombre: 'Tarde', desde: 12 * 60, hasta: 18 * 60 },
+  { id: 'noche', nombre: 'Noche', desde: 18 * 60, hasta: 21 * 60 },
+]
+const LETRAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
 
 interface Disponibilidad {
   clave: string
@@ -33,6 +39,7 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
   const [hecho, setHecho] = useState('')
   const [version, setVersion] = useState(0)
   const [proximas, setProximas] = useState<Reservacion[] | null>(null)
+  const [marcas, setMarcas] = useState<{ clave: string; dias: string[] } | null>(null)
 
   useEffect(() => {
     supabase
@@ -66,8 +73,37 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
     consulta.then(({ data }) => setProximas((data as Reservacion[]) ?? []))
   }, [perfil, version])
 
+  // Días con reservación en esta sala, para el punto del calendario.
+  const claveMarcas = `${salaId}|${version}`
+  useEffect(() => {
+    if (!salaId || dias.length === 0) return
+    let vigente = true
+    const desde = aFecha(dias[0], 0).toISOString()
+    const hasta = aFecha(sumarDias(dias[dias.length - 1], 1), 0).toISOString()
+    supabase
+      .from('reservaciones')
+      .select('inicio')
+      .eq('sala_id', salaId)
+      .eq('estado', 'activa')
+      .gte('inicio', desde)
+      .lt('inicio', hasta)
+      .then(({ data }) => {
+        if (!vigente) return
+        setMarcas({ clave: claveMarcas, dias: [...new Set((data ?? []).map((r) => local(new Date(r.inicio)).dia))] })
+      })
+    return () => {
+      vigente = false
+    }
+  }, [salaId, dias, version, claveMarcas])
+
   const cargando = disp?.clave !== clave
   const sala = salas?.find((s) => s.id === salaId)
+  const iDia = dias.indexOf(dia)
+  const ocupados = useMemo(() => {
+    const puntos = new Set(marcas?.clave === claveMarcas ? marcas.dias : [])
+    if (disp?.clave === clave && (disp.reservaciones.length > 0 || disp.outlook.length > 0)) puntos.add(dia)
+    return puntos
+  }, [marcas, claveMarcas, disp, clave, dia])
   const delDia = cargando ? [] : disp!.reservaciones.filter((r) => r.id !== moviendo?.id)
   const ocupado: Bloque[] = cargando ? [] : [...delDia, ...disp!.outlook]
   const libres = cargando ? [] : horariosLibres(dia, duracion, ocupado)
@@ -160,61 +196,70 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
             </div>
           </div>
 
-          <div className="salas-dias" role="group" aria-label="Día">
-            {dias.map((d) => {
-              const f = aFecha(d, 12 * 60)
-              return (
-                <button key={d} type="button" className={d === dia ? 'salas-dia activo' : 'salas-dia'} aria-pressed={d === dia} onClick={() => (setDia(d), setElegido(null))}>
-                  <span>{f.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City', weekday: 'short' })}</span>
-                  <strong>{f.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City', day: 'numeric' })}</strong>
-                  <span>{f.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City', month: 'short' })}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          <h2 className="salas-titulo">
-            {sala?.nombre} · {textoDia(dia)}
-          </h2>
-          {!cargando && disp?.error && <div className="alerta" role="alert">{disp.error}</div>}
-          {!cargando && disp?.aviso && <div className="alerta" role="status">{disp.aviso}</div>}
-
-          <div className="salas-cuerpo">
-            <div>
-              <h3 className="salas-sub">Horarios libres ({textoDuracion(duracion)})</h3>
-              {cargando ? (
-                <p className="nota">Cargando…</p>
-              ) : libres.length === 0 ? (
-                <p className="nota">No hay horarios libres ese día para esa duración.</p>
-              ) : (
-                <div className="salas-horas">
-                  {libres.map((m) => (
-                    <button key={m} type="button" className={m === elegido ? 'salas-hora activo' : 'salas-hora'} aria-pressed={m === elegido} onClick={() => (setElegido(m), setHecho(''))}>
-                      {textoHora(m)}
-                    </button>
-                  ))}
+          <div className="salas-panel">
+            <Calendario dias={dias} dia={dia} ocupados={ocupados} onElegir={(d) => (setDia(d), setElegido(null))} />
+            <div className="salas-dia-panel">
+              <div className="salas-dia-cab">
+                <Flecha dir="izq" label="Día anterior" disabled={iDia <= 0} onClick={() => (setDia(dias[iDia - 1]), setElegido(null))} />
+                <div className="salas-dia-titulo">
+                  <h2>{sala?.nombre ?? 'Sala'}</h2>
+                  <p>{conMayuscula(textoDia(dia))}</p>
                 </div>
-              )}
-            </div>
-            <div>
-              <h3 className="salas-sub">Ocupado ese día</h3>
-              {cargando ? null : agenda.length === 0 ? (
-                <p className="nota">Todo el día libre.</p>
-              ) : (
-                <ul className="salas-agenda">
-                  {agenda.map((a, i) => (
-                    <li key={i} className={a.propia ? 'propia' : undefined}>
-                      <span className="salas-agenda-hora">
-                        {horaDe(a.inicio)} – {horaDe(a.fin)}
-                      </span>
-                      <span>
-                        {a.titulo}
-                        {a.quien && <small> · {a.quien}</small>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                <Flecha dir="der" label="Día siguiente" disabled={iDia < 0 || iDia >= dias.length - 1} onClick={() => (setDia(dias[iDia + 1]), setElegido(null))} />
+              </div>
+              {!cargando && <CintaDia dia={dia} agenda={agenda} elegido={elegido} duracion={duracion} />}
+              {!cargando && disp?.error && <div className="alerta" role="alert">{disp.error}</div>}
+              {!cargando && disp?.aviso && <div className="alerta" role="status">{disp.aviso}</div>}
+
+              <div className="salas-cuerpo">
+                <div>
+                  <h3 className="salas-sub">Horarios libres ({textoDuracion(duracion)})</h3>
+                  {cargando ? (
+                    <p className="nota">Cargando…</p>
+                  ) : libres.length === 0 ? (
+                    <p className="nota">No hay horarios libres ese día para esa duración.</p>
+                  ) : (
+                    <div className="salas-turnos">
+                      {TURNOS.map((t) => {
+                        const horas = libres.filter((m) => m >= t.desde && m < t.hasta)
+                        if (horas.length === 0) return null
+                        return (
+                          <div key={t.id} className="salas-turno">
+                            <h4>{t.nombre}</h4>
+                            <div className="salas-horas">
+                              {horas.map((m) => (
+                                <button key={m} type="button" className={m === elegido ? 'salas-hora activo' : 'salas-hora'} aria-pressed={m === elegido} onClick={() => (setElegido(m), setHecho(''))}>
+                                  {textoHora(m)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="salas-sub">Ocupado ese día</h3>
+                  {cargando ? null : agenda.length === 0 ? (
+                    <p className="nota">Todo el día libre.</p>
+                  ) : (
+                    <ul className="salas-agenda">
+                      {agenda.map((a, i) => (
+                        <li key={i} className={a.propia ? 'propia' : undefined}>
+                          <span className="salas-agenda-hora">
+                            {horaDe(a.inicio)} – {horaDe(a.fin)}
+                          </span>
+                          <span>
+                            {a.titulo}
+                            {a.quien && <small> · {a.quien}</small>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -261,6 +306,113 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
         </section>
 
         {perfil.es_admin && <ConexionOutlook alCambiar={() => recargar()} />}
+      </div>
+    </div>
+  )
+}
+
+const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es-MX') + s.slice(1) : s)
+
+function Flecha({ dir, label, disabled, onClick }: { dir: 'izq' | 'der'; label: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className="salas-flecha" aria-label={label} disabled={disabled} onClick={onClick}>
+      <svg viewBox="0 0 12 12" aria-hidden="true">
+        {dir === 'izq' ? (
+          <path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        ) : (
+          <path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+      </svg>
+    </button>
+  )
+}
+
+function Calendario({ dias, dia, ocupados, onElegir }: { dias: string[]; dia: string; ocupados: Set<string>; onElegir: (dia: string) => void }) {
+  const meses = useMemo(() => mesesDelRango(dias), [dias])
+  const mesDelDia = dia.slice(0, 7)
+  // El mes visto a mano solo vale mientras no cambie el día elegido (mover o clic en otra fecha).
+  const [vista, setVista] = useState<{ mes: string; ancla: string } | null>(null)
+  const hoy = local(new Date()).dia
+  const mes = vista && vista.ancla === dia && meses.includes(vista.mes) ? vista.mes : mesDelDia
+  const mesSeguro = meses.includes(mes) ? mes : (meses[0] ?? mesDelDia)
+  const indice = meses.indexOf(mesSeguro)
+  const habiles = useMemo(() => new Set(dias), [dias])
+  const semanas = useMemo(() => semanasDelMes(mesSeguro, habiles), [mesSeguro, habiles])
+
+  return (
+    <div className="salas-cal">
+      <div className="salas-cal-nav">
+        <Flecha dir="izq" label="Mes anterior" disabled={indice <= 0} onClick={() => setVista({ mes: meses[indice - 1], ancla: dia })} />
+        <strong>{conMayuscula(textoDia(`${mesSeguro}-01`, { month: 'long', year: 'numeric' }))}</strong>
+        <Flecha dir="der" label="Mes siguiente" disabled={indice < 0 || indice >= meses.length - 1} onClick={() => setVista({ mes: meses[indice + 1], ancla: dia })} />
+      </div>
+      <div className="salas-cal-letras" aria-hidden="true">
+        {LETRAS.map((l) => (
+          <span key={l}>{l}</span>
+        ))}
+      </div>
+      <div className="salas-cal-grid" role="group" aria-label="Días para reservar">
+        {semanas.map((semana) => (
+          <div key={semana[0].dia} className="salas-cal-semana">
+            {semana.map((celda) => {
+              const enMes = celda.dia.slice(0, 7) === mesSeguro
+              const puede = celda.habil && enMes
+              const marcado = puede && ocupados.has(celda.dia)
+              return (
+                <button
+                  key={celda.dia}
+                  type="button"
+                  className={['salas-celda', !enMes ? 'fuera' : '', celda.dia === dia && enMes ? 'activo' : '', celda.dia === hoy && enMes ? 'hoy' : '', marcado ? 'ocupado' : ''].filter(Boolean).join(' ')}
+                  disabled={!puede}
+                  aria-pressed={celda.dia === dia}
+                  aria-label={`${textoDia(celda.dia)}${celda.dia === hoy ? ', hoy' : ''}${marcado ? ', con reservaciones' : ''}`}
+                  onClick={() => puede && onElegir(celda.dia)}
+                >
+                  <span>{Number(celda.dia.slice(8))}</span>
+                  <i />
+                </button>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+      <p className="nota salas-cal-nota">Lunes a viernes. El punto marca un día con reservaciones.</p>
+    </div>
+  )
+}
+
+function CintaDia({ dia, agenda, elegido, duracion }: { dia: string; agenda: { inicio: string; fin: string; propia: boolean }[]; elegido: number | null; duracion: number }) {
+  const ini = HORA_INICIO * 60
+  const total = (HORA_FIN - HORA_INICIO) * 60
+  const pct = (min: number) => ((min - ini) / total) * 100
+  const clamp = (iso: string) => {
+    const l = local(new Date(iso))
+    if (l.dia < dia) return ini
+    if (l.dia > dia) return HORA_FIN * 60
+    return Math.min(HORA_FIN * 60, Math.max(ini, l.minutos))
+  }
+  return (
+    <div className="salas-cinta-wrap">
+      <div className="salas-cinta" aria-hidden="true">
+        {agenda.map((a, i) => {
+          const a0 = clamp(a.inicio)
+          const a1 = clamp(a.fin)
+          if (a1 <= a0) return null
+          return <span key={i} className={a.propia ? 'salas-cinta-bloque propia' : 'salas-cinta-bloque'} style={{ left: `${pct(a0)}%`, width: `${Math.max(pct(a1) - pct(a0), 0.8)}%` }} />
+        })}
+        {elegido !== null && <span className="salas-cinta-sel" style={{ left: `${pct(elegido)}%`, width: `${(duracion / total) * 100}%` }} />}
+      </div>
+      <div className="salas-cinta-horas" aria-hidden="true">
+        {[
+          ['7 a.m.', 0],
+          ['12 p.m.', (5 / 14) * 100],
+          ['5 p.m.', (10 / 14) * 100],
+          ['9 p.m.', 100],
+        ].map(([texto, left]) => (
+          <span key={texto} style={{ left: `${left}%` }}>
+            {texto}
+          </span>
+        ))}
       </div>
     </div>
   )

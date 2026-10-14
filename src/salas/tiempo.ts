@@ -69,3 +69,48 @@ export function horaDe(iso: string): string {
 export function textoDia(dia: string, opciones: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' }): string {
   return aFecha(dia, 12 * 60).toLocaleDateString('es-MX', { timeZone: ZONA, ...opciones })
 }
+
+/** Lunes = 0 … domingo = 6, por la fecha de calendario (no por la zona del navegador). */
+export function indiceSemana(dia: string): number {
+  const [y, m, d] = dia.split('-').map(Number)
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7
+}
+
+/** Suma días de calendario a una fecha `YYYY-MM-DD`. */
+export function sumarDias(dia: string, n: number): string {
+  const [y, m, d] = dia.split('-').map(Number)
+  const fecha = new Date(Date.UTC(y, m - 1, d + n))
+  const mm = String(fecha.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(fecha.getUTCDate()).padStart(2, '0')
+  return `${fecha.getUTCFullYear()}-${mm}-${dd}`
+}
+
+/** Meses `YYYY-MM` que aparecen en una lista de días ya ordenada. */
+export function mesesDelRango(dias: readonly string[]): string[] {
+  const meses: string[] = []
+  for (const dia of dias) {
+    const mes = dia.slice(0, 7)
+    if (meses.at(-1) !== mes) meses.push(mes)
+  }
+  return meses
+}
+
+export interface CeldaMes {
+  dia: string
+  habil: boolean
+}
+
+/** Semanas de lunes a domingo que cubren el mes `YYYY-MM`. */
+export function semanasDelMes(mes: string, habiles: ReadonlySet<string>): CeldaMes[][] {
+  const primero = `${mes}-01`
+  const [y, m] = mes.split('-').map(Number)
+  const ultimo = `${mes}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`
+  const inicio = sumarDias(primero, -indiceSemana(primero))
+  const fin = sumarDias(ultimo, 6 - indiceSemana(ultimo))
+  const semanas: CeldaMes[][] = []
+  for (let d = inicio; d <= fin; d = sumarDias(d, 1)) {
+    if (semanas.length === 0 || semanas.at(-1)!.length === 7) semanas.push([])
+    semanas.at(-1)!.push({ dia: d, habil: habiles.has(d) })
+  }
+  return semanas
+}
