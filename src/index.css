@@ -306,7 +306,7 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .salas-cinta-bloque.propia { background: var(--verde); }
 .salas-cinta-sel { background: var(--marca); }
 .salas-cinta-horas { position: relative; height: 14px; font-size: 10px; color: var(--suave); font-variant-numeric: tabular-nums; }
-.salas-cinta-horas span { position: absolute; transform: translateX(-50%); }
+.salas-cinta-horas span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .salas-cinta-horas span:first-child { transform: none; }
 .salas-cinta-horas span:last-child { transform: translateX(-100%); }
 .salas-turno h4 { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--suave); }
@@ -343,6 +343,85 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .salas-guia .btn { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
 @media (max-width: 800px) {
   .salas-panel, .salas-cuerpo { grid-template-columns: 1fr; }
+}
+
+/* Salas: pestañas, cambiar horario, solicitudes, historial, externos */
+.salas-titulo { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; scroll-margin-top: 12px; }
+.salas-pestanas { display: flex; gap: 4px; flex-wrap: wrap; margin: 0 0 16px; padding: 4px; border-radius: 12px; background: #e6ebed; }
+.salas-pestanas button { flex: 1 1 auto; padding: 9px 14px; border: 0; border-radius: 9px; background: none; font: inherit; font-size: 13px; font-weight: 500; color: var(--suave); cursor: pointer; white-space: nowrap; }
+.salas-pestanas button:hover { color: var(--marca); background: rgba(255, 255, 255, 0.5); }
+.salas-pestanas button.activo { background: #fff; color: var(--marca); box-shadow: 0 1px 3px rgba(11, 76, 94, 0.18); }
+.salas-pestanas button:focus-visible { outline: 2px solid var(--verde); outline-offset: 1px; }
+.salas-aviso-solicitudes { display: block; width: 100%; margin: 0 0 16px; padding: 12px 16px; border: 1px solid #f0cf8f; border-radius: 10px; background: #fff4e0; font: inherit; font-size: 13.5px; color: #6b4300; text-align: left; cursor: pointer; }
+.salas-mover { position: sticky; top: 8px; z-index: 15; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; padding: 16px 18px; border-radius: 12px; background: #fff; border: 2px solid var(--marca); box-shadow: 0 8px 24px rgba(11, 76, 94, 0.16); }
+.salas-mover-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 15px; color: var(--marca); }
+.salas-mover-filas { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+.salas-mover-filas > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 8px; background: #f6f8f9; min-width: 0; }
+.salas-mover-etiqueta { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--suave); }
+.salas-mover-actual { font-size: 13.5px; color: var(--suave); text-decoration: line-through; }
+.salas-mover-nuevo { font-size: 14px; font-weight: 600; color: var(--marca); }
+.salas-mover-flecha { font-size: 20px; color: var(--marca); }
+.salas-cinta-bloque.moviendo { background: repeating-linear-gradient(45deg, #fff4e0 0 4px, #f0cf8f 4px 8px); }
+.salas-agenda li.moviendo { border-left-color: #f0cf8f; background: #fff8ec; }
+.salas-pedir { align-self: flex-start; margin-top: 2px; font-size: 12px; color: var(--marca); text-decoration: underline; }
+.salas-form { scroll-margin-top: 140px; }
+.salas-form-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.salas-form-cab .salas-sub { margin: 0; font-weight: 500; color: var(--tinta); }
+.salas-nota-solicitud { margin: 0; padding: 8px 12px; border-radius: 8px; background: #fff4e0; color: #6b4300; }
+.salas-a-nombre { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--linea); border-radius: 6px; background: #f6f8f9; font-size: 13px; }
+.salas-a-nombre small { color: var(--suave); margin-left: 6px; }
+.salas-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px 6px; border: 1px solid #c9d3d7; border-radius: 6px; background: #fff; cursor: text; }
+.salas-chips:focus-within { outline: 2px solid var(--verde); outline-offset: -1px; border-color: var(--verde); }
+.salas-chips input { flex: 1 1 160px; min-width: 120px; border: 0 !important; outline: none !important; padding: 3px 4px !important; font: inherit; font-size: 13px; }
+.salas-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 999px; background: #edf6f1; border: 1px solid #bfe0cb; font-size: 12.5px; color: #1f5c38; }
+.salas-chip button { width: 20px; height: 20px; border: 0; border-radius: 50%; background: none; font-size: 15px; line-height: 1; color: #1f5c38; cursor: pointer; }
+.salas-chip button:hover { background: #d7eedf; }
+.salas-aviso-campo { color: var(--peligro) !important; }
+.salas-estado { display: inline-flex; align-items: center; gap: 8px; }
+.salas-estado.ok { color: #1f7a45 !important; }
+.salas-estado.error { color: #b4561a !important; }
+.salas-cancelar { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.salas-cancelar input { width: 220px; max-width: 100%; padding: 6px 8px; border: 1px solid #c9d3d7; border-radius: 6px; font: inherit; font-size: 12.5px; }
+.salas-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.salas-filtros select { padding: 5px 8px; border: 1px solid #c9d3d7; border-radius: 6px; font: inherit; font-size: 12.5px; background: #fff; }
+.salas-historial { margin: 0; padding: 10px 0 0 18px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; }
+.salas-historial li { display: flex; flex-direction: column; gap: 1px; }
+.salas-insignia { display: inline-block; padding: 0 6px; border-radius: 4px; background: #eef1f2; font-style: normal; font-size: 10.5px; font-weight: 600; color: var(--suave); }
+.salas-mensaje { margin: 6px 0 0; padding: 8px 10px; border-left: 3px solid var(--linea); background: #f6f8f9; font-size: 13px; font-style: italic; }
+.salas-solicitud { border-left: 3px solid #f0cf8f; padding-left: 12px; }
+.salas-acceso { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.salas-codigo { padding: 2px 8px; border-radius: 6px; background: #eef1f2; font-size: 15px; font-weight: 600; letter-spacing: 0.08em; color: var(--marca); }
+.salas-imprimir-fondo { position: fixed; inset: 0; z-index: 60; overflow: auto; padding: 16px; background: rgba(27, 43, 48, 0.55); }
+.salas-imprimir-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; max-width: 816px; margin: 0 auto 12px; padding: 10px 12px; border-radius: 10px; background: #fff; }
+.salas-hoja { width: 8.5in; max-width: 100%; min-height: 11in; margin: 0 auto; padding: 0.7in 0.8in; background: #fff; color: var(--tinta); display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25); }
+.salas-hoja-logo { width: 170px; height: auto; margin-bottom: 26px; }
+.salas-hoja-kicker { font-size: 13px; font-weight: 600; letter-spacing: 0.25em; color: #E77425; }
+.salas-hoja h1 { margin: 6px 0 22px; font-size: 44px; color: var(--marca); letter-spacing: -0.5px; }
+.salas-hoja-qr { width: 3.4in; max-width: 80%; }
+.salas-hoja-qr svg { display: block; width: 100%; height: auto; }
+.salas-hoja-codigo-etq { margin-top: 22px; font-size: 12px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--suave); }
+.salas-hoja-codigo { margin-top: 4px; padding: 8px 22px; border: 2px dashed var(--marca); border-radius: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 40px; font-weight: 700; letter-spacing: 0.12em; color: var(--marca); }
+.salas-hoja-pasos { margin: 28px 0 0; padding-left: 22px; max-width: 5.2in; display: flex; flex-direction: column; gap: 8px; text-align: left; font-size: 15px; line-height: 1.45; }
+.salas-hoja-pie { margin-top: auto; padding-top: 24px; font-size: 11px; color: var(--suave); overflow-wrap: anywhere; }
+@media print {
+  body:has(.salas-imprimir-fondo) * { visibility: hidden; }
+  body:has(.salas-imprimir-fondo) .salas-hoja, body:has(.salas-imprimir-fondo) .salas-hoja * { visibility: visible; }
+  body:has(.salas-imprimir-fondo) .salas-imprimir-fondo { position: absolute; inset: 0; padding: 0; background: none; overflow: visible; }
+  body:has(.salas-imprimir-fondo) .salas-hoja { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none; margin: 0; }
+  @page { size: letter; margin: 0; }
+}
+.externo .admin-centro { max-width: 980px; }
+.externo-cab { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.externo-cab img { height: 34px; width: auto; }
+.externo-codigo { max-width: 380px; }
+.externo-codigo input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; letter-spacing: 0.1em; text-transform: uppercase; }
+@media (max-width: 640px) {
+  .salas-mover-filas { grid-template-columns: 1fr; }
+  .salas-mover-flecha { transform: rotate(90deg); justify-self: center; }
+  .salas-pestanas button { flex: 1 1 40%; }
+  .salas-hoja { padding: 0.4in; min-height: 0; }
+  .salas-hoja h1 { font-size: 32px; }
+  .salas-hoja-codigo { font-size: 28px; }
 }
 
 /* ───── Felicitaciones ───── */

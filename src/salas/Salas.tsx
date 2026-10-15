@@ -1,18 +1,15 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { CambiarPassword } from '../auth/CambiarPassword'
 import { IMG } from '../lib/imagenes'
+import { salasApi, supabase, type EstadoOutlook, type Perfil, type Reservacion, type Sala } from '../lib/supabase'
+import { AccesoExternos } from './AccesoExternos'
 import { AgregarCalendario } from './AgregarCalendario'
+import { CampoInvitados, CintaDia, Calendario, Flecha, HorariosLibres, type BloqueAgenda } from './componentes'
 import { ConexionOutlook } from './ConexionOutlook'
-import { salasApi, supabase, type Perfil, type Reservacion, type Sala } from '../lib/supabase'
-import { aFecha, diasHabiles, horaDe, horariosLibres, HORA_FIN, HORA_INICIO, local, mesesDelRango, semanasDelMes, sumarDias, textoDia, textoHora, type Bloque } from './tiempo'
-
-const DURACIONES = [30, 60, 90, 120, 180, 240]
-const TURNOS = [
-  { id: 'manana', nombre: 'Mañana', desde: 7 * 60, hasta: 12 * 60 },
-  { id: 'tarde', nombre: 'Tarde', desde: 12 * 60, hasta: 18 * 60 },
-  { id: 'noche', nombre: 'Noche', desde: 18 * 60, hasta: 21 * 60 },
-]
-const LETRAS = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do']
+import { Historial, HistorialReservacion } from './Historial'
+import { Solicitudes } from './Solicitudes'
+import { aFecha, diasHabiles, horaDe, horariosLibres, local, sumarDias, textoDia, type Bloque } from './tiempo'
+import { conMayuscula, conPendientes, DURACIONES, error, esMia, minutosDe, responsableDe, textoDuracion, textoReunion, urlApp, type Hecho } from './util'
 
 interface Disponibilidad {
   clave: string
@@ -23,13 +20,14 @@ interface Disponibilidad {
   error?: string
 }
 
-const textoDuracion = (min: number) => (min < 60 ? `${min} min` : `${min / 60} h`.replace('.5 h', ' h 30 min'))
-const minutosDe = (r: Reservacion) => (Date.parse(r.fin) - Date.parse(r.inicio)) / 60_000
-const error = (e: unknown) => (e instanceof Error ? e.message : String(e))
+type Pestana = 'reservar' | 'reservaciones' | 'solicitudes' | 'historial' | 'externos' | 'outlook'
+
 
 /** Reservación de salas: se elige sala, día, duración y horario libre. */
 export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio: () => void; salir: () => void }) {
+  const adminSalas = perfil.es_admin || perfil.secciones.includes('salas_admin')
   const dias = useMemo(() => diasHabiles(), [])
+  const [pestana, setPestana] = useState<Pestana>('reservar')
   const [salas, setSalas] = useState<Sala[] | null>(null)
   const [salaId, setSalaId] = useState('')
   const [dia, setDia] = useState(dias[0])
@@ -37,12 +35,15 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
   const [disp, setDisp] = useState<Disponibilidad | null>(null)
   const [elegido, setElegido] = useState<number | null>(null)
   const [moviendo, setMoviendo] = useState<Reservacion | null>(null)
-  const [hecho, setHecho] = useState('')
-  /** Recién reservada: se ofrece agregarla al calendario propio. */
-  const [ultima, setUltima] = useState<Reservacion | null>(null)
+  const [solicitando, setSolicitando] = useState<Reservacion | null>(null)
+  const [hecho, setHecho] = useState<Hecho | null>(null)
   const [version, setVersion] = useState(0)
-  const [proximas, setProximas] = useState<Reservacion[] | null>(null)
   const [marcas, setMarcas] = useState<{ clave: string; dias: string[] } | null>(null)
+  const [pendientes, setPendientes] = useState(0)
+  const arriba = useRef<HTMLDivElement>(null)
+  // Momento de la última carga (para saber qué reuniones ya empezaron).
+  const [ahora, setAhora] = useState(() => Date.now())
+  const formulario = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase
@@ -54,6 +55,14 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
         setSalas(data ?? [])
         if (data?.[0]) setSalaId((actual) => actual || data[0].id)
       })
+  }, [version])
+
+  // Solicitudes que esperan respuesta (para el número de la pestaña).
+  useEffect(() => {
+    salasApi<{ recibidas: unknown[] }>('solicitudes').then(
+      (r) => setPendientes(r.recibidas.length),
+      () => setPendientes(0),
+    )
   }, [version])
 
   const clave = `${salaId}|${dia}|${version}`
@@ -68,13 +77,6 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
       vigente = false
     }
   }, [salaId, dia, clave])
-
-  // Próximas reservaciones: las propias (el administrador ve todas).
-  useEffect(() => {
-    let consulta = supabase.from('reservaciones').select('*').eq('estado', 'activa').gte('fin', new Date().toISOString()).order('inicio').limit(100)
-    if (!perfil.es_admin) consulta = consulta.eq('creado_por', perfil.id)
-    consulta.then(({ data }) => setProximas((data as Reservacion[]) ?? []))
-  }, [perfil, version])
 
   // Días con reservación en esta sala, para el punto del calendario.
   const claveMarcas = `${salaId}|${version}`
@@ -101,6 +103,7 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
 
   const cargando = disp?.clave !== clave
   const sala = salas?.find((s) => s.id === salaId)
+  const nombreSala = useCallback((id: string) => salas?.find((s) => s.id === id)?.nombre ?? id, [salas])
   const iDia = dias.indexOf(dia)
   const ocupados = useMemo(() => {
     const puntos = new Set(marcas?.clave === claveMarcas ? marcas.dias : [])
@@ -113,28 +116,69 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
   const agenda = cargando
     ? []
     : [
-        ...disp!.reservaciones.map((r) => ({ inicio: r.inicio, fin: r.fin, titulo: r.motivo, quien: r.creado_por_nombre || r.creado_por_email, propia: r.creado_por === perfil.id })),
-        ...disp!.outlook.map((b) => ({ ...b, quien: '', propia: false })),
+        ...disp!.reservaciones.map((r) => ({ inicio: r.inicio, fin: r.fin, titulo: r.motivo, quien: responsableDe(r).nombre || responsableDe(r).email, propia: esMia(r, perfil), moviendo: r.id === moviendo?.id, r })),
+        ...disp!.outlook.map((b) => ({ ...b, quien: '', propia: false, moviendo: false, r: null as Reservacion | null })),
       ].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio))
 
-  function recargar(mensaje = '', reservada: Reservacion | null = null) {
+  function recargar(nuevo: Hecho | null = null) {
     setElegido(null)
-    setHecho(mensaje)
-    setUltima(reservada)
+    setSolicitando(null)
+    setHecho(nuevo)
     setVersion((v) => v + 1)
+    setAhora(Date.now())
+    if (nuevo) arriba.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function cambiarSala(id: string) {
+    setSalaId(id)
+    setElegido(null)
+    setSolicitando(null)
+  }
+
+  function cambiarDia(d: string) {
+    setDia(d)
+    setElegido(null)
+    setSolicitando(null)
   }
 
   function empezarAMover(r: Reservacion) {
     setMoviendo(r)
+    setSolicitando(null)
     setSalaId(r.sala_id)
     setDia(local(new Date(r.inicio)).dia)
     setDuracion(minutosDe(r))
     setElegido(null)
-    setHecho('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setHecho(null)
+    setPestana('reservar')
+    requestAnimationFrame(() => arriba.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }
 
-  const nombreSala = (id: string) => salas?.find((s) => s.id === id)?.nombre ?? id
+  function elegirHora(m: number) {
+    setElegido(m)
+    setSolicitando(null)
+    setHecho(null)
+    if (!moviendo) requestAnimationFrame(() => formulario.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+  }
+
+  function pedirHorario(r: Reservacion) {
+    setSolicitando(r)
+    setElegido(null)
+    setHecho(null)
+    requestAnimationFrame(() => formulario.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+  }
+
+  const pestanas: { id: Pestana; texto: string }[] = [
+    { id: 'reservar', texto: moviendo ? 'Cambiando horario…' : 'Reservar' },
+    { id: 'reservaciones', texto: adminSalas ? 'Reservaciones' : 'Mis reservaciones' },
+    { id: 'solicitudes', texto: pendientes ? `Solicitudes (${pendientes})` : 'Solicitudes' },
+    ...(adminSalas
+      ? [
+          { id: 'historial' as const, texto: 'Historial' },
+          { id: 'externos' as const, texto: 'Externos' },
+        ]
+      : []),
+    ...(perfil.es_admin ? [{ id: 'outlook' as const, texto: 'Outlook' }] : []),
+  ]
 
   return (
     <div className="inicio admin salas">
@@ -156,295 +200,297 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
             </button>
           </span>
         </header>
-        <h1>Salas</h1>
-        <p className="admin-intro">Lunes a viernes de 7:00 a.m. a 9:00 p.m., hasta 30 días adelante.</p>
+        <div ref={arriba} className="salas-titulo">
+          <div>
+            <h1>Salas</h1>
+            <p className="admin-intro">Lunes a viernes de 7:00 a.m. a 9:00 p.m., hasta 30 días adelante.</p>
+          </div>
+        </div>
 
-        {moviendo && (
-          <div className="credenciales salas-moviendo" role="status">
-            <strong>Moviendo: {moviendo.motivo}</strong>
-            <span>
-              Ahora: {nombreSala(moviendo.sala_id)}, {textoDia(local(new Date(moviendo.inicio)).dia, { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
-              {horaDe(moviendo.inicio)}. Elige el nuevo horario (puedes cambiar de sala o de día).
-            </span>
+        <nav className="salas-pestanas" aria-label="Secciones de salas">
+          {pestanas.map((p) => (
+            <button key={p.id} type="button" className={pestana === p.id ? 'activo' : undefined} aria-current={pestana === p.id ? 'page' : undefined} onClick={() => setPestana(p.id)}>
+              {p.texto}
+            </button>
+          ))}
+        </nav>
+
+        {hecho && (
+          <div className={hecho.alerta ? 'credenciales salas-moviendo' : 'credenciales'} role="status">
+            <strong>{hecho.texto}</strong>
+            {hecho.detalle && <span>{hecho.detalle}</span>}
+            {hecho.r && !hecho.r.outlook_event_id && <AgregarCalendario r={hecho.r} sala={nombreSala(hecho.r.sala_id)} />}
             <div className="admin-acciones">
-              <button type="button" className="btn secundario" onClick={() => (setMoviendo(null), setElegido(null))}>
-                No mover
+              <button type="button" className="link" onClick={() => setHecho(null)}>
+                Cerrar
               </button>
             </div>
           </div>
         )}
-        {hecho && (
-          <div className="credenciales" role="status">
-            <strong>{hecho}</strong>
-            {ultima && <AgregarCalendario r={ultima} sala={nombreSala(ultima.sala_id)} />}
-          </div>
+
+        {pendientes > 0 && pestana === 'reservar' && !moviendo && (
+          <button type="button" className="salas-aviso-solicitudes" onClick={() => setPestana('solicitudes')}>
+            <strong>{pendientes === 1 ? 'Te piden 1 horario' : `Te piden ${pendientes} horarios`}</strong> · Responde en Solicitudes →
+          </button>
         )}
 
-        <section className="admin-caja">
-          <div className="salas-controles">
-            <div className="vista-toggle" role="group" aria-label="Sala">
-              {salas?.map((s) => (
-                <button key={s.id} type="button" className={s.id === salaId ? 'activo' : undefined} aria-pressed={s.id === salaId} onClick={() => (setSalaId(s.id), setElegido(null))}>
-                  {s.nombre}
-                </button>
-              ))}
-            </div>
-            <div className="campo salas-duracion">
-              <label htmlFor="salas-duracion">Duración</label>
-              <select id="salas-duracion" value={duracion} onChange={(e) => (setDuracion(Number(e.target.value)), setElegido(null))}>
-                {[...new Set([...DURACIONES, duracion])].sort((a, b) => a - b).map((d) => (
-                  <option key={d} value={d}>
-                    {textoDuracion(d)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="salas-panel">
-            <Calendario dias={dias} dia={dia} ocupados={ocupados} onElegir={(d) => (setDia(d), setElegido(null))} />
-            <div className="salas-dia-panel">
-              <div className="salas-dia-cab">
-                <Flecha dir="izq" label="Día anterior" disabled={iDia <= 0} onClick={() => (setDia(dias[iDia - 1]), setElegido(null))} />
-                <div className="salas-dia-titulo">
-                  <h2>{sala?.nombre ?? 'Sala'}</h2>
-                  <p>{conMayuscula(textoDia(dia))}</p>
-                </div>
-                <Flecha dir="der" label="Día siguiente" disabled={iDia < 0 || iDia >= dias.length - 1} onClick={() => (setDia(dias[iDia + 1]), setElegido(null))} />
-              </div>
-              {!cargando && <CintaDia dia={dia} agenda={agenda} elegido={elegido} duracion={duracion} />}
-              {!cargando && disp?.error && <div className="alerta" role="alert">{disp.error}</div>}
-              {!cargando && disp?.aviso && <div className="alerta" role="status">{disp.aviso}</div>}
-
-              <div className="salas-cuerpo">
-                <div>
-                  <h3 className="salas-sub">Horarios libres ({textoDuracion(duracion)})</h3>
-                  {cargando ? (
-                    <p className="nota">Cargando…</p>
-                  ) : libres.length === 0 ? (
-                    <p className="nota">No hay horarios libres ese día para esa duración.</p>
-                  ) : (
-                    <div className="salas-turnos">
-                      {TURNOS.map((t) => {
-                        const horas = libres.filter((m) => m >= t.desde && m < t.hasta)
-                        if (horas.length === 0) return null
-                        return (
-                          <div key={t.id} className="salas-turno">
-                            <h4>{t.nombre}</h4>
-                            <div className="salas-horas">
-                              {horas.map((m) => (
-                                <button key={m} type="button" className={m === elegido ? 'salas-hora activo' : 'salas-hora'} aria-pressed={m === elegido} onClick={() => (setElegido(m), setHecho(''))}>
-                                  {textoHora(m)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 className="salas-sub">Ocupado ese día</h3>
-                  {cargando ? null : agenda.length === 0 ? (
-                    <p className="nota">Todo el día libre.</p>
-                  ) : (
-                    <ul className="salas-agenda">
-                      {agenda.map((a, i) => (
-                        <li key={i} className={a.propia ? 'propia' : undefined}>
-                          <span className="salas-agenda-hora">
-                            {horaDe(a.inicio)} – {horaDe(a.fin)}
-                          </span>
-                          <span>
-                            {a.titulo}
-                            {a.quien && <small> · {a.quien}</small>}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {elegido !== null && sala && (
-            moviendo ? (
-              <ConfirmarMover
+        {pestana === 'reservar' && (
+          <>
+            {moviendo && (
+              <PanelMover
                 r={moviendo}
+                salaActual={nombreSala(moviendo.sala_id)}
                 sala={sala}
                 dia={dia}
-                minutos={elegido}
+                elegido={elegido}
                 duracion={duracion}
-                alTerminar={(msg) => {
+                alTerminar={(h) => {
                   setMoviendo(null)
-                  recargar(msg)
+                  recargar(h)
                 }}
+                alCancelar={() => (setMoviendo(null), setElegido(null))}
               />
-            ) : (
-              <Reservar sala={sala} dia={dia} minutos={elegido} duracion={duracion} alTerminar={recargar} />
-            )
-          )}
-        </section>
+            )}
 
-        <section className="admin-caja">
-          <h2>{perfil.es_admin ? 'Próximas reservaciones (todas)' : 'Mis próximas reservaciones'}</h2>
-          {!proximas ? (
-            <p className="nota">Cargando…</p>
-          ) : proximas.length === 0 ? (
-            <p className="nota">No hay reservaciones próximas.</p>
-          ) : (
-            <ul className="admin-lista">
-              {proximas.map((r) => (
-                <Proxima
-                  key={r.id}
-                  r={r}
-                  sala={nombreSala(r.sala_id)}
-                  mostrarQuien={perfil.es_admin}
-                  verSync={perfil.es_admin && Boolean(salas?.find((s) => s.id === r.sala_id)?.calendario_id)}
-                  mover={() => empezarAMover(r)}
-                  alCancelar={() => recargar('Reservación cancelada.')}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
+            <section className="admin-caja">
+              <div className="salas-controles">
+                <div className="vista-toggle" role="group" aria-label="Sala">
+                  {salas?.map((s) => (
+                    <button key={s.id} type="button" className={s.id === salaId ? 'activo' : undefined} aria-pressed={s.id === salaId} onClick={() => cambiarSala(s.id)}>
+                      {s.nombre}
+                    </button>
+                  ))}
+                </div>
+                <div className="campo salas-duracion">
+                  <label htmlFor="salas-duracion">Duración</label>
+                  <select id="salas-duracion" value={duracion} onChange={(e) => (setDuracion(Number(e.target.value)), setElegido(null))}>
+                    {[...new Set([...DURACIONES, duracion])].sort((a, b) => a - b).map((d) => (
+                      <option key={d} value={d}>
+                        {textoDuracion(d)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-        {perfil.es_admin && <ConexionOutlook alCambiar={() => recargar()} />}
-      </div>
-    </div>
-  )
-}
+              <div className="salas-panel">
+                <Calendario dias={dias} dia={dia} ocupados={ocupados} onElegir={cambiarDia} />
+                <div className="salas-dia-panel">
+                  <div className="salas-dia-cab">
+                    <Flecha dir="izq" label="Día anterior" disabled={iDia <= 0} onClick={() => cambiarDia(dias[iDia - 1])} />
+                    <div className="salas-dia-titulo">
+                      <h2>{sala?.nombre ?? 'Sala'}</h2>
+                      <p>{conMayuscula(textoDia(dia))}</p>
+                    </div>
+                    <Flecha dir="der" label="Día siguiente" disabled={iDia < 0 || iDia >= dias.length - 1} onClick={() => cambiarDia(dias[iDia + 1])} />
+                  </div>
+                  {!cargando && <CintaDia dia={dia} agenda={agenda as BloqueAgenda[]} elegido={elegido} duracion={duracion} />}
+                  {!cargando && disp?.error && <div className="alerta" role="alert">{disp.error}</div>}
+                  {!cargando && disp?.aviso && <div className="alerta" role="status">{disp.aviso}</div>}
 
-const conMayuscula = (s: string) => (s ? s.charAt(0).toLocaleUpperCase('es-MX') + s.slice(1) : s)
+                  <div className="salas-cuerpo">
+                    <div>
+                      <h3 className="salas-sub">{moviendo ? 'Elige el horario nuevo' : 'Horarios libres'} ({textoDuracion(duracion)})</h3>
+                      {cargando ? (
+                        <p className="nota">Cargando…</p>
+                      ) : libres.length === 0 ? (
+                        <p className="nota">No hay horarios libres ese día para esa duración. Prueba otro día o una duración más corta.</p>
+                      ) : (
+                        <HorariosLibres libres={libres} elegido={elegido} onElegir={elegirHora} />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="salas-sub">Ocupado ese día</h3>
+                      {cargando ? null : agenda.length === 0 ? (
+                        <p className="nota">Todo el día libre.</p>
+                      ) : (
+                        <ul className="salas-agenda">
+                          {agenda.map((a, i) => {
+                            const puedePedir = a.r && !a.propia && !moviendo && Date.parse(a.r.inicio) > ahora
+                            return (
+                              <li key={i} className={[a.propia ? 'propia' : '', a.moviendo ? 'moviendo' : ''].filter(Boolean).join(' ') || undefined}>
+                                <span className="salas-agenda-hora">
+                                  {horaDe(a.inicio)} – {horaDe(a.fin)}
+                                  {a.moviendo && ' · la que estás cambiando'}
+                                </span>
+                                <span>
+                                  {a.titulo}
+                                  {a.quien && <small> · {a.quien}</small>}
+                                  {a.r?.origen === 'externo' && <small> · Externo{a.r.empresa ? ` (${a.r.empresa})` : ''}</small>}
+                                </span>
+                                {puedePedir && (
+                                  <button type="button" className="link salas-pedir" onClick={() => pedirHorario(a.r!)}>
+                                    Pedir este horario
+                                  </button>
+                                )}
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-function Flecha({ dir, label, disabled, onClick }: { dir: 'izq' | 'der'; label: string; disabled?: boolean; onClick: () => void }) {
-  return (
-    <button type="button" className="salas-flecha" aria-label={label} disabled={disabled} onClick={onClick}>
-      <svg viewBox="0 0 12 12" aria-hidden="true">
-        {dir === 'izq' ? (
-          <path d="M7.5 2.5 4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        ) : (
-          <path d="M4.5 2.5 8 6l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <div ref={formulario}>
+                {!moviendo && sala && elegido !== null && (
+                  <FormReunion
+                    key={`r-${salaId}-${dia}-${elegido}-${duracion}`}
+                    perfil={perfil}
+                    modo={{ tipo: 'reservar', sala, inicio: aFecha(dia, elegido), fin: new Date(aFecha(dia, elegido).getTime() + duracion * 60_000) }}
+                    alTerminar={recargar}
+                    alCerrar={() => setElegido(null)}
+                  />
+                )}
+                {!moviendo && solicitando && (
+                  <FormReunion key={`s-${solicitando.id}`} perfil={perfil} modo={{ tipo: 'solicitar', objetivo: solicitando, sala: nombreSala(solicitando.sala_id) }} alTerminar={recargar} alCerrar={() => setSolicitando(null)} />
+                )}
+              </div>
+            </section>
+          </>
         )}
-      </svg>
-    </button>
-  )
-}
 
-function Calendario({ dias, dia, ocupados, onElegir }: { dias: string[]; dia: string; ocupados: Set<string>; onElegir: (dia: string) => void }) {
-  const meses = useMemo(() => mesesDelRango(dias), [dias])
-  const mesDelDia = dia.slice(0, 7)
-  // El mes visto a mano solo vale mientras no cambie el día elegido (mover o clic en otra fecha).
-  const [vista, setVista] = useState<{ mes: string; ancla: string } | null>(null)
-  const hoy = local(new Date()).dia
-  const mes = vista && vista.ancla === dia && meses.includes(vista.mes) ? vista.mes : mesDelDia
-  const mesSeguro = meses.includes(mes) ? mes : (meses[0] ?? mesDelDia)
-  const indice = meses.indexOf(mesSeguro)
-  const habiles = useMemo(() => new Set(dias), [dias])
-  const semanas = useMemo(() => semanasDelMes(mesSeguro, habiles), [mesSeguro, habiles])
-
-  return (
-    <div className="salas-cal">
-      <div className="salas-cal-nav">
-        <Flecha dir="izq" label="Mes anterior" disabled={indice <= 0} onClick={() => setVista({ mes: meses[indice - 1], ancla: dia })} />
-        <strong>{conMayuscula(textoDia(`${mesSeguro}-01`, { month: 'long', year: 'numeric' }))}</strong>
-        <Flecha dir="der" label="Mes siguiente" disabled={indice < 0 || indice >= meses.length - 1} onClick={() => setVista({ mes: meses[indice + 1], ancla: dia })} />
-      </div>
-      <div className="salas-cal-letras" aria-hidden="true">
-        {LETRAS.map((l) => (
-          <span key={l}>{l}</span>
-        ))}
-      </div>
-      <div className="salas-cal-grid" role="group" aria-label="Días para reservar">
-        {semanas.map((semana) => (
-          <div key={semana[0].dia} className="salas-cal-semana">
-            {semana.map((celda) => {
-              const enMes = celda.dia.slice(0, 7) === mesSeguro
-              const puede = celda.habil && enMes
-              const marcado = puede && ocupados.has(celda.dia)
-              return (
-                <button
-                  key={celda.dia}
-                  type="button"
-                  className={['salas-celda', !enMes ? 'fuera' : '', celda.dia === dia && enMes ? 'activo' : '', celda.dia === hoy && enMes ? 'hoy' : '', marcado ? 'ocupado' : ''].filter(Boolean).join(' ')}
-                  disabled={!puede}
-                  aria-pressed={celda.dia === dia}
-                  aria-label={`${textoDia(celda.dia)}${celda.dia === hoy ? ', hoy' : ''}${marcado ? ', con reservaciones' : ''}`}
-                  onClick={() => puede && onElegir(celda.dia)}
-                >
-                  <span>{Number(celda.dia.slice(8))}</span>
-                  <i />
-                </button>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-      <p className="nota salas-cal-nota">Lunes a viernes. El punto marca un día con reservaciones.</p>
-    </div>
-  )
-}
-
-function CintaDia({ dia, agenda, elegido, duracion }: { dia: string; agenda: { inicio: string; fin: string; propia: boolean }[]; elegido: number | null; duracion: number }) {
-  const ini = HORA_INICIO * 60
-  const total = (HORA_FIN - HORA_INICIO) * 60
-  const pct = (min: number) => ((min - ini) / total) * 100
-  const clamp = (iso: string) => {
-    const l = local(new Date(iso))
-    if (l.dia < dia) return ini
-    if (l.dia > dia) return HORA_FIN * 60
-    return Math.min(HORA_FIN * 60, Math.max(ini, l.minutos))
-  }
-  return (
-    <div className="salas-cinta-wrap">
-      <div className="salas-cinta" aria-hidden="true">
-        {agenda.map((a, i) => {
-          const a0 = clamp(a.inicio)
-          const a1 = clamp(a.fin)
-          if (a1 <= a0) return null
-          return <span key={i} className={a.propia ? 'salas-cinta-bloque propia' : 'salas-cinta-bloque'} style={{ left: `${pct(a0)}%`, width: `${Math.max(pct(a1) - pct(a0), 0.8)}%` }} />
-        })}
-        {elegido !== null && <span className="salas-cinta-sel" style={{ left: `${pct(elegido)}%`, width: `${(duracion / total) * 100}%` }} />}
-      </div>
-      <div className="salas-cinta-horas" aria-hidden="true">
-        {[
-          ['7 a.m.', 0],
-          ['12 p.m.', (5 / 14) * 100],
-          ['5 p.m.', (10 / 14) * 100],
-          ['9 p.m.', 100],
-        ].map(([texto, left]) => (
-          <span key={texto} style={{ left: `${left}%` }}>
-            {texto}
-          </span>
-        ))}
+        {pestana === 'reservaciones' && (
+          <Reservaciones perfil={perfil} adminSalas={adminSalas} salas={salas} version={version} nombreSala={nombreSala} mover={empezarAMover} alCambiar={recargar} />
+        )}
+        {pestana === 'solicitudes' && <Solicitudes perfil={perfil} nombreSala={nombreSala} alCambiar={recargar} />}
+        {pestana === 'historial' && adminSalas && <Historial nombreSala={nombreSala} />}
+        {pestana === 'externos' && adminSalas && <AccesoExternos salas={salas ?? []} />}
+        {pestana === 'outlook' && perfil.es_admin && <ConexionOutlook alCambiar={() => recargar()} />}
       </div>
     </div>
   )
 }
 
-function Reservar({ sala, dia, minutos, duracion, alTerminar }: { sala: Sala; dia: string; minutos: number; duracion: number; alTerminar: (msg: string, r: Reservacion) => void }) {
-  const [motivo, setMotivo] = useState('')
-  const [personas, setPersonas] = useState('2')
-  const [invitados, setInvitados] = useState('')
+/** Barra clara para cambiar el horario: lo actual, lo nuevo y confirmar. */
+function PanelMover({ r, salaActual, sala, dia, elegido, duracion, alTerminar, alCancelar }: { r: Reservacion; salaActual: string; sala?: Sala; dia: string; elegido: number | null; duracion: number; alTerminar: (h: Hecho) => void; alCancelar: () => void }) {
   const [enviando, setEnviando] = useState(false)
   const [falla, setFalla] = useState('')
+  const nuevoInicio = elegido !== null ? aFecha(dia, elegido) : null
+  const nuevoFin = nuevoInicio ? new Date(nuevoInicio.getTime() + duracion * 60_000) : null
+
+  async function confirmar() {
+    if (!sala || !nuevoInicio || !nuevoFin) return
+    setFalla('')
+    setEnviando(true)
+    try {
+      const res = await salasApi<{ reservacion: Reservacion; outlook: EstadoOutlook }>('mover', { id: r.id, sala_id: sala.id, inicio: nuevoInicio.toISOString(), fin: nuevoFin.toISOString(), app: urlApp() })
+      alTerminar({
+        texto: `Listo: «${r.motivo}» quedó el ${textoReunion(res.reservacion.inicio, res.reservacion.fin)} en ${sala.nombre}.`,
+        detalle:
+          res.outlook === 'ok'
+            ? 'Outlook ya avisó del cambio a los invitados.'
+            : res.outlook === 'error'
+              ? '⚠ No se pudo actualizar en Outlook; avisa a los invitados o pide a un administrador que lo reintente.'
+              : `Antes: ${salaActual}, ${textoReunion(r.inicio, r.fin)}.`,
+        r: res.reservacion,
+        alerta: res.outlook === 'error',
+      })
+    } catch (e) {
+      setFalla(error(e))
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <section className="salas-mover" aria-live="polite">
+      <div className="salas-mover-cab">
+        <strong>Cambiar horario de «{r.motivo}»</strong>
+        <button type="button" className="link" onClick={alCancelar}>
+          No cambiar
+        </button>
+      </div>
+      <div className="salas-mover-filas">
+        <div>
+          <span className="salas-mover-etiqueta">Ahora</span>
+          <span className="salas-mover-actual">
+            {salaActual} · {textoReunion(r.inicio, r.fin)}
+          </span>
+        </div>
+        <span className="salas-mover-flecha" aria-hidden="true">
+          →
+        </span>
+        <div>
+          <span className="salas-mover-etiqueta">Nuevo</span>
+          {nuevoInicio && nuevoFin && sala ? (
+            <span className="salas-mover-nuevo">
+              {sala.nombre} · {textoReunion(nuevoInicio.toISOString(), nuevoFin.toISOString())}
+            </span>
+          ) : (
+            <span className="nota">Elige abajo el día y la hora (puedes cambiar de sala y de duración).</span>
+          )}
+        </div>
+      </div>
+      {falla && <div className="alerta" role="alert">{falla}</div>}
+      <div className="admin-acciones">
+        <button type="button" className="btn primario" disabled={!nuevoInicio || enviando} onClick={confirmar}>
+          {enviando ? 'Cambiando…' : 'Confirmar cambio'}
+        </button>
+        <span className="nota">Los invitados reciben la actualización con el horario anterior y el nuevo.</span>
+      </div>
+    </section>
+  )
+}
+
+type Modo = { tipo: 'reservar'; sala: Sala; inicio: Date; fin: Date } | { tipo: 'solicitar'; objetivo: Reservacion; sala: string }
+
+/** Datos de la reunión: para reservar un horario libre o para pedir uno ocupado. */
+function FormReunion({ perfil, modo, alTerminar, alCerrar }: { perfil: Perfil; modo: Modo; alTerminar: (h: Hecho) => void; alCerrar: () => void }) {
+  const [motivo, setMotivo] = useState('')
+  const [personas, setPersonas] = useState('2')
+  const [invitados, setInvitados] = useState<string[]>([])
+  const [notas, setNotas] = useState('')
+  const [mensaje, setMensaje] = useState('')
+  const [otro, setOtro] = useState(false)
+  const [respNombre, setRespNombre] = useState(perfil.nombre)
+  const [respEmail, setRespEmail] = useState(perfil.email)
+  const [enviando, setEnviando] = useState(false)
+  const [falla, setFalla] = useState('')
+  const solicitud = modo.tipo === 'solicitar'
+  const conOutlook = modo.tipo === 'reservar' ? Boolean(modo.sala.calendario_id) : true
+  const horario = modo.tipo === 'reservar' ? textoReunion(modo.inicio.toISOString(), modo.fin.toISOString()) : textoReunion(modo.objetivo.inicio, modo.objetivo.fin)
+  const due = modo.tipo === 'solicitar' ? responsableDe(modo.objetivo) : null
 
   async function enviar(e: FormEvent) {
     e.preventDefault()
     setFalla('')
     setEnviando(true)
+    const datos = {
+      motivo,
+      personas: Number(personas),
+      invitados: conPendientes('res-invitados', invitados),
+      notas,
+      responsable_nombre: otro ? respNombre : perfil.nombre,
+      responsable_email: otro ? respEmail : perfil.email,
+      app: urlApp(),
+    }
     try {
-      const inicio = aFecha(dia, minutos)
-      const { reservacion } = await salasApi<{ reservacion: Reservacion }>('reservar', {
-        sala_id: sala.id,
-        inicio: inicio.toISOString(),
-        fin: new Date(inicio.getTime() + duracion * 60_000).toISOString(),
-        motivo,
-        personas: Number(personas),
-        invitados: invitados.split(/[\s,;]+/).filter(Boolean),
-      })
-      alTerminar(`Listo: ${sala.nombre}, ${textoDia(dia, { weekday: 'short', day: 'numeric', month: 'short' })} a las ${textoHora(minutos)} · Código ${reservacion.codigo}`, reservacion)
+      if (modo.tipo === 'reservar') {
+        const res = await salasApi<{ reservacion: Reservacion; outlook: EstadoOutlook; invitados: number }>('reservar', {
+          ...datos,
+          sala_id: modo.sala.id,
+          inicio: modo.inicio.toISOString(),
+          fin: modo.fin.toISOString(),
+        })
+        alTerminar({
+          texto: `Listo: ${modo.sala.nombre}, ${horario} · Código ${res.reservacion.codigo}`,
+          detalle:
+            res.outlook === 'ok'
+              ? `Outlook mandó la invitación a ${res.invitados} ${res.invitados === 1 ? 'persona' : 'personas'} y quedó en el calendario de la sala.`
+              : res.outlook === 'error'
+                ? '⚠ La sala quedó reservada, pero no se pudo copiar a Outlook. Usa los botones de abajo para invitar o pide a un administrador que lo reintente.'
+                : 'Agrégala a tu calendario e invita desde ahí:',
+          r: res.reservacion,
+          alerta: res.outlook === 'error',
+        })
+      } else {
+        const res = await salasApi<{ avisado: boolean }>('solicitar', { ...datos, reservacion_id: modo.objetivo.id, mensaje })
+        alTerminar({
+          texto: `Solicitud enviada a ${due!.nombre || due!.email}.`,
+          detalle: `${res.avisado ? 'Le llegó un correo y' : 'Le'} aparece en la app para aceptar o no. Te avisamos con la respuesta; mira el estado en Solicitudes.`,
+        })
+      }
     } catch (err) {
       setFalla(error(err))
       setEnviando(false)
@@ -453,13 +499,31 @@ function Reservar({ sala, dia, minutos, duracion, alTerminar }: { sala: Sala; di
 
   return (
     <form className="salas-form" onSubmit={enviar}>
-      <h3 className="salas-sub">
-        Reservar {sala.nombre} · {textoHora(minutos)} – {textoHora(minutos + duracion)}
-      </h3>
+      <div className="salas-form-cab">
+        <h3 className="salas-sub">
+          {solicitud ? (
+            <>
+              Pedir el horario de <strong>{due!.nombre || due!.email}</strong> · {modo.sala}, {horario}
+            </>
+          ) : (
+            <>
+              Reservar <strong>{modo.sala.nombre}</strong> · {horario}
+            </>
+          )}
+        </h3>
+        <button type="button" className="link" onClick={alCerrar}>
+          Cancelar
+        </button>
+      </div>
+      {solicitud && (
+        <p className="nota salas-nota-solicitud">
+          Ese horario es para «{modo.objetivo.motivo}». Si {due!.nombre || 'la persona'} acepta, su reunión se cancela y la sala queda a tu nombre con estos datos.
+        </p>
+      )}
       <div className="admin-alta">
         <div className="campo">
-          <label htmlFor="res-motivo">Motivo</label>
-          <input id="res-motivo" type="text" required maxLength={200} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Junta con cliente…" />
+          <label htmlFor="res-motivo">Motivo de la reunión</label>
+          <input id="res-motivo" type="text" required maxLength={200} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Junta con cliente ACME" autoFocus />
         </div>
         <div className="campo">
           <label htmlFor="res-personas">Personas</label>
@@ -467,64 +531,130 @@ function Reservar({ sala, dia, minutos, duracion, alTerminar }: { sala: Sala; di
         </div>
       </div>
       <div className="campo">
-        <label htmlFor="res-invitados">Invitados (opcional)</label>
-        <textarea id="res-invitados" rows={2} value={invitados} onChange={(e) => setInvitados(e.target.value)} placeholder="correo@empresa.com, otro@empresa.com" />
-        <small>Con Outlook conectado reciben la invitación. Si no, al reservar usa “Agregar a mi Outlook” e invítalos desde ahí.</small>
+        <span className="fel-etiqueta">A nombre de</span>
+        {otro ? (
+          <div className="admin-alta">
+            <input aria-label="Nombre" required maxLength={120} value={respNombre} onChange={(e) => setRespNombre(e.target.value)} placeholder="Nombre" />
+            <input aria-label="Correo" type="email" required maxLength={200} value={respEmail} onChange={(e) => setRespEmail(e.target.value)} placeholder="correo@empresa.com" />
+          </div>
+        ) : (
+          <div className="salas-a-nombre">
+            <span>
+              {perfil.nombre || perfil.email} <small>{perfil.email}</small>
+            </span>
+            <button type="button" className="link" onClick={() => setOtro(true)}>
+              Reservo para otra persona
+            </button>
+          </div>
+        )}
+        {otro && <small>Esa persona aparece como responsable y recibe la invitación; tú también la recibes.</small>}
       </div>
+      <div className="campo">
+        <label htmlFor="res-invitados">Invitados (opcional)</label>
+        <CampoInvitados id="res-invitados" valor={invitados} onChange={setInvitados} />
+        <small>{conOutlook ? 'Escríbelos una sola vez: Outlook les manda la invitación para aceptarla y agregarla a su calendario.' : 'Esta sala no está conectada a Outlook: al reservar podrás agregarla a tu calendario e invitar desde ahí.'}</small>
+      </div>
+      <div className="campo">
+        <label htmlFor="res-notas">Notas (opcional)</label>
+        <textarea id="res-notas" rows={2} maxLength={1000} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Equipo que se necesita, liga de videollamada, etc." />
+      </div>
+      {solicitud && (
+        <div className="campo">
+          <label htmlFor="res-mensaje">Mensaje para {due!.nombre || 'la persona'} (opcional)</label>
+          <textarea id="res-mensaje" rows={2} maxLength={500} value={mensaje} onChange={(e) => setMensaje(e.target.value)} placeholder="¿Por qué necesitas ese horario?" />
+        </div>
+      )}
       {falla && <div className="alerta" role="alert">{falla}</div>}
       <div className="admin-acciones">
         <button type="submit" className="btn primario" disabled={enviando}>
-          {enviando ? 'Reservando…' : 'Reservar'}
+          {enviando ? 'Enviando…' : solicitud ? 'Enviar solicitud' : conOutlook ? 'Reservar y enviar invitaciones' : 'Reservar'}
         </button>
       </div>
     </form>
   )
 }
 
-function ConfirmarMover({ r, sala, dia, minutos, duracion, alTerminar }: { r: Reservacion; sala: Sala; dia: string; minutos: number; duracion: number; alTerminar: (msg: string) => void }) {
-  const [enviando, setEnviando] = useState(false)
-  const [falla, setFalla] = useState('')
+/** Próximas reservaciones: las propias (los administradores de salas ven todas). */
+function Reservaciones({ perfil, adminSalas, salas, version, nombreSala, mover, alCambiar }: { perfil: Perfil; adminSalas: boolean; salas: Sala[] | null; version: number; nombreSala: (id: string) => string; mover: (r: Reservacion) => void; alCambiar: (h: Hecho | null) => void }) {
+  const [lista, setLista] = useState<Reservacion[] | null>(null)
+  const [todas, setTodas] = useState(adminSalas)
+  const [salaFiltro, setSalaFiltro] = useState('')
 
-  async function mover() {
-    setFalla('')
-    setEnviando(true)
-    try {
-      const inicio = aFecha(dia, minutos)
-      await salasApi('mover', { id: r.id, sala_id: sala.id, inicio: inicio.toISOString(), fin: new Date(inicio.getTime() + duracion * 60_000).toISOString() })
-      alTerminar(`Reservación movida a ${sala.nombre}, ${textoDia(dia, { weekday: 'short', day: 'numeric', month: 'short' })} a las ${textoHora(minutos)}`)
-    } catch (err) {
-      setFalla(error(err))
-      setEnviando(false)
-    }
-  }
+  useEffect(() => {
+    let consulta = supabase.from('reservaciones').select('*').eq('estado', 'activa').gte('fin', new Date().toISOString()).order('inicio').limit(200)
+    if (!todas) consulta = consulta.or(`creado_por.eq.${perfil.id},responsable_email.eq.${perfil.email}`)
+    consulta.then(({ data }) => setLista((data as Reservacion[]) ?? []))
+  }, [perfil, todas, version])
 
+  const visibles = (lista ?? []).filter((r) => !salaFiltro || r.sala_id === salaFiltro)
   return (
-    <div className="salas-form">
-      <h3 className="salas-sub">
-        Mover "{r.motivo}" a {sala.nombre} · {textoHora(minutos)} – {textoHora(minutos + duracion)}
-      </h3>
-      {falla && <div className="alerta" role="alert">{falla}</div>}
-      <div className="admin-acciones">
-        <button type="button" className="btn primario" disabled={enviando} onClick={mover}>
-          {enviando ? 'Moviendo…' : 'Confirmar cambio'}
-        </button>
+    <section className="admin-caja">
+      <div className="bitacora-cab">
+        <h2>{todas ? 'Próximas reservaciones (todas)' : 'Mis próximas reservaciones'}</h2>
+        <div className="salas-filtros">
+          {(salas?.length ?? 0) > 1 && (
+            <select aria-label="Sala" value={salaFiltro} onChange={(e) => setSalaFiltro(e.target.value)}>
+              <option value="">Todas las salas</option>
+              {salas!.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre}
+                </option>
+              ))}
+            </select>
+          )}
+          {adminSalas && (
+            <div className="vista-toggle" role="group" aria-label="Qué reservaciones">
+              <button type="button" className={todas ? 'activo' : undefined} aria-pressed={todas} onClick={() => setTodas(true)}>
+                Todas
+              </button>
+              <button type="button" className={!todas ? 'activo' : undefined} aria-pressed={!todas} onClick={() => setTodas(false)}>
+                Mías
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      {!lista ? (
+        <p className="nota">Cargando…</p>
+      ) : visibles.length === 0 ? (
+        <p className="nota">No hay reservaciones próximas.</p>
+      ) : (
+        <ul className="admin-lista">
+          {visibles.map((r) => (
+            <Proxima
+              key={r.id}
+              r={r}
+              perfil={perfil}
+              adminSalas={adminSalas}
+              sala={nombreSala(r.sala_id)}
+              conOutlook={Boolean(salas?.find((s) => s.id === r.sala_id)?.calendario_id)}
+              mover={() => mover(r)}
+              alCambiar={alCambiar}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
-function Proxima({ r, sala, mostrarQuien, verSync, mover, alCancelar }: { r: Reservacion; sala: string; mostrarQuien: boolean; verSync: boolean; mover: () => void; alCancelar: () => void }) {
+function Proxima({ r, perfil, adminSalas, sala, conOutlook, mover, alCambiar }: { r: Reservacion; perfil: Perfil; adminSalas: boolean; sala: string; conOutlook: boolean; mover: () => void; alCambiar: (h: Hecho | null) => void }) {
   const [confirmando, setConfirmando] = useState(false)
+  const [razon, setRazon] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [falla, setFalla] = useState('')
-  const dia = local(new Date(r.inicio)).dia
+  const [verHistorial, setVerHistorial] = useState(false)
+  const resp = responsableDe(r)
+  const mia = esMia(r, perfil)
+  const puede = mia || adminSalas
+  const enOutlook = Boolean(r.outlook_event_id) && !r.sync_error
 
-  async function cancelar() {
+  async function hacer(accion: 'cancelar' | 'reintentar_outlook') {
     setFalla('')
     setEnviando(true)
     try {
-      await salasApi('cancelar', { id: r.id })
-      alCancelar()
+      await salasApi(accion, { id: r.id, razon, app: urlApp() })
+      alCambiar(accion === 'cancelar' ? { texto: `Se canceló «${r.motivo}».`, detalle: enOutlook ? 'Outlook avisó a los invitados.' : undefined } : { texto: `«${r.motivo}» ya quedó en Outlook y se mandaron las invitaciones.` })
     } catch (err) {
       setFalla(error(err))
       setEnviando(false)
@@ -536,36 +666,60 @@ function Proxima({ r, sala, mostrarQuien, verSync, mover, alCancelar }: { r: Res
       <div className="admin-quien">
         <strong>{r.motivo}</strong>
         <span>
-          {sala} · {textoDia(dia, { weekday: 'short', day: 'numeric', month: 'short' })} · {horaDe(r.inicio)} – {horaDe(r.fin)}
+          {sala} · {textoReunion(r.inicio, r.fin)}
         </span>
         <small>
-          {r.codigo} · {r.personas} {r.personas === 1 ? 'persona' : 'personas'}
-          {mostrarQuien && ` · ${r.creado_por_nombre || r.creado_por_email}`}
-          {verSync && (r.sync_error || !r.outlook_event_id ? ' · ⚠ no se copió a Outlook' : ' · en Outlook')}
+          {[
+            r.codigo,
+            `${r.personas} ${r.personas === 1 ? 'persona' : 'personas'}`,
+            `A nombre de ${resp.nombre || resp.email}`,
+            r.origen === 'externo' ? `Externo${r.empresa ? ` · ${r.empresa}` : ''}` : r.creado_por_email.toLowerCase() !== resp.email.toLowerCase() ? `registró ${r.creado_por_nombre || r.creado_por_email}` : '',
+            r.invitados.length ? `${r.invitados.length} ${r.invitados.length === 1 ? 'invitado' : 'invitados'}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </small>
-        <AgregarCalendario r={r} sala={sala} compacto />
-      </div>
-      <div className="admin-acciones">
-        <button type="button" className="btn secundario" disabled={enviando} onClick={mover}>
-          Mover
-        </button>
-        {confirmando ? (
-          <>
-            <span className="pregunta">¿Cancelar la reservación?</span>
-            <button type="button" className="btn secundario" onClick={() => setConfirmando(false)}>
-              No
-            </button>
-            <button type="button" className="btn peligro" disabled={enviando} onClick={cancelar}>
-              {enviando ? 'Cancelando…' : 'Sí, cancelar'}
-            </button>
-          </>
-        ) : (
-          <button type="button" className="link peligro" onClick={() => setConfirmando(true)}>
-            Cancelar
-          </button>
+        {conOutlook && (
+          <small className={enOutlook ? 'salas-estado ok' : 'salas-estado error'}>
+            {enOutlook ? '✓ En Outlook, invitaciones enviadas' : '⚠ No se copió a Outlook'}
+            {!enOutlook && puede && (
+              <button type="button" className="link" disabled={enviando} onClick={() => hacer('reintentar_outlook')}>
+                Reintentar
+              </button>
+            )}
+          </small>
         )}
+        {!enOutlook && mia && <AgregarCalendario r={r} sala={sala} compacto />}
       </div>
+      {puede && (
+        <div className="admin-acciones">
+          <button type="button" className="btn secundario" disabled={enviando} onClick={mover}>
+            Cambiar horario
+          </button>
+          {confirmando ? (
+            <span className="salas-cancelar">
+              <input aria-label="Razón (opcional)" placeholder={mia ? 'Razón (opcional)' : 'Razón para el responsable (opcional)'} maxLength={300} value={razon} onChange={(e) => setRazon(e.target.value)} />
+              <button type="button" className="btn secundario" onClick={() => setConfirmando(false)}>
+                No
+              </button>
+              <button type="button" className="btn peligro" disabled={enviando} onClick={() => hacer('cancelar')}>
+                {enviando ? 'Cancelando…' : 'Sí, cancelar'}
+              </button>
+            </span>
+          ) : (
+            <button type="button" className="link peligro" onClick={() => setConfirmando(true)}>
+              Cancelar
+            </button>
+          )}
+          <button type="button" className="link" onClick={() => setVerHistorial((v) => !v)}>
+            {verHistorial ? 'Ocultar historial' : 'Historial'}
+          </button>
+        </div>
+      )}
       {falla && <div className="alerta" role="alert">{falla}</div>}
+      {verHistorial && <HistorialReservacion id={r.id} />}
+      {!mia && adminSalas && <small className="nota">Como administrador de salas puedes cambiarla o cancelarla; el responsable recibe el aviso.</small>}
+      {r.notas && <small className="nota">Notas: {r.notas}</small>}
     </li>
   )
 }

@@ -90,6 +90,28 @@ export interface Reservacion {
   estado: 'activa' | 'cancelada'
   outlook_event_id: string | null
   sync_error: string | null
+  /** A nombre de quién está (si no, de quien la registró). */
+  responsable_nombre: string | null
+  responsable_email: string | null
+  notas: string
+  origen: 'cuenta' | 'externo'
+  empresa: string | null
+}
+
+/** Resultado de Outlook al crear o mover: ok (se copió y se mandaron invitaciones), error, o no conectado. */
+export type EstadoOutlook = 'ok' | 'error' | 'no'
+
+/** Llamada sin sesión (externos con el código de la sala). */
+export async function salasPublico<T>(accion: string, datos: Record<string, unknown> = {}): Promise<T> {
+  const r = await fetch(`${URL}/functions/v1/salas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: LLAVE_PUBLICABLE, Authorization: `Bearer ${LLAVE_PUBLICABLE}` },
+    body: JSON.stringify({ accion, ...datos }),
+  }).catch(() => null)
+  if (!r) throw new Error('No se pudo conectar. Revisa tu internet e intenta de nuevo.')
+  const cuerpo = await r.json().catch(() => null)
+  if (!r.ok) throw new Error(cuerpo?.error ?? 'No se pudo completar. Intenta de nuevo.')
+  return cuerpo as T
 }
 
 export interface Colaborador {

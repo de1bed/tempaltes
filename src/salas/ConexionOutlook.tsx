@@ -9,6 +9,8 @@ interface Estado {
   aviso: string | null
   /** Calendario .ics de cada sala (para suscribir) y enlace que publica Outlook (para leer). */
   ics: { sala_id: string; feed: string; publicado: string | null }[]
+  /** La cuenta conectada dio permiso de mandar correos (avisos de solicitudes). */
+  correo?: boolean
 }
 
 const RESULTADOS: Record<string, string> = {
@@ -144,6 +146,12 @@ export function ConexionOutlook({ alCambiar }: { alCambiar: () => void }) {
               ✓ Conexión completa activa con <strong>{estado.conexion!.cuenta}</strong>: las reservaciones se copian solas al calendario de cada sala y
               llegan las invitaciones. Los pasos 1 y 2 son opcionales.
             </p>
+          )}
+          {completa && !estado.correo && (
+            <div className="alerta" role="status">
+              Falta el permiso de correo para avisar por email de las solicitudes de horario. En el paso 3 da clic en <strong>“Volver a conectar”</strong> y acepta
+              los permisos (las invitaciones de calendario ya funcionan).
+            </div>
           )}
 
           <div className="salas-paso">

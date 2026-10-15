@@ -18,9 +18,13 @@ import '@fontsource/montserrat-alternates/latin-ext-400.css'
 import './index.css'
 import App from './App.tsx'
 import { Acceso } from './auth/Acceso'
+import { Externo } from './salas/Externo'
+
+// Externos (sin cuenta) llegan con el QR de una sala: esa página no pide iniciar sesión.
+const ruta = window.location.hash.slice(1)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Acceso>{(perfil, salir) => <App perfil={perfil} salir={salir} />}</Acceso>
+    {ruta.startsWith('externo/') ? <Externo ruta={ruta} /> : <Acceso>{(perfil, salir) => <App perfil={perfil} salir={salir} />}</Acceso>}
   </StrictMode>,
 )

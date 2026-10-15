@@ -144,7 +144,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     () => (Object.keys(RUTAS) as TipoDocumento[]).filter((t) => perfil.es_admin || perfil.secciones.includes(t)),
     [perfil],
   )
-  const puedeSalas = perfil.es_admin || perfil.secciones.includes('salas')
+  const puedeSalas = perfil.es_admin || perfil.secciones.includes('salas') || perfil.secciones.includes('salas_admin')
   const puedeFelicitaciones = perfil.es_admin || perfil.secciones.includes('felicitaciones')
   const pantallaDeRuta = useCallback((): Pantalla | null => {
     const r = ruta()
