@@ -44,7 +44,7 @@ export function AccesoExternos({ salas }: { salas: Sala[] }) {
       <h2>Reservación para externos</h2>
       <p className="nota">
         Para las personas del edificio que no son de Trevé: escanean el QR de la sala, escriben el código impreso y reservan sin cuenta. Ven solo los horarios
-        ocupados (sin nombres), reciben la invitación por correo y pueden cancelar con el enlace que les llega. Máximo {3} reservaciones próximas por correo y 4
+        ocupados (sin nombres), reciben la invitación por correo y pueden cambiar el horario o cancelar con el enlace que les llega (o con el código de su reservación y su correo). Máximo {3} reservaciones próximas por correo y 4
         horas por reunión. Todo queda en el historial como “Externo”. Si el código se comparte de más, genera uno nuevo y vuelve a imprimir la hoja.
       </p>
       {falla && <div className="alerta" role="alert">{falla}</div>}
@@ -122,7 +122,7 @@ function HojaQR({ sala, codigo, cerrar }: { sala: Sala; codigo: string; cerrar: 
           <li>Escanea el código QR con la cámara de tu celular.</li>
           <li>Escribe el código de acceso de esta hoja.</li>
           <li>Elige día y hora libres y escribe tus datos y los de tus invitados.</li>
-          <li>Te llega la invitación a tu correo. Para cancelar, usa el enlace que viene en ella.</li>
+          <li>Te llega la invitación a tu correo. Para cambiar el horario o cancelar, usa el enlace que viene en ella (o escanea este QR y entra con el código de tu reservación).</li>
         </ol>
         <div className="salas-hoja-pie">
           Lunes a viernes de 7:00 a.m. a 9:00 p.m. · {enlace.replace(/^https?:\/\//, '')}

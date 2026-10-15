@@ -578,6 +578,52 @@ async function cancelarReservacion(r: Reservacion, sala: Sala, quien: Persona, r
   await registrar(quien, 'sala_cancelada', sala, r)
 }
 
+/** Cambia sala u horario; misma sala actualiza el evento de Outlook, otra sala lo cancela y crea de nuevo. */
+async function moverReservacion(anterior: Reservacion, sala: Sala, inicio: Date, fin: Date, quien: Persona, urlApp: string | null) {
+  const salaAnterior = sala.id === anterior.sala_id ? sala : await leerSala(anterior.sala_id)
+  if (inicio.toISOString() === new Date(anterior.inicio).toISOString() && fin.toISOString() === new Date(anterior.fin).toISOString() && sala.id === anterior.sala_id) {
+    throw new ErrorSalas('Elige un horario distinto al actual')
+  }
+  const mismaSala = sala.id === anterior.sala_id
+  await revisarOutlook(sala, inicio, fin, mismaSala ? anterior : null)
+  const { data, error } = await admin
+    .from('reservaciones')
+    .update({ sala_id: sala.id, inicio: inicio.toISOString(), fin: fin.toISOString(), actualizado: new Date().toISOString() })
+    .eq('id', anterior.id)
+    .select('*')
+    .single()
+  choque(error)
+  const r = data as Reservacion
+  const aviso: Aviso = { tipo: 'cambio', antes: { sala: salaAnterior.nombre, inicio: anterior.inicio, fin: anterior.fin } }
+  const gestion = await enlaceGestion(r, urlApp)
+  let outlook: 'ok' | 'error' | 'no' = 'no'
+  // Misma sala: se actualiza el mismo evento (Outlook avisa a los invitados). Otra sala: se cancela y se crea de nuevo.
+  try {
+    if (mismaSala && usaOutlook(sala) && anterior.outlook_event_id) {
+      const res = await graph(`/me/events/${encodeURIComponent(anterior.outlook_event_id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ start: utc(inicio), end: utc(fin), body: { contentType: 'HTML', content: cuerpoInvitacion(datosReunion(r, sala, urlApp, gestion), aviso) } }),
+      })
+      if (!res.ok) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
+      await guardarSync(r.id, { sync_error: null })
+      outlook = 'ok'
+    } else {
+      if (usaOutlook(salaAnterior) && anterior.outlook_event_id) {
+        await cancelarEnOutlook(anterior.outlook_event_id, `La reunión "${anterior.motivo}" se cambió a ${sala.nombre}, ${horarioCorto(r)}. Llega una invitación nueva.`)
+      }
+      if (!usaOutlook(sala)) await guardarSync(r.id, { outlook_event_id: null, sync_error: null })
+      outlook = await sincronizarNueva(r, sala, urlApp, aviso, gestion)
+    }
+  } catch (e) {
+    console.error(e)
+    outlook = 'error'
+    await guardarSync(r.id, { sync_error: String(e).slice(0, 500) })
+  }
+  await historial(r, 'movida', quien, { antes: resumen(anterior, salaAnterior), despues: resumen(r, sala), por_admin: !esDueno(anterior, quien) })
+  await registrar(quien, 'sala_movida', sala, r)
+  return { reservacion: r, outlook }
+}
+
 /** Razón visible para los invitados cuando cancela o mueve alguien que no es el responsable. */
 const porQuien = (r: Reservacion, quien: Persona) => (esDueno(r, quien) ? `La canceló ${quien.nombre || quien.email}.` : `La canceló ${quien.nombre || quien.email} (administración de salas).`)
 
@@ -617,7 +663,13 @@ async function reservacionPorToken(token: unknown): Promise<Reservacion> {
   return r as Reservacion
 }
 
-const personaExterna = (r: Reservacion): Persona => ({ id: null, email: r.creado_por_email, nombre: r.creado_por_nombre, es_admin: false, admin_salas: false, externo: true })
+const personaExterna = (r: Reservacion): Persona => ({ ...responsable(r), id: null, es_admin: false, admin_salas: false, externo: true })
+
+/** Reservación activa y futura, para cambiarla desde el enlace. */
+function exigirVigente(r: Reservacion) {
+  if (r.estado !== 'activa') throw new ErrorSalas('Esta reservación ya estaba cancelada')
+  if (Date.parse(r.fin) < Date.now()) throw new ErrorSalas('Esta reunión ya pasó')
+}
 
 async function manejarExterno(req: Request, cuerpo: Record<string, unknown>) {
   switch (cuerpo.accion) {
@@ -653,14 +705,49 @@ async function manejarExterno(req: Request, cuerpo: Record<string, unknown>) {
       )
       return { ...resultado, reservacion: { codigo: resultado.reservacion.codigo, inicio: resultado.reservacion.inicio, fin: resultado.reservacion.fin, motivo: resultado.reservacion.motivo } }
     }
+    case 'externo_entrar': {
+      // Con el código de la reservación y el correo con que se hizo: devuelve el enlace para administrarla.
+      const clave = `ip:${ipDe(req)}`
+      await revisarIntentos(clave)
+      const codigo = limpiarCodigo(cuerpo.codigo).replace(/^SALA/, '')
+      const email = typeof cuerpo.email === 'string' ? cuerpo.email.trim().toLowerCase() : ''
+      const { data } = /^[A-F0-9]{6}$/.test(codigo) && email ? await admin.from('reservaciones').select('*').eq('codigo', `SALA-${codigo}`).eq('origen', 'externo').maybeSingle() : { data: null }
+      const r = data as Reservacion | null
+      if (!r || ![responsable(r).email, r.creado_por_email].some((x) => x.toLowerCase() === email)) {
+        await admin.from('salas_intentos').insert({ clave })
+        throw new ErrorSalas('No encontramos una reservación con ese código y ese correo. Revisa la invitación que te llegó.', 404)
+      }
+      let { data: g } = await admin.from('reservaciones_gestion').select('token').eq('reservacion_id', r.id).maybeSingle()
+      if (!g) ({ data: g } = await admin.from('reservaciones_gestion').insert({ reservacion_id: r.id }).select('token').single())
+      if (!g) throw new ErrorSalas('No se pudo abrir la reservación. Intenta de nuevo.', 500)
+      return { token: g.token }
+    }
     case 'externo_ver': {
       const r = await reservacionPorToken(cuerpo.token)
       const sala = await leerSala(r.sala_id)
-      return { reservacion: { codigo: r.codigo, sala: sala.nombre, inicio: r.inicio, fin: r.fin, motivo: r.motivo, estado: r.estado, responsable: responsable(r), empresa: r.empresa, invitados: r.invitados } }
+      return {
+        reservacion: { codigo: r.codigo, sala_id: sala.id, sala: sala.nombre, inicio: r.inicio, fin: r.fin, motivo: r.motivo, estado: r.estado, responsable: responsable(r), empresa: r.empresa, invitados: r.invitados },
+        max_horas: EXTERNO_MAX_HORAS,
+      }
+    }
+    case 'externo_horarios': {
+      // Lo ocupado de un día en su sala, sin contar su propia reunión.
+      const r = await reservacionPorToken(cuerpo.token)
+      const sala = await leerSala(r.sala_id)
+      const { reservas, outlook } = await disponibilidad(sala, cuerpo.fecha)
+      return { ocupado: [...reservas.filter((x) => x.id !== r.id), ...outlook].map((b) => ({ inicio: b.inicio, fin: b.fin })) }
+    }
+    case 'externo_mover': {
+      const anterior = await reservacionPorToken(cuerpo.token)
+      exigirVigente(anterior)
+      const sala = await leerSala(anterior.sala_id)
+      const [inicio, fin] = validarHorario(cuerpo.inicio, cuerpo.fin, EXTERNO_MAX_HORAS)
+      const { reservacion: r, outlook } = await moverReservacion(anterior, sala, inicio, fin, personaExterna(anterior), app(cuerpo.app))
+      return { reservacion: { inicio: r.inicio, fin: r.fin }, outlook }
     }
     case 'externo_cancelar': {
       const r = await reservacionPorToken(cuerpo.token)
-      if (r.estado !== 'activa') throw new ErrorSalas('Esta reservación ya estaba cancelada')
+      exigirVigente(r)
       const sala = await leerSala(r.sala_id)
       const quien = personaExterna(r)
       await cancelarReservacion(r, sala, quien, `La canceló ${quien.nombre || quien.email}.`)
@@ -702,50 +789,9 @@ async function manejar(req: Request) {
 
     case 'mover': {
       const anterior = await leerReservacion(cuerpo.id, quien)
-      const salaAnterior = await leerSala(anterior.sala_id)
-      const sala = cuerpo.sala_id && cuerpo.sala_id !== anterior.sala_id ? await leerSala(cuerpo.sala_id) : salaAnterior
+      const sala = await leerSala(cuerpo.sala_id || anterior.sala_id)
       const [inicio, fin] = validarHorario(cuerpo.inicio, cuerpo.fin)
-      if (inicio.toISOString() === new Date(anterior.inicio).toISOString() && fin.toISOString() === new Date(anterior.fin).toISOString() && sala.id === anterior.sala_id) {
-        throw new ErrorSalas('Elige un horario distinto al actual')
-      }
-      const mismaSala = sala.id === anterior.sala_id
-      await revisarOutlook(sala, inicio, fin, mismaSala ? anterior : null)
-      const { data, error } = await admin
-        .from('reservaciones')
-        .update({ sala_id: sala.id, inicio: inicio.toISOString(), fin: fin.toISOString(), actualizado: new Date().toISOString() })
-        .eq('id', anterior.id)
-        .select('*')
-        .single()
-      choque(error)
-      const r = data as Reservacion
-      const aviso: Aviso = { tipo: 'cambio', antes: { sala: salaAnterior.nombre, inicio: anterior.inicio, fin: anterior.fin } }
-      const gestion = await enlaceGestion(r, urlApp)
-      let outlook: 'ok' | 'error' | 'no' = 'no'
-      // Misma sala: se actualiza el mismo evento (Outlook avisa a los invitados). Otra sala: se cancela y se crea de nuevo.
-      try {
-        if (mismaSala && usaOutlook(sala) && anterior.outlook_event_id) {
-          const res = await graph(`/me/events/${encodeURIComponent(anterior.outlook_event_id)}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ start: utc(inicio), end: utc(fin), body: { contentType: 'HTML', content: cuerpoInvitacion(datosReunion(r, sala, urlApp, gestion), aviso) } }),
-          })
-          if (!res.ok) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
-          await guardarSync(r.id, { sync_error: null })
-          outlook = 'ok'
-        } else {
-          if (usaOutlook(salaAnterior) && anterior.outlook_event_id) {
-            await cancelarEnOutlook(anterior.outlook_event_id, `La reunión "${anterior.motivo}" se cambió a ${sala.nombre}, ${horarioCorto(r)}. Llega una invitación nueva.`)
-          }
-          if (!usaOutlook(sala)) await guardarSync(r.id, { outlook_event_id: null, sync_error: null })
-          outlook = await sincronizarNueva(r, sala, urlApp, aviso, gestion)
-        }
-      } catch (e) {
-        console.error(e)
-        outlook = 'error'
-        await guardarSync(r.id, { sync_error: String(e).slice(0, 500) })
-      }
-      await historial(r, 'movida', quien, { antes: resumen(anterior, salaAnterior), despues: resumen(r, sala), por_admin: !esDueno(anterior, quien) })
-      await registrar(quien, 'sala_movida', sala, r)
-      return { reservacion: r, outlook }
+      return moverReservacion(anterior, sala, inicio, fin, quien, urlApp)
     }
 
     case 'cancelar': {

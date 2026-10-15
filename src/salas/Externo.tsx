@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { IMG } from '../lib/imagenes'
 import { salasPublico, type EstadoOutlook } from '../lib/supabase'
 import { CampoInvitados, Calendario, CintaDia, Flecha, HorariosLibres } from './componentes'
-import { conMayuscula, conPendientes, DURACIONES, error, textoDuracion, textoReunion } from './util'
-import { aFecha, diasHabiles, horariosLibres, textoDia, type Bloque } from './tiempo'
+import { conMayuscula, conPendientes, DURACIONES, error, minutosDe, textoDuracion, textoReunion } from './util'
+import { aFecha, diasHabiles, horariosLibres, local, textoDia, type Bloque } from './tiempo'
 
 // Página pública (sin cuenta) para las personas del edificio que no son de Trevé.
 // Se llega con el QR de la sala (#externo/<sala>) y se pide el código impreso en la hoja.
-// El enlace de la invitación (#externo/gestion/<token>) permite cancelar.
+// El enlace de la invitación (#externo/gestion/<token>) permite cambiar el horario o cancelar;
+// sin el enlace, se entra con el código de la reservación y el correo (#externo/reservacion).
 
 const CLAVE_DATOS = 'salas-externo:datos'
 const leer = <T,>(clave: string, base: T): T => {
@@ -49,9 +50,16 @@ function Marco({ titulo, subtitulo, children }: { titulo: string; subtitulo?: st
   )
 }
 
-export function Externo({ ruta }: { ruta: string }) {
+export function Externo({ ruta: inicial }: { ruta: string }) {
+  const [ruta, setRuta] = useState(inicial)
+  useEffect(() => {
+    const cambio = () => (setRuta(window.location.hash.slice(1)), window.scrollTo(0, 0))
+    window.addEventListener('hashchange', cambio)
+    return () => window.removeEventListener('hashchange', cambio)
+  }, [])
   const gestion = ruta.match(/^externo\/gestion\/([0-9a-f-]{36})$/i)
-  if (gestion) return <Gestion token={gestion[1]} />
+  if (gestion) return <Gestion key={gestion[1]} token={gestion[1]} />
+  if (ruta === 'externo/reservacion') return <Marco titulo="Tu reservación" subtitulo="Para cambiar el horario o cancelar, escribe el código de tu reservación y el correo con que reservaste.">{<EntrarReservacion />}</Marco>
   const salaId = ruta.match(/^externo\/([a-z0-9-]{1,30})$/)?.[1]
   if (!salaId) return <Marco titulo="Enlace no válido" subtitulo="Escanea de nuevo el código QR de la sala." >{null}</Marco>
   return <ReservarExterno salaId={salaId} />
@@ -106,6 +114,7 @@ function ReservarExterno({ salaId }: { salaId: string }) {
             {revisando ? 'Revisando…' : 'Continuar'}
           </button>
         </form>
+        <YaReservaste />
       </Marco>
     )
   }
@@ -151,7 +160,7 @@ function Agenda({ sala, codigo }: { sala: { id: string; nombre: string }; codigo
           </p>
           {listo.gestion && (
             <p className="nota">
-              Para cancelarla usa el enlace de la invitación o este: <a href={listo.gestion}>{listo.gestion}</a>
+              Para cambiar el horario o cancelarla usa el enlace de la invitación o este: <a href={listo.gestion}>{listo.gestion}</a>
             </p>
           )}
           <div className="admin-acciones">
@@ -214,7 +223,55 @@ function Agenda({ sala, codigo }: { sala: { id: string; nombre: string }; codigo
           />
         )}
       </section>
+      <YaReservaste />
     </Marco>
+  )
+}
+
+/** Acceso a "Tu reservación" desde las páginas de reservar. */
+function YaReservaste() {
+  return (
+    <p className="nota externo-ya">
+      ¿Ya reservaste? <a href="#externo/reservacion">Cambia el horario o cancela tu reservación</a> con el código que te llegó por correo.
+    </p>
+  )
+}
+
+/** Código de la reservación + correo → enlace para administrarla. */
+function EntrarReservacion() {
+  const [codigo, setCodigo] = useState('')
+  const [email, setEmail] = useState(() => leer(CLAVE_DATOS, { email: '' }).email)
+  const [enviando, setEnviando] = useState(false)
+  const [falla, setFalla] = useState('')
+  return (
+    <form
+      className="admin-caja externo-codigo"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        setFalla('')
+        setEnviando(true)
+        try {
+          const r = await salasPublico<{ token: string }>('externo_entrar', { codigo, email })
+          window.location.hash = `externo/gestion/${r.token}`
+        } catch (err) {
+          setFalla(error(err))
+          setEnviando(false)
+        }
+      }}
+    >
+      <div className="campo">
+        <label htmlFor="ext-res-codigo">Código de la reservación</label>
+        <input id="ext-res-codigo" required autoFocus autoComplete="off" autoCapitalize="characters" spellCheck={false} value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} placeholder="SALA-1A2B3C" />
+      </div>
+      <div className="campo">
+        <label htmlFor="ext-res-email">Correo con que reservaste</label>
+        <input id="ext-res-email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      {falla && <div className="alerta" role="alert">{falla}</div>}
+      <button type="submit" className="btn primario" disabled={enviando}>
+        {enviando ? 'Buscando…' : 'Ver mi reservación'}
+      </button>
+    </form>
   )
 }
 
@@ -319,23 +376,46 @@ function FormExterno({
   )
 }
 
-/** Desde el enlace de la invitación: ver y cancelar la reservación, sin cuenta. */
+interface ReservaExterna {
+  codigo: string
+  sala_id: string
+  sala: string
+  inicio: string
+  fin: string
+  motivo: string
+  estado: string
+  responsable: { nombre: string; email: string }
+  empresa: string | null
+  invitados: string[]
+}
+
+/** Desde el enlace de la invitación (o con código y correo): ver, cambiar de horario o cancelar, sin cuenta. */
 function Gestion({ token }: { token: string }) {
-  const [r, setR] = useState<{ codigo: string; sala: string; inicio: string; fin: string; motivo: string; estado: string; responsable: { nombre: string; email: string }; empresa: string | null; invitados: string[] } | null>(null)
+  const [r, setR] = useState<ReservaExterna | null>(null)
+  const [maxHoras, setMaxHoras] = useState(4)
   const [falla, setFalla] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [moviendo, setMoviendo] = useState(false)
+  const [hecho, setHecho] = useState('')
   const [version, setVersion] = useState(0)
   const [ahora] = useState(() => Date.now())
 
   useEffect(() => {
-    salasPublico<{ reservacion: NonNullable<typeof r> }>('externo_ver', { token }).then(
-      (x) => setR(x.reservacion),
+    salasPublico<{ reservacion: ReservaExterna; max_horas: number }>('externo_ver', { token }).then(
+      (x) => (setR(x.reservacion), setMaxHoras(x.max_horas)),
       (e: unknown) => setFalla(error(e)),
     )
   }, [token, version])
 
+  const vigente = r && r.estado === 'activa' && Date.parse(r.fin) >= ahora
+
   return (
     <Marco titulo="Tu reservación" subtitulo={r ? `${r.sala} · ${textoReunion(r.inicio, r.fin)}` : undefined}>
+      {hecho && (
+        <div className="credenciales" role="status">
+          <strong>{hecho}</strong>
+        </div>
+      )}
       <section className="admin-caja">
         {falla && <div className="alerta" role="alert">{falla}</div>}
         {!r ? (
@@ -353,34 +433,177 @@ function Gestion({ token }: { token: string }) {
               <div className="credenciales">
                 <strong>Esta reservación está cancelada.</strong>
               </div>
-            ) : Date.parse(r.fin) < ahora ? (
+            ) : !vigente ? (
               <p className="nota">Esta reunión ya pasó.</p>
             ) : (
-              <div className="admin-acciones">
-                <button
-                  type="button"
-                  className="btn peligro"
-                  disabled={enviando}
-                  onClick={async () => {
-                    if (!confirm('¿Cancelar la reservación? Tus invitados reciben la cancelación.')) return
-                    setEnviando(true)
-                    try {
-                      await salasPublico('externo_cancelar', { token })
-                      setVersion((v) => v + 1)
-                    } catch (e) {
-                      setFalla(error(e))
-                    }
-                    setEnviando(false)
-                  }}
-                >
-                  {enviando ? 'Cancelando…' : 'Cancelar reservación'}
-                </button>
-                <span className="nota">Para cambiar de horario, cancela y vuelve a reservar con el QR de la sala.</span>
-              </div>
+              !moviendo && (
+                <div className="admin-acciones">
+                  <button type="button" className="btn primario" disabled={enviando} onClick={() => (setMoviendo(true), setHecho(''))}>
+                    Cambiar horario
+                  </button>
+                  <button
+                    type="button"
+                    className="btn peligro"
+                    disabled={enviando}
+                    onClick={async () => {
+                      if (!confirm('¿Cancelar la reservación? Tus invitados reciben la cancelación.')) return
+                      setEnviando(true)
+                      setHecho('')
+                      try {
+                        await salasPublico('externo_cancelar', { token })
+                        setVersion((v) => v + 1)
+                      } catch (e) {
+                        setFalla(error(e))
+                      }
+                      setEnviando(false)
+                    }}
+                  >
+                    {enviando ? 'Cancelando…' : 'Cancelar reservación'}
+                  </button>
+                </div>
+              )
             )}
           </>
         )}
       </section>
+      {r && vigente && moviendo && (
+        <MoverExterno
+          r={r}
+          token={token}
+          maxHoras={maxHoras}
+          alCerrar={() => setMoviendo(false)}
+          alTerminar={(texto) => (setMoviendo(false), setHecho(texto), setVersion((v) => v + 1))}
+        />
+      )}
     </Marco>
+  )
+}
+
+/** Elegir otro día u hora en la misma sala; los invitados reciben la actualización. */
+function MoverExterno({ r, token, maxHoras, alCerrar, alTerminar }: { r: ReservaExterna; token: string; maxHoras: number; alCerrar: () => void; alTerminar: (texto: string) => void }) {
+  const dias = useMemo(() => diasHabiles(), [])
+  const actual = local(new Date(r.inicio)).dia
+  const [dia, setDia] = useState(dias.includes(actual) ? actual : dias[0])
+  const opciones = useMemo(() => [...new Set([...DURACIONES, minutosDe(r)])].filter((d) => d <= maxHoras * 60).sort((a, b) => a - b), [r, maxHoras])
+  const [duracion, setDuracion] = useState(() => (opciones.includes(minutosDe(r)) ? minutosDe(r) : 60))
+  const [ocupado, setOcupado] = useState<{ clave: string; bloques: Bloque[]; error?: string } | null>(null)
+  const [elegido, setElegido] = useState<number | null>(null)
+  const [enviando, setEnviando] = useState(false)
+  const [falla, setFalla] = useState('')
+  const clave = dia
+
+  useEffect(() => {
+    let vigente = true
+    salasPublico<{ ocupado: Bloque[] }>('externo_horarios', { token, fecha: dia }).then(
+      (x) => vigente && setOcupado({ clave, bloques: x.ocupado }),
+      (e: unknown) => vigente && setOcupado({ clave, bloques: [], error: error(e) }),
+    )
+    return () => {
+      vigente = false
+    }
+  }, [token, dia, clave])
+
+  const cargando = ocupado?.clave !== clave
+  const libres = cargando ? [] : horariosLibres(dia, duracion, ocupado!.bloques)
+  const iDia = dias.indexOf(dia)
+  const nuevoInicio = elegido !== null ? aFecha(dia, elegido) : null
+  const nuevoFin = nuevoInicio ? new Date(nuevoInicio.getTime() + duracion * 60_000) : null
+  // La reunión actual se dibuja aparte para ubicarla en la cinta.
+  const propia = local(new Date(r.inicio)).dia === dia ? [{ inicio: r.inicio, fin: r.fin, propia: true, moviendo: true }] : []
+
+  async function confirmar() {
+    if (!nuevoInicio || !nuevoFin) return
+    setFalla('')
+    setEnviando(true)
+    try {
+      const x = await salasPublico<{ reservacion: { inicio: string; fin: string }; outlook: EstadoOutlook }>('externo_mover', {
+        token,
+        inicio: nuevoInicio.toISOString(),
+        fin: nuevoFin.toISOString(),
+        app: enlacePagina(`externo/${r.sala_id}`),
+      })
+      alTerminar(
+        `Listo: quedó el ${textoReunion(x.reservacion.inicio, x.reservacion.fin).replace(/\.$/, '')}. ` +
+          (x.outlook === 'ok' ? 'Tú y tus invitados reciben la actualización por correo.' : 'No se pudo avisar por correo; avisa tú a tus invitados.'),
+      )
+    } catch (e) {
+      setFalla(error(e))
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <section className="admin-caja">
+      <section className="salas-mover" aria-live="polite">
+        <div className="salas-mover-cab">
+          <strong>Cambiar horario de «{r.motivo}»</strong>
+          <button type="button" className="link" onClick={alCerrar}>
+            No cambiar
+          </button>
+        </div>
+        <div className="salas-mover-filas">
+          <div>
+            <span className="salas-mover-etiqueta">Ahora</span>
+            <span className="salas-mover-actual">
+              {r.sala} · {textoReunion(r.inicio, r.fin)}
+            </span>
+          </div>
+          <span className="salas-mover-flecha" aria-hidden="true">
+            →
+          </span>
+          <div>
+            <span className="salas-mover-etiqueta">Nuevo</span>
+            {nuevoInicio && nuevoFin ? (
+              <span className="salas-mover-nuevo">
+                {r.sala} · {textoReunion(nuevoInicio.toISOString(), nuevoFin.toISOString())}
+              </span>
+            ) : (
+              <span className="nota">Elige abajo el día y la hora.</span>
+            )}
+          </div>
+        </div>
+        {falla && <div className="alerta" role="alert">{falla}</div>}
+        <div className="admin-acciones">
+          <button type="button" className="btn primario" disabled={!nuevoInicio || enviando} onClick={confirmar}>
+            {enviando ? 'Cambiando…' : 'Confirmar cambio'}
+          </button>
+        </div>
+      </section>
+      <div className="salas-controles">
+        <div className="campo salas-duracion">
+          <label htmlFor="ext-mov-duracion">Duración</label>
+          <select id="ext-mov-duracion" value={duracion} onChange={(e) => (setDuracion(Number(e.target.value)), setElegido(null))}>
+            {opciones.map((d) => (
+              <option key={d} value={d}>
+                {textoDuracion(d)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="salas-panel">
+        <Calendario dias={dias} dia={dia} ocupados={new Set()} onElegir={(d) => (setDia(d), setElegido(null))} />
+        <div className="salas-dia-panel">
+          <div className="salas-dia-cab">
+            <Flecha dir="izq" label="Día anterior" disabled={iDia <= 0} onClick={() => (setDia(dias[iDia - 1]), setElegido(null))} />
+            <div className="salas-dia-titulo">
+              <h2>{r.sala}</h2>
+              <p>{conMayuscula(textoDia(dia))}</p>
+            </div>
+            <Flecha dir="der" label="Día siguiente" disabled={iDia < 0 || iDia >= dias.length - 1} onClick={() => (setDia(dias[iDia + 1]), setElegido(null))} />
+          </div>
+          {!cargando && <CintaDia dia={dia} agenda={[...ocupado!.bloques.map((b) => ({ ...b, propia: false })), ...propia]} elegido={elegido} duracion={duracion} />}
+          {!cargando && ocupado?.error && <div className="alerta" role="alert">{ocupado.error}</div>}
+          <h3 className="salas-sub">Horarios libres ({textoDuracion(duracion)})</h3>
+          {cargando ? (
+            <p className="nota">Cargando…</p>
+          ) : libres.length === 0 ? (
+            <p className="nota">No hay horarios libres ese día para esa duración.</p>
+          ) : (
+            <HorariosLibres libres={libres} elegido={elegido} onElegir={setElegido} />
+          )}
+        </div>
+      </div>
+    </section>
   )
 }

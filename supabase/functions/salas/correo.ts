@@ -27,7 +27,7 @@ export interface DatosReunion {
   empresa?: string | null
   /** Dirección de la app para ver o cambiar la reservación. */
   app?: string | null
-  /** Externo: enlace para cancelar sin cuenta. */
+  /** Externo: enlace para cambiar el horario o cancelar sin cuenta. */
   gestion?: string | null
 }
 
@@ -104,7 +104,7 @@ export function cuerpoInvitacion(d: DatosReunion, aviso?: Aviso): string {
   ].join('')
   const enlaces = [
     d.app ? `<a href="${escapar(d.app)}" style="color:${AZUL}">Ver disponibilidad y reservaciones</a>` : '',
-    d.gestion ? `<a href="${escapar(d.gestion)}" style="color:${AZUL}">Cancelar esta reservación</a>` : '',
+    d.gestion ? `<a href="${escapar(d.gestion)}" style="color:${AZUL}">Cambiar horario o cancelar</a>` : '',
   ].filter(Boolean)
   const cuerpo = `${aviso ? textoAviso(aviso) : ''}<div style="font-size:17px;font-weight:600;margin:0 0 12px;color:${AZUL}">${escapar(d.motivo)}</div>
 <table role="presentation" style="border-collapse:collapse;width:100%">${filas}</table>
