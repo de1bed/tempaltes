@@ -925,11 +925,15 @@ async function manejar(req: Request) {
         return { historial: data ?? [] }
       }
       exigirAdminSalas(quien)
-      const { data, error } = await admin
-        .from('salas_historial')
-        .select('*, reservaciones(codigo, sala_id, motivo, inicio, fin, estado, origen, empresa)')
-        .order('creado', { ascending: false })
-        .limit(150)
+      // Por mes (YYYY-MM, hora de la Ciudad de México); sin mes, las últimas 150 acciones.
+      let consulta = admin.from('salas_historial').select('*, reservaciones(codigo, sala_id, motivo, inicio, fin, estado, origen, empresa)')
+      const mes = typeof cuerpo.mes === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(cuerpo.mes) ? cuerpo.mes : null
+      if (mes) {
+        const [a, m] = mes.split('-').map(Number)
+        const siguiente = m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`
+        consulta = consulta.gte('creado', rangoDelDia(`${mes}-01`)[0].toISOString()).lt('creado', rangoDelDia(`${siguiente}-01`)[0].toISOString())
+      }
+      const { data, error } = await consulta.order('creado', { ascending: false }).limit(mes ? 1000 : 150)
       if (error) throw error
       return { historial: data ?? [] }
     }

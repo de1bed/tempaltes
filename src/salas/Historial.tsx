@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { salasApi } from '../lib/supabase'
-import { error, textoReunion } from './util'
+import { conMayuscula, error, textoReunion } from './util'
+import { local, textoDia } from './tiempo'
 
 interface Entrada {
   id: number
@@ -84,57 +85,115 @@ export function HistorialReservacion({ id }: { id: string }) {
   )
 }
 
-/** Historial de todas las salas (administradores de salas). */
+const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
+
+/** Los últimos 12 meses (`YYYY-MM`), del actual hacia atrás. */
+function ultimosMeses(): string[] {
+  const [a, m] = local(new Date()).dia.split('-').map(Number)
+  return Array.from({ length: 12 }, (_, i) => {
+    const t = a * 12 + (m - 1) - i
+    return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`
+  })
+}
+
+const textoMes = (mes: string) => conMayuscula(new Date(`${mes}-15T12:00:00Z`).toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }))
+
+/** Historial de todas las salas (administradores de salas), por mes y agrupado por día. */
 export function Historial({ nombreSala }: { nombreSala: (id: string) => string }) {
-  const [lista, setLista] = useState<Entrada[] | null>(null)
+  const meses = useMemo(ultimosMeses, [])
+  const [mes, setMes] = useState(meses[0])
+  const [datos, setDatos] = useState<{ mes: string; lista: Entrada[] } | null>(null)
   const [falla, setFalla] = useState('')
   const [filtro, setFiltro] = useState('')
   useEffect(() => {
-    salasApi<{ historial: Entrada[] }>('historial').then(
-      (r) => setLista(r.historial),
-      (e: unknown) => setFalla(error(e)),
+    let vigente = true
+    salasApi<{ historial: Entrada[] }>('historial', { mes }).then(
+      (r) => vigente && (setDatos({ mes, lista: r.historial }), setFalla('')),
+      (e: unknown) => vigente && setFalla(error(e)),
     )
-  }, [])
+    return () => {
+      vigente = false
+    }
+  }, [mes])
+  const lista = datos?.mes === mes ? datos.lista : null
   const q = filtro.trim().toLowerCase()
   const visibles = (lista ?? []).filter(
     (e) => !q || [e.quien_nombre, e.quien_email, e.reservaciones?.motivo, e.reservaciones?.codigo, e.reservaciones?.empresa].some((x) => x?.toLowerCase().includes(q)),
   )
+  // Agrupado por día (hora de la Ciudad de México), del más reciente al más antiguo.
+  const dias: { dia: string; entradas: Entrada[] }[] = []
+  for (const e of visibles) {
+    const dia = local(new Date(e.creado)).dia
+    if (dias.at(-1)?.dia === dia) dias.at(-1)!.entradas.push(e)
+    else dias.push({ dia, entradas: [e] })
+  }
+  const iMes = meses.indexOf(mes)
   return (
     <section className="admin-caja">
       <div className="bitacora-cab">
         <h2>Historial de salas</h2>
-        <div className="campo bitacora-filtro">
-          <label htmlFor="hist-filtro">Buscar</label>
-          <input id="hist-filtro" type="search" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Persona, motivo, código, empresa" />
+        <div className="historial-filtros">
+          <div className="campo historial-mes">
+            <label htmlFor="hist-mes">Mes</label>
+            <div className="historial-mes-control">
+              <button type="button" className="btn secundario" aria-label="Mes anterior" disabled={iMes >= meses.length - 1} onClick={() => setMes(meses[iMes + 1])}>
+                ‹
+              </button>
+              <select id="hist-mes" value={mes} onChange={(e) => setMes(e.target.value)}>
+                {meses.map((m) => (
+                  <option key={m} value={m}>
+                    {textoMes(m)}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="btn secundario" aria-label="Mes siguiente" disabled={iMes <= 0} onClick={() => setMes(meses[iMes - 1])}>
+                ›
+              </button>
+            </div>
+          </div>
+          <div className="campo bitacora-filtro">
+            <label htmlFor="hist-filtro">Buscar</label>
+            <input id="hist-filtro" type="search" value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Persona, motivo, código, empresa" />
+          </div>
         </div>
       </div>
-      <p className="nota">Quién reservó, cambió, cedió o canceló cada reunión (las últimas 150 acciones). Nadie puede editarlo ni borrarlo.</p>
+      <p className="nota">
+        Quién reservó, cambió, cedió o canceló cada reunión. Nadie puede editarlo ni borrarlo.
+        {lista && ` ${visibles.length} ${visibles.length === 1 ? 'movimiento' : 'movimientos'} en ${textoMes(mes).toLowerCase()}.`}
+      </p>
       {falla && <div className="alerta" role="alert">{falla}</div>}
       {!lista ? (
         !falla && <p className="nota">Cargando…</p>
-      ) : visibles.length === 0 ? (
-        <p className="nota">Sin movimientos.</p>
+      ) : dias.length === 0 ? (
+        <p className="nota">{q ? 'Nada coincide con la búsqueda.' : 'Sin movimientos este mes.'}</p>
       ) : (
-        <ul className="bitacora">
-          {visibles.map((e) => (
-            <li key={e.id}>
-              <span className="bitacora-fecha">{cuando(e.creado)}</span>
-              <div className="bitacora-que">
-                <span>
-                  <strong>{e.quien_nombre || e.quien_email}</strong> {e.externo && <em className="salas-insignia">Externo</em>} · {ACCIONES[e.accion] ?? e.accion}
-                </span>
-                {e.reservaciones && (
-                  <span className="bitacora-doc">
-                    «{e.reservaciones.motivo}» · {nombreSala(e.reservaciones.sala_id)} · {textoReunion(e.reservaciones.inicio, e.reservaciones.fin)} · {e.reservaciones.codigo}
-                    {e.reservaciones.empresa ? ` · ${e.reservaciones.empresa}` : ''}
-                  </span>
-                )}
-                <Detalle e={e} />
-              </div>
-              <span />
-            </li>
-          ))}
-        </ul>
+        dias.map(({ dia, entradas }) => (
+          <div key={dia} className="historial-dia">
+            <h3 className="historial-dia-titulo">
+              {conMayuscula(textoDia(dia))} <span>{entradas.length}</span>
+            </h3>
+            <ul className="bitacora">
+              {entradas.map((e) => (
+                <li key={e.id}>
+                  <span className="bitacora-fecha">{hora(e.creado)}</span>
+                  <div className="bitacora-que">
+                    <span>
+                      <strong>{e.quien_nombre || e.quien_email}</strong> {e.externo && <em className="salas-insignia">Externo</em>} · {ACCIONES[e.accion] ?? e.accion}
+                    </span>
+                    {e.reservaciones && (
+                      <span className="bitacora-doc">
+                        «{e.reservaciones.motivo}» · {nombreSala(e.reservaciones.sala_id)} · {textoReunion(e.reservaciones.inicio, e.reservaciones.fin)} · {e.reservaciones.codigo}
+                        {e.reservaciones.empresa ? ` · ${e.reservaciones.empresa}` : ''}
+                      </span>
+                    )}
+                    <Detalle e={e} />
+                  </div>
+                  <span />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
       )}
     </section>
   )
