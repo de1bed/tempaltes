@@ -320,6 +320,8 @@ async function ocupadoEnOutlook(sala: Sala, desde: Date, hasta: Date, propias: R
   return (j.value as { id: string; start: { dateTime: string }; end: { dateTime: string }; showAs: string; isCancelled: boolean; bodyPreview?: string }[])
     .filter((e) => !propios.has(e.id) && !e.isCancelled && e.showAs !== 'free' && !codigos.some((c) => e.bodyPreview?.includes(c)))
     .map((e) => ({ inicio: desdeGraph(e.start).toISOString(), fin: desdeGraph(e.end).toISOString(), titulo: 'Ocupado en Outlook' }))
+    // Outlook también regresa eventos que solo tocan el borde (terminan justo cuando empieza el rango): no chocan.
+    .filter((e) => Date.parse(e.fin) > desde.getTime() && Date.parse(e.inicio) < hasta.getTime())
 }
 
 // ───── Reservación → Outlook ─────

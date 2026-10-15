@@ -220,6 +220,7 @@ function Agenda({ sala, codigo }: { sala: { id: string; nombre: string }; codigo
             fin={new Date(aFecha(dia, elegido).getTime() + duracion * 60_000)}
             alTerminar={setListo}
             alCerrar={() => setElegido(null)}
+            alFallar={() => setVersion((v) => v + 1)}
           />
         )}
       </section>
@@ -282,6 +283,7 @@ function FormExterno({
   fin,
   alTerminar,
   alCerrar,
+  alFallar,
 }: {
   sala: { id: string; nombre: string }
   codigo: string
@@ -289,6 +291,8 @@ function FormExterno({
   fin: Date
   alTerminar: (r: { codigo: string; inicio: string; fin: string; motivo: string; outlook: EstadoOutlook; gestion: string | null; email: string }) => void
   alCerrar: () => void
+  /** Si falla (p. ej. alguien ganó el horario), se vuelve a leer lo ocupado. */
+  alFallar: () => void
 }) {
   const [datos, setDatos] = useState(() => leer(CLAVE_DATOS, { nombre: '', empresa: '', email: '' }))
   const [motivo, setMotivo] = useState('')
@@ -320,6 +324,7 @@ function FormExterno({
     } catch (err) {
       setFalla(error(err))
       setEnviando(false)
+      alFallar()
     }
   }
 
