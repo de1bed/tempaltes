@@ -12,6 +12,7 @@
     "build:artifact": "tsc -b && vite build --mode artifact && node scripts/un-solo-html.mjs"
   },
   "dependencies": {
+    "@fontsource/montserrat-alternates": "^5.3.0",
     "@fontsource/poppins": "^5.3.0",
     "@supabase/supabase-js": "2.117.1",
     "jspdf": "^4.2.1",

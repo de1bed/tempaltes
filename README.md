@@ -28,9 +28,21 @@ Reservación de la **Sala principal** y la **Salita 2** (permiso "Salas" en Admi
 - La base de datos no permite dos reservaciones encimadas en la misma sala.
 - **Outlook** (cuenta personal, outlook.live.com): la Edge Function `salas` copia cada reservación al calendario de su sala (Microsoft Graph) e invita a los invitados. Necesita los secretos `MS_CLIENT_ID` y `MS_CLIENT_SECRET` (app registrada en Azure para cuentas personales, con redirección a `https://ficswawndpxegjkzxkvj.supabase.co/functions/v1/salas`). Luego el administrador da clic en **Conectar Outlook** (en Salas) y elige qué calendario es cada sala. Sin eso funciona solo en la app.
 
+## Felicitaciones
+
+Imágenes de **cumpleaños, aniversario, bienvenida y despedida** con las plantillas de Treve (permiso "Felicitaciones" en Administración, dirección `#felicitaciones`).
+
+- **Crear**: se elige el tipo y la persona del directorio; nombre, puesto, área y foto se llenan solos (se pueden cambiar ahí mismo). Cumpleaños tiene los 5 diseños originales, aniversario los fondos de 1 a 15 años (los años salen de la fecha de ingreso), bienvenida el texto vertical Bienvenido/Bienvenida y despedida la fecha y con quién ver pendientes.
+- **Descargar imagen** (JPG 1440 × 1920; aniversario 1200 × 1920), **Copiar** para pegar en el chat o correo y, en el teléfono, **Compartir** (WhatsApp, etc.). Queda en la bitácora.
+- **Próximas fechas**: cumpleaños y aniversarios de los siguientes 30 días; un clic deja la imagen lista.
+- **Directorio**: alta y edición de colaboradores con foto (se reduce en el navegador), puesto, área, cumpleaños e ingreso; quien ya no trabaja se marca inactivo. Con el directorio vacío se pueden importar las 18 personas que ya venían en las plantillas.
+- Los textos que no caben se reducen solos (nombres de hasta dos renglones).
+
+Cómo está hecho: tabla `colaboradores` (migración `20261015000000_felicitaciones.sql`, RLS: la ve y edita quien tiene el permiso). Las plantillas se dibujan en HTML con las medidas de las diapositivas originales (`src/felicitaciones/plantillas.tsx`) sobre los fondos extraídos de los PowerPoint (`src/felicitaciones/fondos/`).
+
 ## Pantalla de inicio
 
-Al abrir la app aparece **¿Qué quieres hacer hoy?** con tres secciones: **Cotizaciones**, **Contratos** y **Corridas**. Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`, `#corridas`.
+Al abrir la app aparece **¿Qué quieres hacer hoy?** con las secciones **Cotizaciones**, **Contratos** y **Corridas** (más **Salas** y **Felicitaciones** para quien tenga el permiso). Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`, `#corridas`.
 
 ## Tamaño de hoja y reparto en hojas
 

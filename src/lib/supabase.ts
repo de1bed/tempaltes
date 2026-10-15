@@ -91,3 +91,15 @@ export interface Reservacion {
   outlook_event_id: string | null
   sync_error: string | null
 }
+
+export interface Colaborador {
+  id: string
+  nombre: string
+  puesto: string
+  area: string
+  /** data:image/jpeg;base64,… ya reducida. */
+  foto: string | null
+  nacimiento: string | null
+  ingreso: string | null
+  activo: boolean
+}

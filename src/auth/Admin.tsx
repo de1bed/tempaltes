@@ -215,6 +215,10 @@ const ACCIONES: Record<string, string> = {
   sala_reservada: 'Reservó sala',
   sala_movida: 'Movió reservación',
   sala_cancelada: 'Canceló reservación',
+  felicitacion: 'Generó felicitación',
+  colaborador_agregado: 'Agregó al directorio',
+  colaborador_editado: 'Editó en el directorio',
+  colaborador_eliminado: 'Eliminó del directorio',
 }
 
 /** Qué hizo cada quien: documentos generados y cambios de cuentas. */

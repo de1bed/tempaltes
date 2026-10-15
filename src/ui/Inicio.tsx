@@ -37,11 +37,13 @@ interface Props {
   abrirAdmin: () => void
   /** Solo si la persona tiene permiso de Salas. */
   abrirSalas?: () => void
+  /** Solo si la persona tiene permiso de Felicitaciones. */
+  abrirFelicitaciones?: () => void
   salir: () => void
 }
 
 /** Pantalla de inicio: elegir qué hacer entre las secciones a las que tiene acceso la persona. */
-export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, salir }: Props) {
+export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, salir }: Props) {
   const secciones = SECCIONES.filter((s) => permitidas.includes(s.tipo))
   return (
     <div className="inicio">
@@ -60,7 +62,7 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, sali
         </header>
 
         <div className="inicio-tarjetas">
-          {secciones.length === 0 && !abrirSalas && !perfil.es_admin && (
+          {secciones.length === 0 && !abrirSalas && !abrirFelicitaciones && !perfil.es_admin && (
             <p className="inicio-vacio">Todavía no tienes acceso a ninguna sección. Pídele al administrador que te lo active.</p>
           )}
           {secciones.map((s) => {
@@ -111,6 +113,23 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, sali
                 <span className="tarjeta-titulo">Salas</span>
                 <span className="tarjeta-desc">Reserva la Sala principal o la Salita 2. Se copia al calendario de Outlook de la sala.</span>
                 <span className="tarjeta-pie">Reservar →</span>
+              </button>
+            </section>
+          )}
+          {abrirFelicitaciones && (
+            <section className="tarjeta" style={{ borderTopColor: '#E77425' }}>
+              <button type="button" className="tarjeta-cab" onClick={abrirFelicitaciones}>
+                <span className="tarjeta-icono" style={{ color: '#E77425' }}>
+                  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="4" y="10" width="16" height="10" rx="1.5" />
+                      <path d="M3 10h18M12 10v10M12 10c-1.5-3.5-5.5-4-5.5-1.5S10 10 12 10c2 0 5.5.5 5.5-1.5S13.5 6.5 12 10" />
+                    </g>
+                  </svg>
+                </span>
+                <span className="tarjeta-titulo">Felicitaciones</span>
+                <span className="tarjeta-desc">Cumpleaños, aniversarios, bienvenidas y despedidas con foto y datos del directorio.</span>
+                <span className="tarjeta-pie">Crear imagen →</span>
               </button>
             </section>
           )}
