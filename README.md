@@ -128,6 +128,16 @@ Tres formatos, cada uno con **su** plantilla aprobada (no se mezclan):
 
 **Actualizar una plantilla** (p. ej. nuevas tablas de ISR o UMA): reemplazar el `.xlsx` en `src/corridas/plantillas/` (mismo nombre: `kofile.xlsx`, `general.xlsx` o `hilos33.xlsx`), correr `python3 scripts/extraer-plantillas-corridas.py` (requiere `openpyxl`) y `npm test`. Si las celdas de captura cambian de lugar, ajustar `src/corridas/calculo.ts`. Los ejemplos de Nóminas usados en las pruebas están en `src/corridas/pruebas/`.
 
+## Bonos 33 Hilos
+
+Bonos trimestrales que manda 33 Threads por correo (tabla con nombre, Gross/Net y monto en USD). Pantalla **Bonos 33 Hilos** (inicio, o enlace desde la corrida 33 Hilos), para quien tiene el permiso de Corridas.
+
+1. **Plantilla**: personas de 33 Hilos (tabla `hilos33_empleados`): número, nombre, puesto, salario diario, Sodexo y de dónde salió el salario. Se actualiza subiendo el **PDF "Listado de Nómina"** de la semana (trae el salario diario vigente) o el **Excel "Salary 33 Threads"** (trae el puesto completo; salario diario = bruto semanal ÷ 8.4). Se lee en el navegador (pdf.js) y antes de guardar se ven los cambios: altas, salarios que cambian y quién ya no aparece.
+2. **Corrida de bonos**: se pega la tabla del correo (reconoce Gross/Net, TBD y N/A) y cada nombre se empareja con la plantilla. El **tipo de cambio** se trae del DOF (Edge Function `tipo-cambio`, servicio SIDOF: FIX publicado en la fecha de pago o el último anterior).
+3. **Cálculo**: semana de la persona con la plantilla aprobada (formato 33 Hilos) y el bono como otras percepciones gravadas (`Calculo!D49`): se recalculan ISR e impuesto estatal. El IMSS usa el salario base topado a 25 UMA (`IMSS Calculo!G3`), como la nómina real. Bono **neto**: se busca el bruto que deja el neto pedido. Las pruebas reproducen el Excel de bonos Q4 de Nóminas (`src/bonos33/pruebas/`).
+4. **Facturación**: (bono bruto + cuotas patronales) × (1 + servicio). Cuotas: las de toda la semana con bono (formato actual) o solo el incremento por el bono.
+5. **Salidas**: Excel con fórmulas (Billing summary, Payroll runs sin/con bono por persona y Notas), tabla para pegar en el correo al cliente y corridas guardadas (`hilos33_bonos`).
+
 ## Tabuladores Feedbak
 
 `src/lib/tabuladores.ts` transcribe los Excel `Cotizador … Cliente 00-2026` (hoja "2025", columna Pesos). Con el producto y el número de colaboradores se calculan:

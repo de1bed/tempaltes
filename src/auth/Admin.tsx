@@ -220,6 +220,9 @@ const ACCIONES: Record<string, string> = {
   colaborador_agregado: 'Agregó al directorio',
   colaborador_editado: 'Editó en el directorio',
   colaborador_eliminado: 'Eliminó del directorio',
+  bonos33_excel: 'Descargó bonos 33 Hilos',
+  bonos33_guardado: 'Guardó bonos 33 Hilos',
+  bonos33_plantilla: 'Actualizó plantilla 33 Hilos',
 }
 
 /** Qué hizo cada quien: documentos generados y cambios de cuentas. */

@@ -39,11 +39,13 @@ interface Props {
   abrirSalas?: () => void
   /** Solo si la persona tiene permiso de Felicitaciones. */
   abrirFelicitaciones?: () => void
+  /** Bonos de 33 Hilos (permiso de Corridas). */
+  abrirBonos?: () => void
   salir: () => void
 }
 
 /** Pantalla de inicio: elegir qué hacer entre las secciones a las que tiene acceso la persona. */
-export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, salir }: Props) {
+export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, abrirBonos, salir }: Props) {
   const secciones = SECCIONES.filter((s) => permitidas.includes(s.tipo))
   return (
     <div className="inicio">
@@ -62,7 +64,7 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abri
         </header>
 
         <div className="inicio-tarjetas">
-          {secciones.length === 0 && !abrirSalas && !abrirFelicitaciones && !perfil.es_admin && (
+          {secciones.length === 0 && !abrirSalas && !abrirFelicitaciones && !abrirBonos && !perfil.es_admin && (
             <p className="inicio-vacio">Todavía no tienes acceso a ninguna sección. Pídele al administrador que te lo active.</p>
           )}
           {secciones.map((s) => {
@@ -99,6 +101,24 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abri
               </section>
             )
           })}
+          {abrirBonos && (
+            <section className="tarjeta" style={{ borderTopColor: '#E2601A' }}>
+              <button type="button" className="tarjeta-cab" onClick={abrirBonos}>
+                <span className="tarjeta-icono" style={{ color: '#E2601A' }}>
+                  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="6" width="18" height="12" rx="2" />
+                      <circle cx="12" cy="12" r="2.6" />
+                      <path d="M6.5 9.5v5M17.5 9.5v5" />
+                    </g>
+                  </svg>
+                </span>
+                <span className="tarjeta-titulo">Bonos 33 Hilos</span>
+                <span className="tarjeta-desc">De la tabla del correo a la facturación: tipo de cambio del DOF, corrida con bono de cada persona y Excel para autorizar.</span>
+                <span className="tarjeta-pie">Calcular bonos →</span>
+              </button>
+            </section>
+          )}
           {abrirSalas && (
             <section className="tarjeta" style={{ borderTopColor: '#7A5AA6' }}>
               <button type="button" className="tarjeta-cab" onClick={abrirSalas}>

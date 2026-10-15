@@ -100,7 +100,7 @@ const textoMes = (mes: string) => conMayuscula(new Date(`${mes}-15T12:00:00Z`).t
 
 /** Historial de todas las salas (administradores de salas), por mes y agrupado por día. */
 export function Historial({ nombreSala }: { nombreSala: (id: string) => string }) {
-  const meses = useMemo(ultimosMeses, [])
+  const meses = useMemo(() => ultimosMeses(), [])
   const [mes, setMes] = useState(meses[0])
   const [datos, setDatos] = useState<{ mes: string; lista: Entrada[] } | null>(null)
   const [falla, setFalla] = useState('')

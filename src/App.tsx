@@ -18,6 +18,7 @@ import {
   FormReclutamiento,
   FormServicios,
 } from './ui/Formularios'
+import { Bonos33 } from './bonos33/Bonos33'
 import { calcularCorrida } from './corridas/calculo'
 import { Corrida } from './corridas/Documento'
 import { descargarExcel, descargarValidacion, nombreCorrida } from './corridas/descargas'
@@ -36,8 +37,9 @@ const CLAVE = 'cotizador:v1'
 
 /** Sección abierta según la dirección (#cotizaciones, #contratos); sin nada es la pantalla de inicio. */
 const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos', corrida: 'corridas' }
+const RUTA_BONOS = 'bonos-33-hilos'
 /** Pantallas fuera de los documentos. */
-type Pantalla = 'admin' | 'salas' | 'felicitaciones'
+type Pantalla = 'admin' | 'salas' | 'felicitaciones' | 'bonos'
 const ruta = () => window.location.hash.replace(/^#\/?/, '')
 /** Solo abre por dirección las secciones a las que la persona tiene acceso. */
 function seccionDeRuta(permitidas: TipoDocumento[]): TipoDocumento | null {
@@ -146,13 +148,16 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   )
   const puedeSalas = perfil.es_admin || perfil.secciones.includes('salas') || perfil.secciones.includes('salas_admin')
   const puedeFelicitaciones = perfil.es_admin || perfil.secciones.includes('felicitaciones')
+  // Bonos de 33 Hilos: quien tiene Corridas.
+  const puedeBonos = perfil.es_admin || perfil.secciones.includes('corrida')
   const pantallaDeRuta = useCallback((): Pantalla | null => {
     const r = ruta()
     if (r === 'admin' && perfil.es_admin) return 'admin'
     if (r === 'salas' && puedeSalas) return 'salas'
     if (r === 'felicitaciones' && puedeFelicitaciones) return 'felicitaciones'
+    if (r === RUTA_BONOS && puedeBonos) return 'bonos'
     return null
-  }, [perfil.es_admin, puedeSalas, puedeFelicitaciones])
+  }, [perfil.es_admin, puedeSalas, puedeFelicitaciones, puedeBonos])
   const [estado, setEstado] = useState<Estado>(() => enSeccion(cargar(), seccionDeRuta(permitidas)))
   const [seccion, setSeccion] = useState<TipoDocumento | null>(() => seccionDeRuta(permitidas))
   const [pantalla, setPantalla] = useState<Pantalla | null>(pantallaDeRuta)
@@ -242,7 +247,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   function abrirPantalla(p: Pantalla) {
     setSeccion(null)
     setPantalla(p)
-    window.location.hash = p
+    window.location.hash = p === 'bonos' ? RUTA_BONOS : p
   }
 
   /** Desde la bitácora: carga los datos con que se generó un documento (reemplaza el borrador de esa plantilla). */
@@ -333,7 +338,8 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   if (pantalla === 'admin') return <Admin perfil={perfil} irAInicio={irAInicio} salir={salir} abrirDocumento={abrirDocumento} />
   if (pantalla === 'salas') return <Salas perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'felicitaciones') return <Felicitaciones perfil={perfil} irAInicio={irAInicio} salir={salir} />
-  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} salir={salir} />
+  if (pantalla === 'bonos') return <Bonos33 perfil={perfil} irAInicio={irAInicio} salir={salir} />
+  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} abrirBonos={puedeBonos ? () => abrirPantalla('bonos') : undefined} salir={salir} />
   const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
   const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
 

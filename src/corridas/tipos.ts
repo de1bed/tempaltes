@@ -46,6 +46,11 @@ interface CorridaBase {
   extras: Partial<Record<ConceptoExtra, string>>
   observaciones: string
   elaboro: string
+  /**
+   * Topa el salario base de cotización a 25 UMA (IMSS Calculo!G3). La plantilla calcula el tope
+   * pero no lo aplica; la nómina real sí (lo usan los bonos de 33 Hilos). Por omisión no se toca.
+   */
+  topeSbc?: boolean
 }
 
 export interface KofileData extends CorridaBase {

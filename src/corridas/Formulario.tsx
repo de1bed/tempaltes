@@ -116,6 +116,11 @@ export function FormCorrida<T extends CorridaData>({ id, d, set }: { id: Corrida
       <p className="nota-corrida">
         {DESCRIPCION[id]} Plantilla: <code>{ARCHIVOS_APROBADOS[id]}</code>
       </p>
+      {h && (
+        <p className="nota-corrida">
+          ¿Bonos trimestrales? <a href="#bonos-33-hilos">Abre Bonos 33 Hilos</a>: pega la tabla del correo y sale la corrida con bono de cada persona.
+        </p>
+      )}
       <EstadoCorrida id={id} d={d} />
 
       <Seccion titulo="Solicitud">

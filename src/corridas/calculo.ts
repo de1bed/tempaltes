@@ -492,6 +492,7 @@ function libroGeneral(d: CorridaData) {
   const libro = new Libro(PLANTILLAS_CORRIDA.general)
   libro.capturar('Calculo', 'D64', { valor: num(d.sodexo) })
   libro.capturar('Simulacion', 'D15', { valor: num(d.ajusteMoneda) })
+  if (d.topeSbc) libro.capturar('IMSS Calculo', 'D3', { formula: '+MIN(Calculo!D20,G3)' })
   const extras = capturarExtras(libro, 'general', d)
   const estilosExcel: Record<string, string> = {}
   if (extras.length) {

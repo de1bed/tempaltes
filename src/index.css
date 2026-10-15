@@ -553,3 +553,75 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .historial-dia-titulo { position: sticky; top: 0; z-index: 2; margin: 0 0 6px; padding: 8px 0; background: #fff; border-bottom: 1px solid var(--linea); font-size: 14px; font-weight: 600; color: var(--marca); display: flex; align-items: center; gap: 8px; }
 .historial-dia-titulo span { font-size: 11px; font-weight: 600; color: var(--suave); background: #f0f3f4; border-radius: 999px; padding: 1px 8px; }
 @media (max-width: 640px) { .historial-filtros { width: 100%; } .historial-filtros .campo { flex: 1 1 100%; } .historial-mes-control select { flex: 1; min-width: 0; } }
+
+/* ───── Bonos 33 Hilos ───── */
+.bonos33 .admin-centro { max-width: 1180px; }
+.bonos-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.bonos-cab h2 { margin: 0; }
+.bonos-acciones-sec { display: flex; align-items: center; gap: 12px; }
+.bonos-datos { display: grid; grid-template-columns: 1.4fr 0.8fr 1.6fr 0.6fr; gap: 12px; margin: 14px 0 10px; align-items: start; }
+.bonos-tc-fila { display: flex; gap: 6px; }
+.bonos-tc-fila input { flex: 1; min-width: 0; font-variant-numeric: tabular-nums; }
+.bonos-tc-fila .btn { white-space: nowrap; }
+.bonos-cuotas { border: 1px solid var(--linea); border-radius: 8px; padding: 8px 12px 10px; margin: 6px 0 0; display: flex; gap: 6px 20px; flex-wrap: wrap; }
+.bonos-cuotas legend { font-size: 11.5px; font-weight: 500; color: var(--suave); padding: 0 4px; }
+.bonos-tabla-caja { overflow-x: auto; margin: 12px 0; border: 1px solid var(--linea); border-radius: 8px; }
+.bonos-tabla { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.bonos-tabla th { position: sticky; top: 0; background: var(--marca); color: #fff; font-weight: 500; text-align: left; padding: 8px 10px; white-space: nowrap; }
+.bonos-tabla td { padding: 7px 10px; border-top: 1px solid var(--linea); vertical-align: top; }
+.bonos-tabla td small { display: block; color: var(--suave); font-size: 11px; }
+.bonos-tabla .num, .bonos-comparativo .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bonos-tabla tfoot td { font-weight: 600; background: #eef1f2; border-top: 2px solid var(--marca); }
+.bonos-tabla tr.clic { cursor: pointer; }
+.bonos-tabla tr.clic:hover, .bonos-tabla tr.clic:focus-visible { background: #f6f8f9; outline: none; }
+.bonos-tabla tr.abierta { background: #eef6f8; }
+.bonos-tabla tr.con-aviso td:first-child { box-shadow: inset 3px 0 0 #E77425; }
+.bonos-tabla tr.bonos-pendiente td, .bonos-tabla tr.bonos-excluido td { color: var(--suave); background: #fafbfb; }
+.bonos-tabla tr.bonos-sinEmpleado td { background: #fff4f2; }
+.bonos-captura td { padding: 4px 6px; }
+.bonos-captura input, .bonos-captura select { width: 100%; min-width: 90px; font: inherit; font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--linea); border-radius: 5px; background: #fff; }
+.bonos-captura input.num { text-align: right; min-width: 80px; }
+.bonos-captura input.corto { min-width: 60px; width: 70px; }
+.bonos-captura tr.sin-persona select { border-color: #E77425; background: #fff8ec; }
+.bonos-captura tr.inactivo td { opacity: 0.6; }
+.bonos-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 6px; }
+.bonos-kpis div { border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.bonos-kpis span { font-size: 11px; color: var(--suave); }
+.bonos-kpis strong { font-size: 18px; font-variant-numeric: tabular-nums; color: var(--tinta); }
+.bonos-kpis .destacado { background: var(--marca); border-color: var(--marca); }
+.bonos-kpis .destacado span, .bonos-kpis .destacado strong { color: #fff; }
+.bonos-detalle > td { background: #f6f8f9; padding: 12px 14px; }
+.bonos-detalle-caja { display: flex; flex-direction: column; gap: 8px; max-width: 640px; }
+.bonos-detalle-caja .nota { margin: 0; }
+.bonos-comparativo { border-collapse: collapse; font-size: 12px; background: #fff; border: 1px solid var(--linea); }
+.bonos-comparativo th { background: #e6ebed; color: var(--tinta); font-weight: 600; padding: 6px 10px; text-align: left; position: static; }
+.bonos-comparativo td { padding: 4px 10px; border-top: 1px solid #eef1f2; }
+.bonos-comparativo tr.fuerte td { font-weight: 600; background: #fafbfb; }
+.bonos-validacion { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.bonos-validacion li { padding-left: 22px; position: relative; }
+.bonos-validacion li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.bonos-validacion li.ok::before { content: '✓'; color: #2e8b57; }
+.bonos-validacion li.pendiente::before { content: '!'; color: #E77425; left: 5px; }
+.bonos-validacion li.error::before { content: '✕'; color: var(--peligro); }
+.bonos-salidas { margin-top: 12px; }
+.bonos-subir { display: inline-block; margin: 6px 0 4px; }
+.bonos-revision { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--linea); border-radius: 10px; background: #fafbfb; }
+.bonos-revision h3 { margin: 0 0 8px; font-size: 14px; }
+.bonos-revision ul { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 360px; overflow: auto; font-size: 12.5px; }
+.bonos-cambio { display: inline-block; min-width: 92px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; background: #e6ebed; color: var(--suave); text-align: center; }
+.bonos-cambio.nuevo { background: #e3f4ea; color: #1e6b42; }
+.bonos-cambio.salario { background: #fff4e0; color: #8a4b00; }
+.bonos-cambio.falta { background: #fde8e6; color: var(--peligro); }
+.btn.chico { padding: 4px 10px; font-size: 12px; }
+.bonos-alta { margin-top: 10px; font-size: 13px; }
+.bonos-alta summary { cursor: pointer; color: var(--marca); }
+@media (max-width: 760px) {
+  .bonos-datos { grid-template-columns: 1fr 1fr; }
+  .bonos-kpis { grid-template-columns: 1fr 1fr; }
+  .bonos-kpis strong { font-size: 15px; }
+}
+@media (max-width: 480px) {
+  .bonos-datos { grid-template-columns: 1fr; }
+}
+.bonos-tabla:not(.bonos-captura) td:first-child { min-width: 190px; }
+.bonos-captura td:first-child input { min-width: 150px; }
