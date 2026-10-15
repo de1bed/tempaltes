@@ -94,6 +94,53 @@ describe('ocupadosDeIcs', () => {
   })
 })
 
+// Como lo publica de verdad Outlook.com para las salas de Treve: zona "UTC" propia (con STANDARD y DAYLIGHT en +0000).
+const OUTLOOK_UTC = [
+  'BEGIN:VCALENDAR',
+  'METHOD:PUBLISH',
+  'PRODID:Microsoft Exchange Server 2010',
+  'VERSION:2.0',
+  'X-WR-CALNAME:Treve - Salita 2',
+  'BEGIN:VTIMEZONE',
+  'TZID:UTC',
+  'BEGIN:STANDARD',
+  'DTSTART:16010101T000000',
+  'TZOFFSETFROM:+0000',
+  'TZOFFSETTO:+0000',
+  'END:STANDARD',
+  'BEGIN:DAYLIGHT',
+  'DTSTART:16010101T000000',
+  'TZOFFSETFROM:+0000',
+  'TZOFFSETTO:+0000',
+  'END:DAYLIGHT',
+  'END:VTIMEZONE',
+  'BEGIN:VEVENT',
+  'DESCRIPTION:Sala: Salita 2\\nPersonas: 2\\nInvitados: a@treve.mx\\, b@treve.mx',
+  'UID:040000008200E00074C5B7101A82E0080000000069846F14C43BDD01000000000000000',
+  ' 010000000E65318A0673E67489FBE0530467AF194',
+  'SUMMARY:Junta',
+  'DTSTART;TZID=UTC:20261103T210000',
+  'DTEND;TZID=UTC:20261103T220000',
+  'CLASS:PUBLIC',
+  'TRANSP:OPAQUE',
+  'STATUS:CONFIRMED',
+  'X-MICROSOFT-CDO-BUSYSTATUS:BUSY',
+  'X-MICROSOFT-CDO-ALLDAYEVENT:FALSE',
+  'END:VEVENT',
+  'END:VCALENDAR',
+].join('\r\n')
+
+describe('calendario real de Outlook.com (zona UTC propia)', () => {
+  it('lee la hora exacta en UTC', () => {
+    expect(ocupadosDeIcs(OUTLOOK_UTC, new Date('2026-11-01T00:00:00Z'), new Date('2026-11-05T00:00:00Z'))).toEqual([
+      { inicio: '2026-11-03T21:00:00.000Z', fin: '2026-11-03T22:00:00.000Z' },
+    ])
+  })
+  it('lo de fuera del rango no cuenta', () => {
+    expect(ocupadosDeIcs(OUTLOOK_UTC, new Date('2026-11-04T00:00:00Z'), new Date('2026-11-05T00:00:00Z'))).toEqual([])
+  })
+})
+
 describe('generarFeed', () => {
   const feed = generarFeed('Sala principal · Treve', [
     {
