@@ -190,7 +190,12 @@ function app(v: unknown): string | null {
 
 const MS = { cliente: Deno.env.get('MS_CLIENT_ID'), secreto: Deno.env.get('MS_CLIENT_SECRET') }
 const outlookConfigurado = Boolean(MS.cliente && MS.secreto)
-const LOGIN = 'https://login.microsoftonline.com/consumers/oauth2/v2.0'
+/**
+ * Tipo de cuenta que se puede conectar: 'consumers' (Outlook.com personal, el de siempre) o, con el secreto
+ * MS_TENANT, 'organizations'/'common'/el dominio (p. ej. treve.mx) para conectar un buzón de Microsoft 365.
+ */
+const TENANT = (Deno.env.get('MS_TENANT') ?? '').trim() || 'consumers'
+const LOGIN = `https://login.microsoftonline.com/${encodeURIComponent(TENANT)}/oauth2/v2.0`
 /** Lo que se pide al conectar. El correo (Mail.Send) va aparte: si no se aceptó, el calendario sigue funcionando. */
 const PERMISOS_CONECTAR = 'offline_access User.Read Calendars.ReadWrite Mail.Send'
 const PERMISOS = { cal: 'offline_access User.Read Calendars.ReadWrite', mail: 'offline_access Mail.Send' } as const
