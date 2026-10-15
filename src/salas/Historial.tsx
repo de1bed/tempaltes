@@ -29,7 +29,30 @@ const cuando = (iso: string) => new Date(iso).toLocaleString('es-MX', { dateStyl
 
 type Resumen = { sala?: string; inicio?: string; fin?: string }
 
+type AvisoEnviado = { medio: 'outlook' | 'correo' | 'ninguno'; a: string[] }
+
+/** A quién se avisó y por dónde (invitación, cambio o cancelación). */
+function Aviso({ aviso }: { aviso?: AvisoEnviado }) {
+  if (!aviso || !Array.isArray(aviso.a)) return null
+  const quienes = aviso.a.join(', ')
+  if (aviso.medio === 'ninguno') return <span className="bitacora-doc aviso-mal">No se pudo avisar por correo a {quienes || 'nadie'}</span>
+  return (
+    <span className="bitacora-doc aviso-ok">
+      Aviso {aviso.medio === 'outlook' ? 'por Outlook' : 'por correo'} a {quienes}
+    </span>
+  )
+}
+
 function Detalle({ e }: { e: Entrada }) {
+  return (
+    <>
+      <DetalleAccion e={e} />
+      <Aviso aviso={(e.detalle as { aviso?: AvisoEnviado } | null)?.aviso} />
+    </>
+  )
+}
+
+function DetalleAccion({ e }: { e: Entrada }) {
   const d = e.detalle ?? {}
   if (e.accion === 'movida') {
     const antes = d.antes as Resumen | undefined

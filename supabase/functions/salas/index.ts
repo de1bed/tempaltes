@@ -8,7 +8,7 @@
 // Además: administradores de salas (permiso "salas_admin"), historial por reservación, solicitudes de horario
 // entre personas y reservación para externos (sin cuenta) con el código impreso de cada sala.
 import { createClient } from 'npm:@supabase/supabase-js@2.117.1'
-import { comentarioCancelacion, correoRespuesta, correoSolicitud, cuerpoInvitacion, textoDia, textoHorario, type Aviso, type DatosReunion } from './correo.ts'
+import { comentarioCancelacion, correoCancelacion, correoRespuesta, correoSolicitud, cuerpoInvitacion, textoDia, textoHorario, type Aviso, type DatosReunion } from './correo.ts'
 import { DOMINIO_UID, generarFeed, ocupadosDeIcs } from './ics.ts'
 
 const ZONA = 'America/Mexico_City'
@@ -229,10 +229,11 @@ async function graph(ruta: string, init: RequestInit = {}, uso: Uso = 'cal'): Pr
   })
 }
 
-/** Manda un correo desde la cuenta de Outlook conectada. Nunca detiene la acción: si no se puede, regresa false. */
-async function enviarCorreo(para: string[], asunto: string, html: string): Promise<boolean> {
+/** Manda un correo desde la cuenta de Outlook conectada; regresa el error de Microsoft (o null si lo aceptó). */
+async function intentarCorreo(para: string[], asunto: string, html: string): Promise<string | null> {
   const destinos = [...new Set(para.filter((x) => CORREO.test(x)).map((x) => x.toLowerCase()))]
-  if (!outlookConfigurado || !destinos.length) return false
+  if (!outlookConfigurado) return 'Outlook no está configurado'
+  if (!destinos.length) return 'Sin destinatarios'
   try {
     const r = await graph(
       '/me/sendMail',
@@ -246,11 +247,16 @@ async function enviarCorreo(para: string[], asunto: string, html: string): Promi
       'mail',
     )
     if (!r.ok) throw new Error(`Outlook (${r.status}): ${await r.text()}`)
-    return true
+    return null
   } catch (e) {
     console.error('correo', e)
-    return false
+    return e instanceof Error ? e.message : String(e)
   }
+}
+
+/** Nunca detiene la acción: si no se puede mandar, regresa false. */
+async function enviarCorreo(para: string[], asunto: string, html: string): Promise<boolean> {
+  return (await intentarCorreo(para, asunto, html)) === null
 }
 
 const usaOutlook = (sala: Sala) => outlookConfigurado && Boolean(sala.calendario_id)
@@ -403,6 +409,23 @@ async function enlaceGestion(r: Reservacion, urlApp: string | null): Promise<str
   if (r.origen !== 'externo' || !urlApp) return null
   const { data } = await admin.from('reservaciones_gestion').select('token').eq('reservacion_id', r.id).maybeSingle()
   return data ? `${urlApp.split('#')[0]}#externo/gestion/${data.token}` : null
+}
+
+// ───── Avisos ─────
+
+/** Quién recibió el aviso y por dónde (queda en el historial para poder responder "¿le llegó?"). */
+interface AvisoEnviado {
+  medio: 'outlook' | 'correo' | 'ninguno'
+  a: string[]
+}
+
+/**
+ * Respaldo por correo cuando Outlook no avisa solo: la reunión no estaba en Outlook (p. ej. se
+ * creó antes de conectar la cuenta), la sala no está conectada o Outlook rechazó el cambio.
+ */
+async function avisarPorCorreo(r: Reservacion, asunto: string, html: string): Promise<AvisoEnviado> {
+  const a = asistentes(r)
+  return { medio: (await enviarCorreo(a, asunto, html)) ? 'correo' : 'ninguno', a }
 }
 
 // ───── Historial y bitácora ─────
@@ -558,25 +581,35 @@ async function crearReservacion(n: NuevaReservacion, quien: Persona, urlApp: str
     gestion = g && urlApp ? `${urlApp.split('#')[0]}#externo/gestion/${g.token}` : null
   }
   const outlook = await sincronizarNueva(r, n.sala, urlApp, aviso, gestion)
-  await historial(r, 'creada', quien, { ...resumen(r, n.sala), responsable: n.responsable.email, invitados: r.invitados.length })
+  const avisados: AvisoEnviado =
+    outlook === 'ok' ? { medio: 'outlook', a: asistentes(r) } : await avisarPorCorreo(r, `${aviso?.tipo === 'cambio' ? 'Reprogramada' : 'Reunión'}: ${r.motivo} · ${n.sala.nombre}, ${horarioCorto(r)}`, cuerpoInvitacion(datosReunion(r, n.sala, urlApp, gestion), aviso))
+  await historial(r, 'creada', quien, { ...resumen(r, n.sala), responsable: n.responsable.email, invitados: r.invitados.length, aviso: avisados })
   await registrar(quien, quien.externo ? 'sala_reservada_externo' : 'sala_reservada', n.sala, r)
   return { reservacion: r, outlook, gestion, invitados: asistentes(r).length }
 }
 
-async function cancelarReservacion(r: Reservacion, sala: Sala, quien: Persona, razon: string, accion = 'cancelada') {
-  const { error } = await admin.from('reservaciones').update({ estado: 'cancelada', actualizado: new Date().toISOString() }).eq('id', r.id).eq('estado', 'activa')
-  if (error) throw error
+/** Outlook cancela el evento y avisa; si la reunión no estaba en Outlook (o falla), se avisa por correo. */
+async function avisarCancelacion(r: Reservacion, sala: Sala, razon: string, urlApp?: string | null): Promise<AvisoEnviado> {
   if (usaOutlook(sala) && r.outlook_event_id) {
     try {
       await cancelarEnOutlook(r.outlook_event_id, comentarioCancelacion(resumen(r, sala), razon))
+      return { medio: 'outlook', a: asistentes(r) }
     } catch (e) {
       console.error(e)
       await guardarSync(r.id, { sync_error: String(e).slice(0, 500) })
     }
   }
+  const c = correoCancelacion({ ...resumen(r, sala), codigo: r.codigo }, razon, urlApp)
+  return avisarPorCorreo(r, c.asunto, c.html)
+}
+
+async function cancelarReservacion(r: Reservacion, sala: Sala, quien: Persona, razon: string, accion = 'cancelada') {
+  const { error } = await admin.from('reservaciones').update({ estado: 'cancelada', actualizado: new Date().toISOString() }).eq('id', r.id).eq('estado', 'activa')
+  if (error) throw error
+  const avisados = await avisarCancelacion(r, sala, razon)
   // Las solicitudes pendientes sobre esta reservación ya no aplican.
   await admin.from('solicitudes_sala').update({ estado: 'cancelada', respondido: new Date().toISOString() }).eq('reservacion_id', r.id).eq('estado', 'pendiente')
-  await historial(r, accion, quien, { razon })
+  await historial(r, accion, quien, { razon, aviso: avisados })
   await registrar(quien, 'sala_cancelada', sala, r)
 }
 
@@ -621,7 +654,9 @@ async function moverReservacion(anterior: Reservacion, sala: Sala, inicio: Date,
     outlook = 'error'
     await guardarSync(r.id, { sync_error: String(e).slice(0, 500) })
   }
-  await historial(r, 'movida', quien, { antes: resumen(anterior, salaAnterior), despues: resumen(r, sala), por_admin: !esDueno(anterior, quien) })
+  const avisados: AvisoEnviado =
+    outlook === 'ok' ? { medio: 'outlook', a: asistentes(r) } : await avisarPorCorreo(r, `Reprogramada: ${r.motivo} · ${sala.nombre}, ${horarioCorto(r)}`, cuerpoInvitacion(datosReunion(r, sala, urlApp, gestion), aviso))
+  await historial(r, 'movida', quien, { antes: resumen(anterior, salaAnterior), despues: resumen(r, sala), por_admin: !esDueno(anterior, quien), aviso: avisados })
   await registrar(quien, 'sala_movida', sala, r)
   return { reservacion: r, outlook }
 }
@@ -892,10 +927,8 @@ async function manejar(req: Request) {
           await admin.from('reservaciones').update({ estado: 'activa' }).eq('id', objetivo.id)
           throw e
         }
-        if (usaOutlook(sala) && objetivo.outlook_event_id) {
-          await cancelarEnOutlook(objetivo.outlook_event_id, comentarioCancelacion(resumen(objetivo, sala), razon)).catch((e) => console.error(e))
-        }
-        await historial(objetivo, 'cedida', quien, { a: solicitante.email, nueva: nueva.codigo, respuesta })
+        const avisados = await avisarCancelacion(objetivo, sala, razon, urlApp)
+        await historial(objetivo, 'cedida', quien, { a: solicitante.email, nueva: nueva.codigo, respuesta, aviso: avisados })
         await registrar(quien, 'sala_cancelada', sala, objetivo)
         await admin.from('solicitudes_sala').update({ estado: 'cancelada', respondido: new Date().toISOString() }).eq('reservacion_id', objetivo.id).eq('estado', 'pendiente').neq('id', id)
       } else {
@@ -1037,6 +1070,15 @@ async function manejar(req: Request) {
       const { error } = await admin.from('salas').update({ calendario_id: calendarioId, calendario_nombre: calendarioId ? nombre : null }).eq('id', sala.id)
       if (error) throw error
       return { ok: true }
+    }
+
+    case 'outlook_probar_correo': {
+      // Diagnóstico: manda un correo de prueba y regresa lo que contestó Microsoft.
+      exigirAdminSalas(quien)
+      const para = correo(cuerpo.para ?? quien.email, 'destino')
+      const cuando = new Date().toLocaleString('es-MX', { timeZone: ZONA, dateStyle: 'medium', timeStyle: 'short' })
+      const error = await intentarCorreo([para], `Prueba de correo · Salas Trevé (${cuando})`, `<p style="font-family:Arial;font-size:14px">Este es un correo de prueba de la app de salas, enviado desde la cuenta de Outlook conectada el ${cuando}.</p><p style="font-family:Arial;font-size:13px;color:#5a6b70">Si te llegó a spam, marca el remitente como seguro para recibir las invitaciones.</p>`)
+      return { ok: error === null, para, error }
     }
 
     case 'outlook_desconectar': {

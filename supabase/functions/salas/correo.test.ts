@@ -57,3 +57,14 @@ describe('otros correos', () => {
     expect(correoRespuesta(d, false, 'Ana', 'Es con cliente').html).toContain('Es con cliente')
   })
 })
+
+describe('correo de cancelación (respaldo cuando la reunión no estaba en Outlook)', () => {
+  it('dice qué se canceló, cuándo, dónde y por qué', async () => {
+    const { correoCancelacion } = await import('./correo')
+    const c = correoCancelacion({ motivo: 'Junta <equipo>', sala: 'Sala principal', inicio: '2026-10-15T14:00:00Z', fin: '2026-10-15T15:00:00Z', codigo: 'SALA-85C504' }, 'David cedió el horario a Ana.')
+    expect(c.asunto).toContain('Cancelada: Junta <equipo> · Sala principal')
+    expect(c.html).toContain('Junta &lt;equipo&gt;')
+    expect(c.html).toContain('David cedió el horario a Ana.')
+    expect(c.html).toContain('SALA-85C504')
+  })
+})

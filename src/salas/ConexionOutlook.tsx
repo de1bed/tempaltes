@@ -81,6 +81,45 @@ function Publicado({ salaId, nombre, actual, alGuardar }: { salaId: string; nomb
 }
 
 /** Solo administrador: cómo se conectan las salas con Outlook (sin Azure y, opcional, conexión completa). */
+/** Diagnóstico: manda un correo de prueba desde la cuenta conectada y muestra lo que contestó Microsoft. */
+function ProbarCorreo() {
+  const [para, setPara] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null)
+  async function probar() {
+    setEnviando(true)
+    setResultado(null)
+    try {
+      const r = await salasApi<{ ok: boolean; para: string; error: string | null }>('outlook_probar_correo', para.trim() ? { para: para.trim() } : {})
+      setResultado(
+        r.ok
+          ? { ok: true, texto: `Microsoft aceptó el correo para ${r.para}. Si no llega en unos minutos, revisa spam o cuarentena en ese correo, y en outlook.live.com (cuenta de salas) los "Elementos enviados" y si hay avisos de "No se puede entregar".` }
+          : { ok: false, texto: `Microsoft no aceptó el correo: ${r.error}` },
+      )
+    } catch (e) {
+      setResultado({ ok: false, texto: textoError(e) })
+    }
+    setEnviando(false)
+  }
+  return (
+    <details className="salas-paso">
+      <summary>¿No llegan los correos? Probar envío</summary>
+      <div className="salas-enlace">
+        <input aria-label="Correo de prueba" type="email" placeholder="Correo de destino (vacío = el tuyo)" value={para} onChange={(e) => setPara(e.target.value)} />
+        <button type="button" className="btn secundario" onClick={probar} disabled={enviando}>
+          {enviando ? 'Enviando…' : 'Mandar prueba'}
+        </button>
+      </div>
+      {resultado && (
+        <div className={resultado.ok ? 'credenciales' : 'alerta'} role="status">
+          {resultado.texto}
+        </div>
+      )}
+      <p className="nota">En Historial cada movimiento dice a quién se avisó y si fue por Outlook o por correo.</p>
+    </details>
+  )
+}
+
 export function ConexionOutlook({ alCambiar }: { alCambiar: () => void }) {
   const [estado, setEstado] = useState<Estado | null>(null)
   const [error, setError] = useState('')
@@ -147,6 +186,7 @@ export function ConexionOutlook({ alCambiar }: { alCambiar: () => void }) {
               llegan las invitaciones. Los pasos 1 y 2 son opcionales.
             </p>
           )}
+          {completa && estado.correo && <ProbarCorreo />}
           {completa && !estado.correo && (
             <div className="alerta" role="status">
               Falta el permiso de correo para avisar por email de las solicitudes de horario. En el paso 3 da clic en <strong>“Volver a conectar”</strong> y acepta

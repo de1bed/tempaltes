@@ -118,6 +118,18 @@ export function comentarioCancelacion(d: { motivo: string; sala: string; inicio:
   return `Se canceló "${d.motivo}" en ${d.sala} (${textoDia(d.inicio)}, ${textoHorario(d.inicio, d.fin)}). ${razon}`.trim()
 }
 
+/** Correo de cancelación (cuando la reunión no estaba en Outlook y Outlook no puede avisar solo). */
+export function correoCancelacion(d: { motivo: string; sala: string; inicio: string; fin: string; codigo: string }, razon: string, app?: string | null): { asunto: string; html: string } {
+  const cuerpo = `${caja(`<strong>Esta reunión se canceló.</strong>${razon.trim() ? `<br>${escapar(razon)}` : ''}`, '#fde8e6', '#b3261e')}<div style="font-size:17px;font-weight:600;margin:0 0 12px;color:${AZUL}"><s>${escapar(d.motivo)}</s></div>
+<table role="presentation" style="border-collapse:collapse;width:100%">
+${fila('Cuándo', `${textoDia(d.inicio)}, ${textoHorario(d.inicio, d.fin)}`)}
+${fila('Dónde', escapar(d.sala))}
+${fila('Código', `<span style="font-family:Consolas,monospace">${escapar(d.codigo)}</span>`)}
+</table>
+${app ? `<p style="margin:18px 0 0"><a href="${escapar(app)}" style="color:${AZUL}">Ver disponibilidad de las salas</a></p>` : ''}`
+  return { asunto: `Cancelada: ${d.motivo} · ${d.sala}, ${textoDia(d.inicio)} ${hora(d.inicio)}`, html: marco('Reunión cancelada', cuerpo, 'Si ya la tenías en tu calendario, bórrala. Trevé · Salas de juntas') }
+}
+
 /** Correo al dueño de una reservación: alguien pide su horario. */
 export function correoSolicitud(d: DatosReunion, solicitante: Persona, motivo: string, mensaje: string, app?: string | null): { asunto: string; html: string } {
   const cuerpo = `<p style="margin:0 0 14px;font-size:14px;line-height:1.5"><strong>${persona(solicitante)}</strong> pide el horario de tu reservación para otra reunión.</p>
