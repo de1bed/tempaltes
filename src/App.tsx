@@ -504,7 +504,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
             ) : corrida ? (
               <>
                 <button type="button" className="btn secundario" onClick={() => {
-                    descargarValidacion(corrida, datos[corrida])
+                    void descargarValidacion(corrida, datos[corrida])
                     registrar('validacion', { plantilla: corrida, documento: nombreCorrida(corrida, datos[corrida]), detalle: datos[corrida] })
                   }} title="Entradas, supuestos, resultados y validaciones en JSON">
                   Validación

@@ -1,3 +1,4 @@
+import { guardarArchivo } from '../lib/guardar'
 import { nombreSeguro } from '../lib/pdf'
 import { calcularCorrida, resumenValidacion } from './calculo'
 import generalXlsx from './plantillas/general.xlsx?url'
@@ -28,14 +29,7 @@ export function nombreCorrida(id: CorridaId, d: CorridaData): string {
 }
 
 function guardar(datos: BlobPart, tipo: string, nombre: string) {
-  const url = URL.createObjectURL(new Blob([datos], { type: tipo }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = nombre
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  return guardarArchivo(new Blob([datos], { type: tipo }), nombre)
 }
 
 /** Excel completo: copia limpia de la plantilla aprobada con los datos capturados y todos los valores calculados. */
@@ -44,11 +38,11 @@ export async function descargarExcel(id: CorridaId, d: CorridaData) {
   if (r.faltantes.length) throw new Error(`Faltan datos: ${r.faltantes.join(', ')}`)
   const [{ escribirExcel }, plantilla] = await Promise.all([import('./excel'), fetch(PLANTILLAS_XLSX[id]).then((res) => res.arrayBuffer())])
   const datos = await escribirExcel(plantilla, r.libros[0].libro, r.estilosExcel)
-  guardar(datos as BlobPart, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', `${nombreSeguro(nombreCorrida(id, d))}.xlsx`)
+  await guardar(datos as BlobPart, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', `${nombreSeguro(nombreCorrida(id, d))}.xlsx`)
 }
 
 /** Resumen de validación (entradas, supuestos, resultados y celdas capturadas) en JSON. */
 export function descargarValidacion(id: CorridaId, d: CorridaData) {
   const r = calcularCorrida(id, d)
-  guardar(JSON.stringify(resumenValidacion(id, d, r), null, 2), 'application/json', `${nombreSeguro(nombreCorrida(id, d))} - validacion.json`)
+  return guardar(JSON.stringify(resumenValidacion(id, d, r), null, 2), 'application/json', `${nombreSeguro(nombreCorrida(id, d))} - validacion.json`)
 }

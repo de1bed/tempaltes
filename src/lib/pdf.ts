@@ -5,6 +5,8 @@
  * tamaño de hoja, agrega márgenes y encabezados propios al imprimir).
  */
 
+import { guardarArchivo } from './guardar'
+
 export type Tamano = 'carta' | 'a4'
 
 const MEDIDAS_MM: Record<Tamano, [number, number]> = {
@@ -57,5 +59,5 @@ export async function generarPdf(
     if (i > 0) pdf.addPage([ancho, alto], 'portrait')
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, ancho, alto, undefined, 'FAST')
   }
-  pdf.save(`${nombreSeguro(nombre)}.pdf`)
+  await guardarArchivo(pdf.output('blob'), `${nombreSeguro(nombre)}.pdf`)
 }

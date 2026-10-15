@@ -238,7 +238,7 @@ export function Felicitaciones({ perfil, irAInicio, salir }: { perfil: Perfil; i
     try {
       const blob = await capturar(tarjeta.current, MEDIDAS[datos.tipo].escala)
       const nombre = nombreArchivo(datos)
-      if (accion === 'descargar') descargar(blob, nombre)
+      if (accion === 'descargar') await descargar(blob, nombre)
       if (accion === 'copiar') await copiar(blob)
       if (accion === 'compartir') await compartir(blob, nombre)
       registrar('felicitacion', {

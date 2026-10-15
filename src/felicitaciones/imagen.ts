@@ -1,3 +1,4 @@
+import { guardarArchivo } from '../lib/guardar'
 import { nombreSeguro } from '../lib/pdf'
 
 /** Límite de la columna `foto` en la base de datos (caracteres del data URI). */
@@ -41,16 +42,7 @@ export async function capturar(el: HTMLElement, escala: number): Promise<Blob> {
   return domToBlob(el, opciones)
 }
 
-export function descargar(blob: Blob, nombre: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${nombreSeguro(nombre)}.jpg`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 10_000)
-}
+export const descargar = (blob: Blob, nombre: string) => guardarArchivo(blob, `${nombreSeguro(nombre)}.jpg`)
 
 /** Copia la imagen al portapapeles (como PNG, que es lo que aceptan los navegadores). */
 export async function copiar(blob: Blob) {
