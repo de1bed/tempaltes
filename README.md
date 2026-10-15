@@ -26,7 +26,12 @@ Reservación de la **Sala principal** y la **Salita 2** (permiso "Salas" en Admi
 - Se elige sala, día y duración; la app muestra los horarios libres y lo que ya está ocupado ese día (reservaciones de la app y eventos que estén directamente en Outlook).
 - Cada quien mueve o cancela sus reservaciones; el administrador ve y puede cambiar todas. Todo queda en la bitácora.
 - La base de datos no permite dos reservaciones encimadas en la misma sala.
-- **Outlook** (cuenta personal, outlook.live.com): la Edge Function `salas` copia cada reservación al calendario de su sala (Microsoft Graph) e invita a los invitados. Necesita los secretos `MS_CLIENT_ID` y `MS_CLIENT_SECRET` (app registrada en Azure para cuentas personales, con redirección a `https://ficswawndpxegjkzxkvj.supabase.co/functions/v1/salas`). Luego el administrador da clic en **Conectar Outlook** (en Salas) y elige qué calendario es cada sala. Sin eso funciona solo en la app.
+- **Outlook** (cuenta personal, outlook.live.com), en la sección "Calendario de Outlook" de Salas (solo administrador). Funciona **sin Azure**:
+  1. **Reservaciones → Outlook**: cada sala tiene un enlace secreto `.ics` (`/functions/v1/salas/ics/<token>.ics`) que se suscribe una vez en Outlook ("Agregar calendario → Suscribirse desde la web"). Outlook lo refresca cada pocas horas; para verlo al momento, al reservar aparecen los botones **Agregar a mi Outlook** (outlook.live.com), Outlook trabajo, Google y archivo `.ics`. "Cambiar enlace" invalida el anterior.
+  2. **Outlook → app**: se pega el **vínculo ICS** que Outlook.com publica del calendario de cada sala (Configuración → Calendario → Calendarios compartidos → Publicar). La app lo lee (con eventos que se repiten, excepciones y zona horaria) al mostrar horarios y antes de reservar o mover, y marca "Ocupado en Outlook". Las reservaciones de la app que alguien haya agregado a Outlook se reconocen por su código y no cuentan doble. Si Outlook no responde, se reserva igual.
+  3. **Conexión completa (opcional)**: con una app registrada en Azure (secretos `MS_CLIENT_ID` y `MS_CLIENT_SECRET`, redirección `https://ficswawndpxegjkzxkvj.supabase.co/functions/v1/salas`) se da clic en **Conectar Outlook** y se elige el calendario de cada sala: cada reservación se copia al momento y se mandan invitaciones. Si está conectada, tiene prioridad sobre 1 y 2. La guía paso a paso está en la misma pantalla.
+
+  Los enlaces viven en la tabla `salas_ics` (solo la Edge Function la lee). El calendario `.ics` se genera y lee en `supabase/functions/salas/ics.ts` (con pruebas en `ics.test.ts`).
 
 ## Felicitaciones
 

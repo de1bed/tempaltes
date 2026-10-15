@@ -1,8 +1,12 @@
 // Reservación de salas: valida horario y permisos, evita choques (la base de datos no permite
 // reservaciones encimadas) y copia cada reservación al calendario Outlook de la sala.
-// Outlook es una cuenta personal (outlook.live.com): el administrador la conecta una vez (OAuth) y elige
-// qué calendario es cada sala. Sin MS_CLIENT_ID / MS_CLIENT_SECRET o sin conexión funciona solo en la app.
+// Dos formas de llegar a Outlook (cuenta personal, outlook.live.com):
+// - Sin Azure: cada sala tiene un calendario .ics que se suscribe en Outlook (reservaciones de la app → Outlook)
+//   y la app lee el calendario que Outlook publica de la sala (lo agendado directo en Outlook → app).
+// - Conexión completa (Microsoft Graph): el administrador conecta la cuenta (OAuth) y elige qué calendario es cada
+//   sala; requiere MS_CLIENT_ID / MS_CLIENT_SECRET. Si está conectada, tiene prioridad.
 import { createClient } from 'npm:@supabase/supabase-js@2.117.1'
+import { DOMINIO_UID, generarFeed, ocupadosDeIcs } from './ics.ts'
 
 const ZONA = 'America/Mexico_City'
 const HORA_INICIO = 7 // 7:00 a.m.
@@ -44,6 +48,8 @@ interface Sala {
   id: string
   nombre: string
   calendario_id: string | null
+  /** Enlace ICS que Outlook publica del calendario de la sala (sin Azure). */
+  publicado: string | null
 }
 
 interface Reservacion {
@@ -60,6 +66,7 @@ interface Reservacion {
   creado_por_nombre: string
   estado: string
   outlook_event_id: string | null
+  actualizado?: string
 }
 
 /** Quién llama: con sesión, activo y con permiso de salas (o administrador). */
@@ -195,9 +202,30 @@ interface Ocupado {
   reservacion_id?: string
 }
 
+/** Calendario publicado por Outlook (texto .ics), con 1 minuto de memoria para no pedirlo en cada clic. */
+const cacheIcs = new Map<string, { texto: string; hora: number }>()
+async function leerPublicado(url: string, fresco = false): Promise<string> {
+  const guardado = cacheIcs.get(url)
+  if (!fresco && guardado && guardado.hora > Date.now() - 60_000) return guardado.texto
+  const r = await fetch(url, { headers: { Accept: 'text/calendar' }, signal: AbortSignal.timeout(10_000) })
+  if (!r.ok) throw new Error(`Outlook respondió ${r.status} al leer el calendario publicado`)
+  const texto = await r.text()
+  if (!texto.includes('BEGIN:VCALENDAR')) throw new Error('El enlace no es un calendario ICS')
+  cacheIcs.set(url, { texto, hora: Date.now() })
+  return texto
+}
+
+/** Lo ocupado en el calendario publicado, sin las reservaciones de la app que alguien haya agregado a Outlook. */
+async function ocupadoEnPublicado(sala: Sala, desde: Date, hasta: Date, codigos: Set<string>): Promise<Ocupado[]> {
+  const texto = await leerPublicado(sala.publicado!)
+  const deLaApp = (uid: string, contenido: string) => uid.endsWith(`@${DOMINIO_UID}`) || [...codigos].some((c) => contenido.includes(c))
+  return ocupadosDeIcs(texto, desde, hasta, deLaApp).map((b) => ({ ...b, titulo: 'Ocupado en Outlook' }))
+}
+
 /** Eventos del calendario Outlook de la sala que no salieron de la app (reservas directas en Outlook). */
-async function ocupadoEnOutlook(sala: Sala, desde: Date, hasta: Date, propios: Set<string>): Promise<Ocupado[]> {
-  if (!usaOutlook(sala)) return []
+async function ocupadoEnOutlook(sala: Sala, desde: Date, hasta: Date, propias: Reservacion[]): Promise<Ocupado[]> {
+  if (!usaOutlook(sala)) return sala.publicado ? ocupadoEnPublicado(sala, desde, hasta, new Set(propias.map((r) => r.codigo))) : []
+  const propios = new Set(propias.map((r) => r.outlook_event_id).filter(Boolean) as string[])
   const q = new URLSearchParams({ startDateTime: desde.toISOString(), endDateTime: hasta.toISOString(), $select: 'id,subject,start,end,showAs,isCancelled', $top: '200' })
   const r = await graph(`${calendario(sala)}/calendarView?${q}`)
   if (!r.ok) throw new Error(`No se pudo leer el calendario de Outlook (${r.status}): ${await r.text()}`)
@@ -253,9 +281,10 @@ async function registrar(quien: Persona, accion: string, sala: Sala, r: Reservac
 
 async function leerSala(id: unknown): Promise<Sala> {
   if (typeof id !== 'string') throw new ErrorSalas('Falta la sala')
-  const { data } = await admin.from('salas').select('id, nombre, calendario_id').eq('id', id).eq('activa', true).maybeSingle()
+  const { data } = await admin.from('salas').select('id, nombre, calendario_id, salas_ics (publicado)').eq('id', id).eq('activa', true).maybeSingle()
   if (!data) throw new ErrorSalas('Esa sala no existe')
-  return data
+  const ics = data.salas_ics as { publicado: string | null } | { publicado: string | null }[] | null
+  return { id: data.id, nombre: data.nombre, calendario_id: data.calendario_id, publicado: (Array.isArray(ics) ? ics[0] : ics)?.publicado ?? null }
 }
 
 async function leerReservacion(id: unknown, quien: Persona): Promise<Reservacion> {
@@ -280,12 +309,23 @@ async function reservasActivas(salaId: string, desde: Date, hasta: Date): Promis
 }
 
 /** Revisa que Outlook no tenga algo encimado (la base de datos ya cuida las reservas de la app). */
-async function revisarOutlook(sala: Sala, inicio: Date, fin: Date, ignorar?: string | null) {
-  const propios = new Set((await reservasActivas(sala.id, inicio, fin)).map((r) => r.outlook_event_id).filter(Boolean) as string[])
-  if (ignorar) propios.add(ignorar)
-  const choques = await ocupadoEnOutlook(sala, inicio, fin, propios)
+async function revisarOutlook(sala: Sala, inicio: Date, fin: Date, ignorar?: Reservacion | null) {
+  const propias = await reservasActivas(sala.id, inicio, fin)
+  if (ignorar) propias.push(ignorar)
+  let choques: Ocupado[]
+  try {
+    choques = await ocupadoEnOutlook(sala, inicio, fin, propias)
+  } catch (e) {
+    // Si solo falla leer el calendario publicado, se reserva igual (la app evita choques entre sus reservaciones).
+    if (usaOutlook(sala)) throw e
+    console.error(e)
+    return
+  }
   if (choques.length) throw new ErrorSalas('Ese horario ya está ocupado en el calendario de Outlook de la sala', 409)
 }
+
+/** Hay algo que revisar en Outlook: conexión completa o calendario publicado. */
+const revisaOutlook = (sala: Sala) => usaOutlook(sala) || Boolean(sala.publicado)
 
 function exigirAdmin(quien: Persona) {
   if (!quien.es_admin) throw new ErrorSalas('Solo el administrador puede hacer esto', 403)
@@ -308,12 +348,12 @@ async function manejar(req: Request) {
       let outlook: Ocupado[] = []
       let aviso: string | null = null
       try {
-        outlook = await ocupadoEnOutlook(sala, desde, hasta, new Set(reservas.map((r) => r.outlook_event_id).filter(Boolean) as string[]))
+        outlook = await ocupadoEnOutlook(sala, desde, hasta, reservas)
       } catch (e) {
         console.error(e)
         aviso = 'No se pudo consultar Outlook; se muestran solo las reservaciones de la app.'
       }
-      return { reservaciones: reservas, outlook, outlook_activo: usaOutlook(sala), aviso }
+      return { reservaciones: reservas, outlook, outlook_activo: revisaOutlook(sala), aviso }
     }
 
     case 'reservar': {
@@ -325,7 +365,7 @@ async function manejar(req: Request) {
       if (!Number.isInteger(personas) || personas < 1 || personas > 100) throw new ErrorSalas('Número de personas no válido')
       const invitados = Array.isArray(cuerpo.invitados) ? cuerpo.invitados.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : []
       if (invitados.length > 30 || invitados.some((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x))) throw new ErrorSalas('Revisa los correos de los invitados')
-      if (usaOutlook(sala)) await revisarOutlook(sala, inicio, fin)
+      if (revisaOutlook(sala)) await revisarOutlook(sala, inicio, fin)
 
       const { data, error } = await admin
         .from('reservaciones')
@@ -362,7 +402,7 @@ async function manejar(req: Request) {
       const sala = await leerSala(cuerpo.sala_id ?? anterior.sala_id)
       const [inicio, fin] = validarHorario(cuerpo.inicio, cuerpo.fin)
       const mismaSala = sala.id === anterior.sala_id
-      if (usaOutlook(sala)) await revisarOutlook(sala, inicio, fin, mismaSala ? anterior.outlook_event_id : null)
+      if (revisaOutlook(sala)) await revisarOutlook(sala, inicio, fin, mismaSala ? anterior : null)
       const { data, error } = await admin
         .from('reservaciones')
         .update({ sala_id: sala.id, inicio: inicio.toISOString(), fin: fin.toISOString(), actualizado: new Date().toISOString() })
@@ -430,7 +470,39 @@ async function manejar(req: Request) {
           aviso = 'La conexión con Outlook dejó de funcionar. Vuelve a conectar la cuenta.'
         }
       }
-      return { configurado: outlookConfigurado, conexion, calendarios, salas, aviso }
+      const { data: ics } = await admin.from('salas_ics').select('sala_id, token, publicado')
+      const enlaces = (ics ?? []).map((x) => ({ sala_id: x.sala_id, feed: `${BASE_FEED}/${x.token}.ics`, publicado: x.publicado }))
+      return { configurado: outlookConfigurado, conexion, calendarios, salas, aviso, ics: enlaces }
+    }
+
+    // ───── Calendario sin Azure (solo administrador) ─────
+    case 'ics_publicado': {
+      exigirAdmin(quien)
+      const sala = await leerSala(cuerpo.sala_id)
+      const url = typeof cuerpo.url === 'string' ? cuerpo.url.trim().replace(/^webcals?:\/\//i, 'https://') : ''
+      let proximos = 0
+      if (url) {
+        if (!/^https:\/\/\S+$/.test(url) || url.length > 2000) throw new ErrorSalas('Pega el enlace ICS completo (empieza con https://)')
+        try {
+          const texto = await leerPublicado(url, true)
+          const ahora = new Date()
+          proximos = ocupadosDeIcs(texto, ahora, new Date(ahora.getTime() + DIAS_ADELANTE * 24 * 3600_000)).length
+        } catch (e) {
+          console.error(e)
+          throw new ErrorSalas(`No se pudo leer ese enlace: ${e instanceof Error ? e.message : e}. Revisa que sea el enlace ICS (no el HTML).`)
+        }
+      }
+      const { error } = await admin.from('salas_ics').upsert({ sala_id: sala.id, publicado: url || null, actualizado: new Date().toISOString() })
+      if (error) throw error
+      return { ok: true, proximos }
+    }
+
+    case 'ics_regenerar': {
+      exigirAdmin(quien)
+      const sala = await leerSala(cuerpo.sala_id)
+      const { error } = await admin.from('salas_ics').upsert({ sala_id: sala.id, token: crypto.randomUUID(), actualizado: new Date().toISOString() })
+      if (error) throw error
+      return { ok: true }
     }
 
     case 'outlook_iniciar': {
@@ -477,10 +549,55 @@ async function cancelarEnOutlook(eventoId: string, comentario: string) {
   if (!res.ok && res.status !== 404) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
 }
 
+/** Calendario .ics de una sala (enlace secreto) para suscribirlo en Outlook, Google o Apple. */
+async function feedDeSala(token: string): Promise<Response> {
+  const { data: ics } = await admin.from('salas_ics').select('sala_id').eq('token', token).maybeSingle()
+  if (!ics) return new Response('Calendario no encontrado', { status: 404 })
+  const { data: sala } = await admin.from('salas').select('nombre').eq('id', ics.sala_id).maybeSingle()
+  const { data: reservas, error } = await admin
+    .from('reservaciones')
+    .select('*')
+    .eq('sala_id', ics.sala_id)
+    .eq('estado', 'activa')
+    .gte('fin', new Date(Date.now() - 30 * 24 * 3600_000).toISOString())
+    .order('inicio')
+    .limit(1000)
+  if (error) throw error
+  const nombre = sala?.nombre ?? 'Sala'
+  const texto = generarFeed(
+    `${nombre} · Treve`,
+    (reservas as Reservacion[]).map((r) => ({
+      id: r.id,
+      codigo: r.codigo,
+      inicio: r.inicio,
+      fin: r.fin,
+      titulo: `${r.motivo} · ${r.creado_por_nombre || r.creado_por_email}`,
+      descripcion: [
+        `Reservado desde la app de Treve por ${r.creado_por_nombre || r.creado_por_email} (${r.creado_por_email}).`,
+        `Personas: ${r.personas}`,
+        r.invitados.length ? `Invitados: ${r.invitados.join(', ')}` : '',
+        `Código: ${r.codigo}`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      lugar: nombre,
+      actualizado: r.actualizado ?? r.inicio,
+    })),
+  )
+  return new Response(texto, {
+    headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `inline; filename="sala.ics"`, 'Cache-Control': 'no-cache, max-age=0' },
+  })
+}
+
+/** Dirección pública de los calendarios .ics: …/functions/v1/salas/ics/<token>.ics */
+const BASE_FEED = `${Deno.env.get('SUPABASE_URL')}/functions/v1/salas/ics`
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  if (req.method === 'GET') {
+  if (req.method === 'GET' || req.method === 'HEAD') {
     const url = new URL(req.url)
+    const feed = url.pathname.match(/\/ics\/([0-9a-f-]{36})\.ics$/i)
+    if (feed) return feedDeSala(feed[1].toLowerCase()).catch((e) => (console.error(e), new Response('Error interno', { status: 500 })))
     if (url.searchParams.has('state')) return terminarConexion(url).catch((e) => (console.error(e), new Response('Error interno', { status: 500 })))
   }
   if (req.method !== 'POST') return responder({ error: 'Método no permitido' }, 405)

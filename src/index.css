@@ -324,6 +324,23 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .salas-agenda-hora { font-size: 11.5px; font-weight: 600; color: var(--marca); font-variant-numeric: tabular-nums; }
 .salas-form { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--linea); }
 .salas-moviendo { background: #fff4e0; border-color: #f0cf8f; color: #6b4300; }
+.salas-agregar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.salas-agregar a.btn { text-decoration: none; display: inline-block; }
+.salas-agregar-titulo { flex-basis: 100%; font-size: 12.5px; color: #1f5c38; }
+.salas-agregar.compacto { gap: 12px; margin-top: 2px; }
+.salas-agregar.compacto::before { content: 'Agregar a:'; font-size: 11.5px; color: #8a98a2; }
+.salas-agregar-link { font-size: 11.5px; color: var(--marca); text-decoration: underline; }
+.salas-outlook h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--marca); }
+.salas-paso { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--linea); }
+.salas-paso .nota { margin: 0; font-size: 12px; line-height: 1.55; }
+.salas-enlace { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.salas-enlace input { flex: 1 1 260px; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.salas-ok { margin: 4px 0 0; padding: 8px 12px; }
+.salas-completa summary { cursor: pointer; list-style: revert; }
+.salas-completa summary h3 { display: inline; }
+.salas-guia { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; line-height: 1.55; color: var(--tinta); }
+.salas-guia code { font-size: 11.5px; overflow-wrap: anywhere; color: var(--marca); }
+.salas-guia .btn { padding: 2px 8px; font-size: 11px; margin-left: 4px; }
 @media (max-width: 800px) {
   .salas-panel, .salas-cuerpo { grid-template-columns: 1fr; }
 }

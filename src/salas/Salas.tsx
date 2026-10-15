@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CambiarPassword } from '../auth/CambiarPassword'
 import { IMG } from '../lib/imagenes'
+import { AgregarCalendario } from './AgregarCalendario'
 import { ConexionOutlook } from './ConexionOutlook'
 import { salasApi, supabase, type Perfil, type Reservacion, type Sala } from '../lib/supabase'
 import { aFecha, diasHabiles, horaDe, horariosLibres, HORA_FIN, HORA_INICIO, local, mesesDelRango, semanasDelMes, sumarDias, textoDia, textoHora, type Bloque } from './tiempo'
@@ -37,6 +38,8 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
   const [elegido, setElegido] = useState<number | null>(null)
   const [moviendo, setMoviendo] = useState<Reservacion | null>(null)
   const [hecho, setHecho] = useState('')
+  /** Recién reservada: se ofrece agregarla al calendario propio. */
+  const [ultima, setUltima] = useState<Reservacion | null>(null)
   const [version, setVersion] = useState(0)
   const [proximas, setProximas] = useState<Reservacion[] | null>(null)
   const [marcas, setMarcas] = useState<{ clave: string; dias: string[] } | null>(null)
@@ -114,9 +117,10 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
         ...disp!.outlook.map((b) => ({ ...b, quien: '', propia: false })),
       ].sort((a, b) => Date.parse(a.inicio) - Date.parse(b.inicio))
 
-  function recargar(mensaje = '') {
+  function recargar(mensaje = '', reservada: Reservacion | null = null) {
     setElegido(null)
     setHecho(mensaje)
+    setUltima(reservada)
     setVersion((v) => v + 1)
   }
 
@@ -172,6 +176,7 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
         {hecho && (
           <div className="credenciales" role="status">
             <strong>{hecho}</strong>
+            {ultima && <AgregarCalendario r={ultima} sala={nombreSala(ultima.sala_id)} />}
           </div>
         )}
 
@@ -418,7 +423,7 @@ function CintaDia({ dia, agenda, elegido, duracion }: { dia: string; agenda: { i
   )
 }
 
-function Reservar({ sala, dia, minutos, duracion, alTerminar }: { sala: Sala; dia: string; minutos: number; duracion: number; alTerminar: (msg: string) => void }) {
+function Reservar({ sala, dia, minutos, duracion, alTerminar }: { sala: Sala; dia: string; minutos: number; duracion: number; alTerminar: (msg: string, r: Reservacion) => void }) {
   const [motivo, setMotivo] = useState('')
   const [personas, setPersonas] = useState('2')
   const [invitados, setInvitados] = useState('')
@@ -439,7 +444,7 @@ function Reservar({ sala, dia, minutos, duracion, alTerminar }: { sala: Sala; di
         personas: Number(personas),
         invitados: invitados.split(/[\s,;]+/).filter(Boolean),
       })
-      alTerminar(`Listo: ${sala.nombre}, ${textoDia(dia, { weekday: 'short', day: 'numeric', month: 'short' })} a las ${textoHora(minutos)} · Código ${reservacion.codigo}`)
+      alTerminar(`Listo: ${sala.nombre}, ${textoDia(dia, { weekday: 'short', day: 'numeric', month: 'short' })} a las ${textoHora(minutos)} · Código ${reservacion.codigo}`, reservacion)
     } catch (err) {
       setFalla(error(err))
       setEnviando(false)
@@ -464,7 +469,7 @@ function Reservar({ sala, dia, minutos, duracion, alTerminar }: { sala: Sala; di
       <div className="campo">
         <label htmlFor="res-invitados">Invitados (opcional)</label>
         <textarea id="res-invitados" rows={2} value={invitados} onChange={(e) => setInvitados(e.target.value)} placeholder="correo@empresa.com, otro@empresa.com" />
-        <small>Reciben la invitación de Outlook. Tú también la recibes.</small>
+        <small>Con Outlook conectado reciben la invitación. Si no, al reservar usa “Agregar a mi Outlook” e invítalos desde ahí.</small>
       </div>
       {falla && <div className="alerta" role="alert">{falla}</div>}
       <div className="admin-acciones">
@@ -538,6 +543,7 @@ function Proxima({ r, sala, mostrarQuien, verSync, mover, alCancelar }: { r: Res
           {mostrarQuien && ` · ${r.creado_por_nombre || r.creado_por_email}`}
           {verSync && (r.sync_error || !r.outlook_event_id ? ' · ⚠ no se copió a Outlook' : ' · en Outlook')}
         </small>
+        <AgregarCalendario r={r} sala={sala} compacto />
       </div>
       <div className="admin-acciones">
         <button type="button" className="btn secundario" disabled={enviando} onClick={mover}>
