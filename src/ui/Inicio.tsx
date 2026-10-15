@@ -113,9 +113,9 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abri
                     </g>
                   </svg>
                 </span>
-                <span className="tarjeta-titulo">Bonos 33 Hilos</span>
-                <span className="tarjeta-desc">De la tabla del correo a la facturación: tipo de cambio del DOF, corrida con bono de cada persona y Excel para autorizar.</span>
-                <span className="tarjeta-pie">Calcular bonos →</span>
+                <span className="tarjeta-titulo">33 Hilos</span>
+                <span className="tarjeta-desc">Nómina semanal de la plantilla (listado en PDF y facturación) y bonos del correo con el tipo de cambio del DOF.</span>
+                <span className="tarjeta-pie">Nómina y bonos →</span>
               </button>
             </section>
           )}

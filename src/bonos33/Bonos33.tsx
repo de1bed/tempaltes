@@ -17,11 +17,12 @@ import {
   type OpcionesBonos,
   type ResultadoBono,
 } from './calculo'
+import { NominaSemanal } from './NominaSemanal'
 import { Plantilla33 } from './Plantilla33'
 import { excelBonos, nombreArchivo, tablaCliente } from './reporte'
 
 const CLAVE = 'bonos33:borrador'
-type Pestana = 'bonos' | 'plantilla' | 'guardadas'
+type Pestana = 'nomina' | 'bonos' | 'plantilla' | 'guardadas'
 
 interface Borrador {
   /** Corrida guardada que se está editando (null = nueva). */
@@ -56,9 +57,9 @@ function leerBorrador(): Borrador {
   return { id: null, opciones: opcionesIniciales(), filas: [] }
 }
 
-/** Bonos trimestrales de 33 Hilos: tabla del correo → corridas con bono → facturación para autorizar. */
+/** 33 Hilos: nómina semanal de la plantilla y bonos trimestrales (tabla del correo → corridas con bono → facturación). */
 export function Bonos33({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio: () => void; salir: () => void }) {
-  const [pestana, setPestana] = useState<Pestana>('bonos')
+  const [pestana, setPestana] = useState<Pestana>('nomina')
   const [empleados, setEmpleados] = useState<Empleado[] | null>(null)
   const [falla, setFalla] = useState('')
   const [version, setVersion] = useState(0)
@@ -108,17 +109,18 @@ export function Bonos33({ perfil, irAInicio, salir }: { perfil: Perfil; irAInici
         </header>
         <div className="salas-titulo">
           <div>
-            <h1>Bonos 33 Hilos</h1>
+            <h1>33 Hilos</h1>
             <p className="admin-intro">
-              Pega la tabla del correo, trae el tipo de cambio del DOF y la app corre la semana con bono de cada persona con la plantilla aprobada. Sale la
-              tabla de facturación lista para autorizar.
+              Nómina semanal y bonos de toda la plantilla con la corrida aprobada de 33 Hilos: listado de nómina, facturación a 33 Threads y bonos del
+              correo con el tipo de cambio del DOF.
             </p>
           </div>
         </div>
         <nav className="salas-pestanas" aria-label="Secciones de bonos">
           {(
             [
-              ['bonos', 'Corrida de bonos'],
+              ['nomina', 'Nómina semanal'],
+              ['bonos', 'Bonos'],
               ['plantilla', `Plantilla${empleados ? ` (${empleados.filter((e) => e.activo).length})` : ''}`],
               ['guardadas', 'Guardadas'],
             ] as const
@@ -129,6 +131,8 @@ export function Bonos33({ perfil, irAInicio, salir }: { perfil: Perfil; irAInici
           ))}
         </nav>
         {falla && <div className="alerta" role="alert">{falla}</div>}
+        {pestana === 'nomina' &&
+          (empleados ? <NominaSemanal empleados={empleados} bonos={borrador} irAPlantilla={() => setPestana('plantilla')} /> : !falla && <p className="nota">Cargando plantilla…</p>)}
         {pestana === 'bonos' &&
           (empleados ? (
             <Corrida borrador={borrador} setBorrador={setBorrador} empleados={empleados} perfil={perfil} irAPlantilla={() => setPestana('plantilla')} />
@@ -605,7 +609,7 @@ function Guardadas({ abrir, actual }: { abrir: (g: Guardada) => void; actual: st
       {!lista ? (
         !falla && <p className="nota">Cargando…</p>
       ) : lista.length === 0 ? (
-        <p className="nota">Todavía no hay corridas guardadas. En "Corrida de bonos" usa "Guardar corrida".</p>
+        <p className="nota">Todavía no hay corridas de bonos guardadas. En "Bonos" usa "Guardar corrida".</p>
       ) : (
         <ul className="admin-lista">
           {lista.map((g) => (

@@ -1,4 +1,5 @@
 import { nombrePropio, num, totales, type OpcionesBonos, type ResultadoBono } from './calculo'
+import type { FilaNomina, Semana } from './nomina'
 import { col, E, escribirXlsx, type Celda, type Hoja } from './xlsx'
 
 /**
@@ -198,4 +199,61 @@ function hojaNotas(rs: ResultadoBono[], o: OpcionesBonos, avisos: string[]): Hoj
 export async function excelBonos(rs: ResultadoBono[], o: OpcionesBonos, avisos: string[] = []): Promise<Blob> {
   const { hoja: corridas, bloques } = hojaCorridas(rs, o)
   return escribirXlsx([hojaResumen(rs, o, bloques), corridas, hojaNotas(rs, o, avisos)])
+}
+
+/* ───────── Nómina semanal de la plantilla (formato de la base "Salary 33 Threads") ───────── */
+
+export async function excelNomina(filas: FilaNomina[], semana: Semana, servicio: string, titulo: string): Promise<Blob> {
+  const tasa = num(servicio) / 100
+  const c: Record<string, Celda> = {}
+  c.A1 = { v: `33 Threads · Weekly payroll and billing · Week ${semana.numero} (${semana.desde} to ${semana.hasta})`, s: E.titulo }
+  c.A2 = { v: `${titulo} · Amounts from the approved Treve payroll template (IMSS base capped at 25 UMA; net rounded to 50 cents like payroll).`, s: E.nota }
+  const cab = ['Start Date', 'Num', 'Name', 'Position', 'Daily Salary', 'Net Weekly Salary (+ Sodexo)', 'Gross Weekly Salary', 'Bonus', 'Sodexo', 'Employer Contributions', 'Termination Provision', 'Operating & Administrative Costs', 'Total base', `${servicio} % of service`, 'Total Bill', 'Annual Net Salary (Approx)']
+  const h = 4
+  cab.forEach((t, i) => (c[`${col(i + 1)}${h}`] = { v: t, s: E.encabezado }))
+  let f = h + 1
+  for (const { empleado: e, r, bono } of filas) {
+    c[`A${f}`] = { v: e.ingreso ?? '' }
+    c[`B${f}`] = { v: Number(e.num) }
+    c[`C${f}`] = { v: nombrePropio(e.nombre) }
+    c[`D${f}`] = { v: e.puesto }
+    c[`E${f}`] = { v: e.salario_diario, s: E.dinero }
+    c[`F${f}`] = { v: r.netoSodexo.monto, s: E.dinero }
+    c[`G${f}`] = { v: r.totalPercepciones.monto, s: E.dinero }
+    c[`H${f}`] = { v: bono, s: E.dinero }
+    c[`I${f}`] = { v: r.sodexo.monto, s: E.dinero }
+    c[`J${f}`] = { v: r.totalPatronales.monto, s: E.dinero }
+    c[`K${f}`] = { v: r.costos[0].monto, s: E.dinero }
+    c[`L${f}`] = { v: r.costos[1].monto, s: E.dinero }
+    c[`M${f}`] = { v: r.costos[2].monto, f: `G${f}+I${f}+J${f}+K${f}+L${f}`, s: E.dinero }
+    c[`N${f}`] = { v: r.costos[3].monto, f: `M${f}*${tasa}`, s: E.dinero }
+    c[`O${f}`] = { v: r.total.monto, f: `M${f}+N${f}`, s: E.dineroNegrita }
+    c[`P${f}`] = { v: r.netoSodexo.monto * 52, f: `F${f}*52`, s: E.dinero }
+    f++
+  }
+  c[`A${f}`] = { v: 'Total', s: E.totalTexto }
+  ;['B', 'C', 'D', 'E'].forEach((x) => (c[`${x}${f}`] = { v: x === 'B' ? `${filas.length} employees` : '', s: E.totalTexto }))
+  for (const x of ['F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P']) {
+    const suma = filas.reduce((acc, _, i) => acc + Number(c[`${x}${h + 1 + i}`].v ?? 0), 0)
+    c[`${x}${f}`] = { v: suma, f: `SUM(${x}${h + 1}:${x}${f - 1})`, s: E.totalDinero }
+  }
+  const resumen: Hoja = { nombre: 'Nomina', celdas: c, anchos: [11, 9, 34, 36, 11, 14, 14, 11, 9, 14, 13, 13, 14, 12, 14, 15], congelarFilas: h }
+
+  // Detalle: cada concepto de la corrida (como el listado de nómina).
+  const d: Record<string, Celda> = {}
+  const cabD = ['Num', 'Name', 'Ordinary Salary', 'Seventh Day', 'Punctuality Bonus', 'Attendance Bonus', 'Bonus', 'Gross', 'IMSS (employee)', 'ISPT', 'Currency Adjustment', 'Total Deductions', 'Net', 'Sodexo', 'IMSS (company)', 'Infonavit', 'Retirement', 'State Tax', 'Total Taxes', 'IMSS base (SBC)']
+  cabD.forEach((t, i) => (d[`${col(i + 1)}1`] = { v: t, s: E.encabezado }))
+  filas.forEach(({ empleado: e, r, bono, sbc }, i) => {
+    const fila = i + 2
+    const vals = [r.percepciones[0].monto, r.percepciones[1].monto, r.percepciones[2].monto, r.percepciones[3].monto, bono, r.totalPercepciones.monto, r.deducciones[0].monto, r.deducciones[1].monto, r.deducciones[2].monto, r.totalDeducciones.monto, r.neto.monto, r.sodexo.monto, r.patronales[0].monto, r.patronales[1].monto, r.patronales[2].monto, r.patronales[3].monto, r.totalPatronales.monto, sbc]
+    d[`A${fila}`] = { v: Number(e.num) }
+    d[`B${fila}`] = { v: nombrePropio(e.nombre) }
+    vals.forEach((v, j) => (d[`${col(j + 3)}${fila}`] = { v, s: E.dinero }))
+    d[`H${fila}`] = { v: r.totalPercepciones.monto, f: `SUM(C${fila}:G${fila})`, s: E.dineroNegrita }
+    d[`L${fila}`] = { v: r.totalDeducciones.monto, f: `SUM(I${fila}:K${fila})`, s: E.dinero }
+    d[`M${fila}`] = { v: r.neto.monto, f: `H${fila}-L${fila}`, s: E.dineroNegrita }
+    d[`S${fila}`] = { v: r.totalPatronales.monto, f: `SUM(O${fila}:R${fila})`, s: E.dinero }
+  })
+  const detalle: Hoja = { nombre: 'Detail', celdas: d, anchos: [9, 34, ...Array(18).fill(13)], congelarFilas: 1 }
+  return escribirXlsx([resumen, detalle])
 }

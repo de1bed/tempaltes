@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import { Area, Fecha, Fila, Numero, Opciones, Seccion, Texto } from '../ui/campos'
 import { ARCHIVOS_APROBADOS, calcularCorrida, celdaConcepto, etiquetaObjetivo, OBJETIVOS } from './calculo'
 import {
@@ -51,6 +53,62 @@ function OtrosConceptos({ id, d, set }: { id: CorridaId; d: CorridaData; set: (p
         </>
       )}
     </>
+  )
+}
+
+interface PersonaPlantilla {
+  num: string
+  nombre: string
+  puesto: string
+  salario_diario: number
+  sodexo: number
+  activo: boolean
+  fuente: string
+}
+
+const nombrePropio = (s: string) => s.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase())
+
+/** 33 Hilos: elegir a alguien de la plantilla llena puesto, salario diario y Sodexo (la misma plantilla de Bonos 33 Hilos). */
+function PersonaDePlantilla({ h, set }: { h: Hilos33Data; set: (p: Partial<Hilos33Data>) => void }) {
+  const [personas, setPersonas] = useState<PersonaPlantilla[] | null>(null)
+  useEffect(() => {
+    supabase
+      .from('hilos33_empleados')
+      .select('num, nombre, puesto, salario_diario, sodexo, activo, fuente')
+      .order('nombre')
+      .then(({ data }) => setPersonas(((data ?? []) as PersonaPlantilla[]).map((p) => ({ ...p, salario_diario: Number(p.salario_diario), sodexo: Number(p.sodexo) }))))
+  }, [])
+  if (!personas?.length) return null
+  const elegida = personas.find((p) => p.num === h.numEmpleado)
+  const cambio = elegida && (h.objetivo !== 'salarioDiario' || Number(h.monto) !== elegida.salario_diario)
+  return (
+    <div className="campo">
+      <label htmlFor="c-persona">Persona de la plantilla 33 Hilos</label>
+      <select
+        id="c-persona"
+        value={h.numEmpleado}
+        onChange={(e) => {
+          const p = personas.find((x) => x.num === e.target.value)
+          if (!p) return set({ numEmpleado: '', persona: '' })
+          set({ numEmpleado: p.num, persona: nombrePropio(p.nombre), puesto: p.puesto || h.puesto, objetivo: 'salarioDiario', monto: String(p.salario_diario), sodexo: String(p.sodexo), empresa: '33 Hilos' })
+        }}
+      >
+        <option value="">— Puesto nuevo (sin persona) —</option>
+        {personas.map((p) => (
+          <option key={p.num} value={p.num}>
+            {nombrePropio(p.nombre)} · {p.puesto || 'sin puesto'} · SD ${p.salario_diario.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {p.activo ? '' : ' (inactiva)'}
+          </option>
+        ))}
+      </select>
+      <small>
+        {elegida
+          ? cambio
+            ? 'Cambiaste el objetivo o el monto: la corrida ya no usa el salario de la plantilla (sirve para simular un aumento).'
+            : `Salario diario de la plantilla (${elegida.fuente}).`
+          : 'Elige a alguien para correr su semana con el salario vigente, o déjalo vacío para cotizar un puesto nuevo.'}
+      </small>
+    </div>
   )
 }
 
@@ -118,7 +176,7 @@ export function FormCorrida<T extends CorridaData>({ id, d, set }: { id: Corrida
       </p>
       {h && (
         <p className="nota-corrida">
-          ¿Bonos trimestrales? <a href="#bonos-33-hilos">Abre Bonos 33 Hilos</a>: pega la tabla del correo y sale la corrida con bono de cada persona.
+          ¿Toda la plantilla o bonos trimestrales? <a href="#bonos-33-hilos">Abre 33 Hilos</a>: nómina semanal (listado PDF y facturación) y bonos del correo.
         </p>
       )}
       <EstadoCorrida id={id} d={d} />
@@ -128,6 +186,7 @@ export function FormCorrida<T extends CorridaData>({ id, d, set }: { id: Corrida
           <Texto label="Cliente / proyecto" value={d.empresa} onChange={(v) => set({ empresa: v } as Partial<T>)} />
           <Fecha label="Fecha" value={d.fecha} onChange={(v) => set({ fecha: v } as Partial<T>)} />
         </Fila>
+        {h && <PersonaDePlantilla h={h} set={setH} />}
         <Texto label="Puesto / posición *" value={d.puesto} placeholder="Ej. Project Manager" onChange={(v) => set({ puesto: v } as Partial<T>)} />
       </Seccion>
 
@@ -171,6 +230,18 @@ export function FormCorrida<T extends CorridaData>({ id, d, set }: { id: Corrida
           {!asimilado && <Numero label={`Sodexo por ${periodo}`} prefijo="$" value={d.sodexo} onChange={(v) => set({ sodexo: v } as Partial<T>)} ayuda="0 = sin Sodexo" />}
           {!asimilado && <Numero label="Ajuste moneda (deducción)" prefijo="$" value={d.ajusteMoneda} onChange={(v) => set({ ajusteMoneda: v } as Partial<T>)} />}
         </Fila>
+        {!k && (
+          <Opciones
+            label="IMSS: salario base de cotización"
+            value={d.topeSbc ? 'tope' : 'plantilla'}
+            onChange={(v) => set({ topeSbc: v === 'tope' } as Partial<T>)}
+            opciones={[
+              ['tope', 'Topado a 25 UMA (como la nómina real)'],
+              ['plantilla', 'Sin tope (como la plantilla tal cual)'],
+            ]}
+            ayuda="Solo cambia algo en sueldos altos (salario integrado mayor a 25 UMA, $2,932.75 diarios)."
+          />
+        )}
         {k && (
           <>
             <Fila>

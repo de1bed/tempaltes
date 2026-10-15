@@ -223,6 +223,8 @@ const ACCIONES: Record<string, string> = {
   bonos33_excel: 'Descargó bonos 33 Hilos',
   bonos33_guardado: 'Guardó bonos 33 Hilos',
   bonos33_plantilla: 'Actualizó plantilla 33 Hilos',
+  bonos33_listado: 'Descargó listado de nómina 33 Hilos',
+  bonos33_nomina: 'Descargó nómina 33 Hilos (Excel)',
 }
 
 /** Qué hizo cada quien: documentos generados y cambios de cuentas. */

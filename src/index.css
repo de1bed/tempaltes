@@ -625,3 +625,9 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 }
 .bonos-tabla:not(.bonos-captura) td:first-child { min-width: 190px; }
 .bonos-captura td:first-child input { min-width: 150px; }
+.nomina-datos { grid-template-columns: 0.9fr 0.6fr 2fr; }
+.nomina-datos input[type='number'] { min-width: 0; }
+.nomina-casillas { gap: 6px; padding-top: 18px; font-size: 12.5px; }
+@media (max-width: 760px) { .nomina-datos { grid-template-columns: 1fr 1fr; } .nomina-casillas { grid-column: 1 / -1; padding-top: 0; } }
+.nomina-casillas .casilla { border: 0; padding: 0; border-radius: 0; background: none; align-items: flex-start; font-size: 12.5px; }
+.nomina-casillas .casilla input { width: auto; flex: none; margin-top: 2px; padding: 0; }

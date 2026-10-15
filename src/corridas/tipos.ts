@@ -77,6 +77,9 @@ export type GeneralData = CorridaBase
 export interface Hilos33Data extends CorridaBase {
   servicio: string
   costosAdministrativos: string
+  /** Persona de la plantilla de 33 Hilos (opcional): nombre y número de empleado. */
+  persona: string
+  numEmpleado: string
 }
 
 export type CorridaData = KofileData | GeneralData | Hilos33Data
@@ -118,6 +121,19 @@ export function corridasIniciales(): { kofile: KofileData; general: GeneralData;
       tipoCambio: '18.2',
     },
     general: { ...base(), idioma: 'es', decimales: '2', sodexo: '200', objetivo: 'netoSodexo' },
-    hilos33: { ...base(), idioma: 'en', empresa: '33 Hilos', decimales: '2', sodexo: '200', objetivo: 'salarioDiario', servicio: '7.25', costosAdministrativos: '500' },
+    hilos33: {
+      ...base(),
+      idioma: 'en',
+      empresa: '33 Hilos',
+      decimales: '2',
+      sodexo: '200',
+      objetivo: 'salarioDiario',
+      servicio: '7.25',
+      costosAdministrativos: '500',
+      persona: '',
+      numEmpleado: '',
+      // Como la nómina real de 33 Hilos (y el Excel de bonos de Nóminas).
+      topeSbc: true,
+    },
   }
 }

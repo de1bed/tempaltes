@@ -203,14 +203,17 @@ export interface ResultadoBono {
   avisos: string[]
 }
 
-function datosCorrida(e: Empleado, bono: number, servicio: string): Hilos33Data {
+function datosCorrida(e: Empleado, bono: number, servicio: string, ajuste = 0): Hilos33Data {
   return {
     ...corridasIniciales().hilos33,
     idioma: 'en',
     puesto: e.puesto || e.nombre,
+    persona: e.nombre,
+    numEmpleado: e.num,
     objetivo: 'salarioDiario',
     monto: String(e.salario_diario),
     sodexo: String(e.sodexo),
+    ajusteMoneda: String(ajuste),
     servicio,
     // Como la nómina real (y el Excel de bonos de Nóminas): salario base de cotización topado a 25 UMA.
     topeSbc: true,
@@ -219,8 +222,17 @@ function datosCorrida(e: Empleado, bono: number, servicio: string): Hilos33Data 
 }
 
 /** Corrida semanal de 33 Hilos con el salario de la persona y, si hay, el bono como otras percepciones. */
-export function corridaSemana(e: Empleado, bono: number, servicio = '7.25'): ResultadoCorrida {
-  return calcularCorrida('hilos33', datosCorrida(e, bono, servicio))
+export function corridaSemana(e: Empleado, bono: number, servicio = '7.25', ajuste = 0): ResultadoCorrida {
+  return calcularCorrida('hilos33', datosCorrida(e, bono, servicio, ajuste))
+}
+
+/**
+ * Ajuste por diferencia de moneda del sistema de nómina: el neto se paga en múltiplos de 50
+ * centavos (en el listado: neto 8,292.84 → ajuste −0.16 → 8,293.00).
+ */
+export function ajusteMoneda(neto: number): number {
+  // Sin redondear el ajuste: así el neto queda exacto en el múltiplo de 50 centavos.
+  return neto - Math.round(neto * 2) / 2
 }
 
 /**

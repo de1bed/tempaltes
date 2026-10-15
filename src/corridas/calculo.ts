@@ -520,6 +520,15 @@ function supuestosGenerales(d: CorridaData, libro: Libro, objetivo: ResultadoCor
   ]
   if (objetivo.tipo === 'brutoMensual') s.push(tr(`Salario diario = bruto mensual ÷ ${monto(libro, 'Calculo', 'J55')} (factor mensual de la plantilla).`, `Daily salary = gross monthly ÷ ${monto(libro, 'Calculo', 'J55')} (template monthly factor).`))
   if (num(d.ajusteMoneda) !== 0) s.push(tr(`Ajuste moneda: ${dinero(num(d.ajusteMoneda))}.`, `Currency adjustment: ${dinero(num(d.ajusteMoneda))}.`))
+  if (d.topeSbc) {
+    const tope = monto(libro, 'IMSS Calculo', 'G3')
+    const sdi = monto(libro, 'Calculo', 'D20')
+    s.push(
+      sdi > tope
+        ? tr(`IMSS con el salario base de cotización topado a 25 UMA (${dinero(tope)} diarios; el integrado sería ${dinero(sdi)}), como la nómina real.`, `IMSS contribution base capped at 25 UMA (${dinero(tope)} per day; integrated salary would be ${dinero(sdi)}), as in actual payroll.`)
+        : tr(`IMSS con tope de 25 UMA (${dinero(tope)} diarios); este salario integrado (${dinero(sdi)}) no lo alcanza.`, `IMSS base capped at 25 UMA (${dinero(tope)} per day); this integrated salary (${dinero(sdi)}) is below it.`),
+    )
+  }
   s.push(...supuestoExtras(extras, d.idioma))
   return s
 }

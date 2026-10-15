@@ -128,9 +128,16 @@ Tres formatos, cada uno con **su** plantilla aprobada (no se mezclan):
 
 **Actualizar una plantilla** (p. ej. nuevas tablas de ISR o UMA): reemplazar el `.xlsx` en `src/corridas/plantillas/` (mismo nombre: `kofile.xlsx`, `general.xlsx` o `hilos33.xlsx`), correr `python3 scripts/extraer-plantillas-corridas.py` (requiere `openpyxl`) y `npm test`. Si las celdas de captura cambian de lugar, ajustar `src/corridas/calculo.ts`. Los ejemplos de Nóminas usados en las pruebas están en `src/corridas/pruebas/`.
 
-## Bonos 33 Hilos
+## 33 Hilos: nómina semanal y bonos
 
-Bonos trimestrales que manda 33 Threads por correo (tabla con nombre, Gross/Net y monto en USD). Pantalla **Bonos 33 Hilos** (inicio, o enlace desde la corrida 33 Hilos), para quien tiene el permiso de Corridas.
+Pantalla **33 Hilos** (inicio, o enlace desde la corrida 33 Hilos), para quien tiene el permiso de Corridas. Usa la misma corrida aprobada de 33 Hilos que Corridas, aplicada a toda la plantilla.
+
+- **Nómina semanal**: la semana tipo de cada persona activa (6 días + séptimo, bonos de puntualidad y asistencia, Sodexo; opcionalmente con los bonos de la corrida de bonos abierta). Neto en múltiplos de 50 centavos con el "ajuste por diferencia de moneda", como el sistema de nómina. Salidas: **listado de nómina en PDF** (mismo formato que el "Listado de Nómina" del sistema: claves 1/2/11/12, 51/52/99, totales, Sodexo, impuestos patronales y facturación) y **Excel con el formato de la base "Salary 33 Threads"** (neto, bruto, cuotas, finiquito, costos, 7.25 %, total, anual) más una hoja de detalle.
+- **Corrida 33 Hilos (Corridas)**: se puede elegir a la persona de la plantilla (llena puesto, salario diario y Sodexo) y el IMSS usa el salario base topado a 25 UMA por omisión (`topeSbc`), como la nómina real; se puede quitar para ver la plantilla tal cual.
+
+### Bonos
+
+Bonos trimestrales que manda 33 Threads por correo (tabla con nombre, Gross/Net y monto en USD).
 
 1. **Plantilla**: personas de 33 Hilos (tabla `hilos33_empleados`): número, nombre, puesto, salario diario, Sodexo y de dónde salió el salario. Se actualiza subiendo el **PDF "Listado de Nómina"** de la semana (trae el salario diario vigente) o el **Excel "Salary 33 Threads"** (trae el puesto completo; salario diario = bruto semanal ÷ 8.4). Se lee en el navegador (pdf.js) y antes de guardar se ven los cambios: altas, salarios que cambian y quién ya no aparece.
 2. **Corrida de bonos**: se pega la tabla del correo (reconoce Gross/Net, TBD y N/A) y cada nombre se empareja con la plantilla. El **tipo de cambio** se trae del DOF (Edge Function `tipo-cambio`, servicio SIDOF: FIX publicado en la fecha de pago o el último anterior).

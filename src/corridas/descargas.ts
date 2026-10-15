@@ -4,7 +4,7 @@ import { calcularCorrida, resumenValidacion } from './calculo'
 import generalXlsx from './plantillas/general.xlsx?url'
 import hilos33Xlsx from './plantillas/hilos33.xlsx?url'
 import kofileXlsx from './plantillas/kofile.xlsx?url'
-import type { CorridaData, CorridaId, KofileData } from './tipos'
+import type { CorridaData, CorridaId, Hilos33Data, KofileData } from './tipos'
 
 const PLANTILLAS_XLSX: Record<CorridaId, string> = { kofile: kofileXlsx, general: generalXlsx, hilos33: hilos33Xlsx }
 
@@ -25,7 +25,8 @@ export function nombreCorrida(id: CorridaId, d: CorridaData): string {
     id === 'kofile' && !(d as KofileData).septimo ? 'sin septimo' : '',
     Number(d.sodexo) > 0 ? `Sodexo ${d.sodexo}` : 'sin Sodexo',
   ].filter(Boolean)
-  return [PREFIJO[id], d.puesto.trim() || 'Puesto', `${objetivo} (${extras.join(', ')})`, d.fecha].join(' - ')
+  const persona = id === 'hilos33' ? (d as Hilos33Data).persona?.trim() : ''
+  return [PREFIJO[id], ...(persona ? [persona] : []), d.puesto.trim() || 'Puesto', `${objetivo} (${extras.join(', ')})`, d.fecha].join(' - ')
 }
 
 function guardar(datos: BlobPart, tipo: string, nombre: string) {

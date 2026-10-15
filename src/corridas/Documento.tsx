@@ -2,7 +2,7 @@ import { Paginado, type Bloque } from '../doc/Paginado'
 import { fechaEn, fechaEs } from '../lib/formato'
 import { IMG } from '../lib/imagenes'
 import { ARCHIVOS_APROBADOS, calcularCorrida, type Linea, type ResultadoCorrida } from './calculo'
-import type { CorridaData, CorridaId, KofileData } from './tipos'
+import type { CorridaData, CorridaId, Hilos33Data, KofileData } from './tipos'
 
 const TITULOS: Record<CorridaId, [es: string, en: string]> = {
   kofile: ['Simulación extendida Kofile', 'Kofile extended simulation'],
@@ -55,6 +55,7 @@ export function Corrida({ id, d }: { id: CorridaId; d: CorridaData }) {
 
   const datos: [string, string][] = [
     [t('Cliente / proyecto', 'Client / project'), d.empresa.trim() || '—'],
+    ...(id === 'hilos33' && (d as Hilos33Data).persona?.trim() ? [[t('Persona', 'Employee'), `${(d as Hilos33Data).persona.trim()}${(d as Hilos33Data).numEmpleado ? ` (No. ${(d as Hilos33Data).numEmpleado})` : ''}`] as [string, string]] : []),
     [t('Puesto', 'Position'), d.puesto.trim() || '—'],
     [t('Fecha', 'Date'), es ? fechaEs(d.fecha) : fechaEn(d.fecha)],
     [t('Periodo de pago', 'Pay period'), `${r.periodo.nombre} (${r.periodo.dias} ${t('días', 'days')})`],
