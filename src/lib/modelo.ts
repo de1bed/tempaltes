@@ -22,6 +22,17 @@ interface Base {
 
 export type PlanPago = 'mensual' | 'trimestral' | 'semestral' | 'anual'
 
+/** Precios a mano cuando el tabulador está apagado (texto como se captura; descuentos en %). */
+export interface PreciosManualesTexto {
+  precioUsuario: string
+  setup: string
+  adminsIncluidos: string
+  precioAdminExtra: string
+  descuentoTrimestral: string
+  descuentoSemestral: string
+  descuentoAnual: string
+}
+
 export interface FeedbakData extends Base {
   portada: Portada
   producto: ProductoFeedbak
@@ -31,6 +42,13 @@ export interface FeedbakData extends Base {
   tipoCambio: string
   /** Planes de pago a mostrar en la cotización. */
   planesPago: PlanPago[]
+  /** Apagado = los precios se capturan a mano en vez de salir del tabulador. */
+  usarTabulador: boolean
+  manual: PreciosManualesTexto
+  /** Fecha del primer pago; vacío = la fecha de la cotización. */
+  inicioPagos: string
+  /** Agregar la tabla con todas las fechas y montos de los primeros 12 meses. */
+  calendarioPagos: boolean
   /** Mostrar el costo por hora de soporte adicional. */
   mostrarCostoHoraAdicional: boolean
   /** Usuario que creó la cotización (se registra automáticamente). */
@@ -716,6 +734,10 @@ export function datosIniciales(): Datos {
       notaMontos: '',
       terminos: '',
       planesPago: ['mensual', 'semestral', 'anual'],
+      usarTabulador: true,
+      manual: { precioUsuario: '', setup: '', adminsIncluidos: '', precioAdminExtra: '', descuentoTrimestral: '', descuentoSemestral: '', descuentoAnual: '' },
+      inicioPagos: '',
+      calendarioPagos: false,
       mostrarCostoHoraAdicional: true,
       creadoPor: '',
       creadoPorEmail: '',

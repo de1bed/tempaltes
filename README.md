@@ -164,6 +164,10 @@ Bonos trimestrales que manda 33 Threads por correo (tabla con nombre, Gross/Net 
 - **Dólares:** montos en pesos ÷ tipo de cambio capturado.
 - Los administradores que excedan los incluidos se suman al total mensual al precio de admin extra.
 
+En el formulario, **Usar tabulador** se puede apagar para capturar a mano precio por usuario, configuración inicial, administradores incluidos, precio por admin extra y descuentos (en la moneda de la cotización); al apagarlo arranca con los precios del tabulador.
+
+**Planes de pago**: cada plan muestra su monto, la fecha del primer pago y el monto de los pagos siguientes. Opcionalmente se agrega un **calendario de pagos** con todas las fechas y montos de los primeros 12 meses (`src/lib/pagos.ts`).
+
 Para cambiar precios se edita ese archivo; `src/lib/tabuladores.test.ts` verifica los resultados contra los valores de los Excel.
 
 ## Uso

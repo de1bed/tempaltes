@@ -91,6 +91,18 @@ export function descuentoAnual(n: number): number {
   return 0.2
 }
 
+/** Precios capturados a mano cuando el tabulador está apagado (ya en la moneda de la cotización). */
+export interface PreciosManuales {
+  precioUsuario: number
+  setup: number
+  adminsIncluidos: number
+  precioAdminExtra: number
+  /** Descuentos como fracción (0.05 = 5%). */
+  descuentoTrimestral: number
+  descuentoSemestral: number
+  descuentoAnual: number
+}
+
 export interface EntradaFeedbak {
   producto: ProductoFeedbak
   colaboradores: number
@@ -99,6 +111,22 @@ export interface EntradaFeedbak {
   moneda: Moneda
   /** Pesos por dólar. Solo se usa cuando moneda = USD. */
   tipoCambio: number
+  /** Si viene, se usan estos precios en lugar del tabulador. */
+  manual?: PreciosManuales
+}
+
+/** Precios que da el tabulador, en la moneda de la cotización (para arrancar la captura manual). */
+export function preciosTabulador(e: Omit<EntradaFeedbak, 'manual'>): PreciosManuales {
+  const c = cotizarFeedbak(e)
+  return {
+    precioUsuario: c.precioUsuario,
+    setup: c.setup,
+    adminsIncluidos: c.adminsIncluidos,
+    precioAdminExtra: c.precioAdminExtra,
+    descuentoTrimestral: c.descuentoTrimestral,
+    descuentoSemestral: c.descuentoSemestral,
+    descuentoAnual: c.descuentoAnual,
+  }
 }
 
 export interface CotizacionFeedbak {
@@ -129,27 +157,29 @@ export function cotizarFeedbak(e: EntradaFeedbak): CotizacionFeedbak {
   const n = Math.max(1, Math.floor(e.colaboradores || 0))
   const r = rango(n)
   const def = PRODUCTOS[e.producto]
-  const tc = e.moneda === 'USD' && e.tipoCambio > 0 ? e.tipoCambio : 1
+  const m = e.manual
+  // Los precios manuales ya vienen en la moneda de la cotización: no se convierten.
+  const tc = !m && e.moneda === 'USD' && e.tipoCambio > 0 ? e.tipoCambio : 1
   const conv = (pesos: number) => pesos / tc
 
-  const precioUsuario = def.precios[r]
-  const adminsIncluidos = ADMINS_INCLUIDOS[r]
+  const precioUsuario = m ? m.precioUsuario : def.precios[r]
+  const adminsIncluidos = m ? Math.max(0, Math.floor(m.adminsIncluidos)) : ADMINS_INCLUIDOS[r]
   const adminsExtra = Math.max(0, Math.floor(e.administradores || 0) - adminsIncluidos)
-  const precioAdminExtra = PRECIO_ADMIN_EXTRA[r]
+  const precioAdminExtra = m ? m.precioAdminExtra : PRECIO_ADMIN_EXTRA[r]
 
   const mensualUsuarios = precioUsuario * n
   const mensualAdminsExtra = precioAdminExtra * adminsExtra
   const totalMensual = mensualUsuarios + mensualAdminsExtra
-  const setup = def.setup(n)
+  const setup = m ? m.setup : def.setup(n)
   const primeraFactura = totalMensual + setup
 
   // Igual que el Excel: primera factura (con setup) + N-1 mensualidades.
   const trimestralBase = primeraFactura + totalMensual * 2
-  const dTrim = descuentoTrimestral(n)
+  const dTrim = m ? m.descuentoTrimestral : descuentoTrimestral(n)
   const semestralBase = primeraFactura + totalMensual * 5
-  const dSem = descuentoSemestral(n)
+  const dSem = m ? m.descuentoSemestral : descuentoSemestral(n)
   const anualBase = primeraFactura + totalMensual * 11
-  const dAnual = descuentoAnual(n)
+  const dAnual = m ? m.descuentoAnual : descuentoAnual(n)
 
   return {
     producto: def,

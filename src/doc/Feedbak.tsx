@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { dinero, fechaEn, fechaFeedbak, miles, num, pct, primerNombre } from '../lib/formato'
+import { dinero, fechaCorta, fechaEn, fechaFeedbak, miles, pct, primerNombre } from '../lib/formato'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { rellenar } from '../lib/modelo'
 import type { FeedbakData, PlanPago } from '../lib/modelo'
@@ -7,12 +7,14 @@ import { contarSecciones, ligar } from '../lib/edicion'
 import { Editable, LineaEditable, Secciones } from './Editable'
 import { Paginado, type Bloque } from './Paginado'
 import { cotizarFeedbak, type CotizacionFeedbak } from '../lib/tabuladores'
+import { entradaFeedbak, pagosDelPlan, periodoPlan } from '../lib/pagos'
 
-type PlanData = [string, string, string, number, number, number]
+type FilaPlan = [string, string, string, number, number, number]
+type PlanData = [...FilaPlan, PlanPago]
 
 function planesVisibles(planes: PlanPago[], es: boolean, conSetup: string, c: CotizacionFeedbak): PlanData[] {
   const t = (textoEs: string, textoEn: string) => (es ? textoEs : textoEn)
-  const todos: Record<PlanPago, PlanData> = {
+  const todos: Record<PlanPago, FilaPlan> = {
     mensual: [
       t('Pago Mensual', 'Monthly Payment'),
       t('Precio Mensual', 'Monthly Price'),
@@ -47,7 +49,7 @@ function planesVisibles(planes: PlanPago[], es: boolean, conSetup: string, c: Co
     ],
   }
   const orden: PlanPago[] = ['mensual', 'trimestral', 'semestral', 'anual']
-  return orden.filter((p) => planes.includes(p)).map((p) => todos[p])
+  return orden.filter((p) => planes.includes(p)).map((p): PlanData => [...todos[p], p])
 }
 
 /** Hoja membretada de Feedbak: encabezado, pie y marca de agua. */
@@ -63,13 +65,7 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
   const es = d.idioma === 'es'
   const c$ = ligar(d, set)
   const t = (textoEs: string, textoEn: string) => (es ? textoEs : textoEn)
-  const c = cotizarFeedbak({
-    producto: d.producto,
-    colaboradores: num(d.colaboradores),
-    administradores: num(d.administradores),
-    moneda: d.moneda,
-    tipoCambio: num(d.tipoCambio),
-  })
+  const c = cotizarFeedbak(entradaFeedbak(d))
   const usd = d.moneda === 'USD'
   const plataformas = es ? c.producto.plataformas : c.producto.plataformasEn
   const monedaLarga = usd ? t('Dólares Americanos', 'US Dollars') : t('Pesos Mexicanos', 'Mexican Pesos')
@@ -99,6 +95,15 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
   const intro = d.intro.split('\n')
   const secciones = contarSecciones(d.terminos)
   const planes = planesVisibles(d.planesPago, es, conSetup, c)
+  // Fechas de pago: desde la fecha del primer pago (o la de la cotización).
+  const inicioPagos = d.inicioPagos || d.fecha
+  const pagos = planes.map(([titulo, , , , , , plan]) => ({ titulo, plan, lista: pagosDelPlan(plan, c, inicioPagos) }))
+  const fechasCalendario = [...new Set(pagos.flatMap((p) => p.lista.map((x) => x.fecha)))].sort()
+  const cadaCuanto = (plan: PlanPago) => {
+    const { meses } = periodoPlan(plan, c)
+    if (meses === 12) return t('Renovación anual', 'Annual renewal')
+    return meses === 1 ? t('cada mes', 'every month') : t(`cada ${meses} meses`, `every ${meses} months`)
+  }
 
   const bloques: Bloque[] = [
     {
@@ -249,19 +254,88 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
                     <th className="green">{t('Precio', 'Price')}</th>
                     <th className="green">{t('Descuento (%)', 'Discount (%)')}</th>
                     <th className="green">{t('Monto', 'Amount')}</th>
+                    <th className="green" style={{ whiteSpace: 'nowrap' }}>
+                      {t('Fecha de pago', 'Payment date')}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {planes.map(([titulo, , fila, base, desc, total]) => (
-                    <tr key={titulo}>
-                      <td>{fila}</td>
-                      <td className="r">{dinero(base)}</td>
-                      <td className="r">{pct(desc)}</td>
-                      <td className="r strong">{dinero(total)}</td>
-                    </tr>
-                  ))}
+                  {planes.map(([titulo, , fila, base, desc, total, plan], i) => {
+                    const siguiente = pagos[i].lista[1]
+                    return (
+                      <tr key={titulo}>
+                        <td>
+                          {fila}
+                          {siguiente && (
+                            <div className="muted" style={{ fontSize: 9.5 }}>
+                              {t('Después', 'Then')} {dinero(siguiente.monto)} {cadaCuanto(plan)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="r">{dinero(base)}</td>
+                        <td className="r">{pct(desc)}</td>
+                        <td className="r strong">{dinero(total)}</td>
+                        <td className="r" style={{ whiteSpace: 'nowrap' }}>
+                          {fechaCorta(inicioPagos, es)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
+            ),
+          },
+        ]
+      : []),
+    ...(d.calendarioPagos && planes.length > 0
+      ? [
+          {
+            key: 'calendario-pagos',
+            nodo: (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#3D5257' }}>{t('Calendario de pagos (primeros 12 meses)', 'Payment schedule (first 12 months)')}</div>
+                <table className="calendario-pagos">
+                  <thead>
+                    <tr>
+                      <th className="dark">{t('Fecha', 'Date')}</th>
+                      {pagos.map((p) => (
+                        <th key={p.plan} className="dark">
+                          {periodoPlan(p.plan, c).meses === 1
+                            ? t('Mensual', 'Monthly')
+                            : periodoPlan(p.plan, c).meses === 3
+                              ? t('Trimestral', 'Quarterly')
+                              : periodoPlan(p.plan, c).meses === 6
+                                ? t('Semestral', 'Semi-annual')
+                                : t('Anual', 'Annual')}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fechasCalendario.map((f) => (
+                      <tr key={f}>
+                        <td>{fechaCorta(f, es)}</td>
+                        {pagos.map((p) => {
+                          const pago = p.lista.find((x) => x.fecha === f)
+                          return (
+                            <td key={p.plan} className={pago ? 'r' : 'r muted'}>
+                              {pago ? dinero(pago.monto) : '—'}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    ))}
+                    <tr className="total">
+                      <td style={{ fontWeight: 600 }}>{t('Total 12 meses', '12-month total')}</td>
+                      {pagos.map((p) => (
+                        <td key={p.plan} className="r strong">
+                          {dinero(p.lista.reduce((s, x) => s + x.monto, 0))}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ),
           },
         ]

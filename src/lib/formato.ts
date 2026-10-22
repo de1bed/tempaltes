@@ -77,3 +77,9 @@ export const fechaEsDia = (iso: string) => `${cap(DIAS_ES[fecha(iso).getDay()])}
 
 /** Devuelve el texto en el idioma pedido: t('Hola', 'Hello'). */
 export const traductor = (idioma: 'es' | 'en') => (es: string, en: string) => (idioma === 'es' ? es : en)
+
+/** "1 nov 2026" / "Nov 1, 2026" (tablas de pagos). */
+export const fechaCorta = (iso: string, es = true) => {
+  const d = fecha(iso)
+  return es ? `${d.getDate()} ${MESES_ES[d.getMonth()].slice(0, 3)} ${d.getFullYear()}` : `${MESES_EN[d.getMonth()].slice(0, 3)} ${d.getDate()}, ${d.getFullYear()}`
+}

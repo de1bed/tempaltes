@@ -1,9 +1,10 @@
 import { useRef } from 'react'
 import { dinero, miles, num, pct } from '../lib/formato'
 import { TESTIGO_TREVE, listarClausulas, posicionClausula } from '../lib/contratos'
-import type { BonosData, ContratoLicenciaData, FeedbakData, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
+import type { BonosData, ContratoLicenciaData, FeedbakData, PreciosManualesTexto, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
+import { entradaFeedbak, manualDesdeTabulador } from '../lib/pagos'
 import { Area, Checkbox, Fecha, Fila, Lista, MultiCheck, Numero, Opciones, Seccion, Texto } from './campos'
 
 interface Props<T> {
@@ -65,13 +66,15 @@ const PLANES_PAGO_OPCIONES = [
 ] as const
 
 export function FormFeedbak({ d, set }: Props<FeedbakData>) {
-  const c = cotizarFeedbak({
-    producto: d.producto,
-    colaboradores: num(d.colaboradores),
-    administradores: num(d.administradores),
-    moneda: d.moneda,
-    tipoCambio: num(d.tipoCambio),
-  })
+  const c = cotizarFeedbak(entradaFeedbak(d))
+  const tabulador = d.usarTabulador !== false
+  const manual = (k: keyof PreciosManualesTexto) => (v: string) => set({ manual: { ...d.manual, [k]: v } })
+  function cambiarTabulador(usar: boolean) {
+    // Al apagarlo, la captura arranca con los precios del tabulador (si no había precios a mano).
+    const vacio = Object.values(d.manual ?? {}).every((v) => !String(v).trim())
+    set(usar ? { usarTabulador: true } : { usarTabulador: false, manual: vacio ? manualDesdeTabulador(d) : d.manual })
+  }
+  const simbolo = d.moneda === 'USD' ? 'US$' : '$'
   return (
     <>
       <Seccion titulo="Portada">
@@ -91,6 +94,12 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
       </Seccion>
 
       <Seccion titulo="Tabulador">
+        <Checkbox
+          label="Usar tabulador"
+          checked={tabulador}
+          onChange={cambiarTabulador}
+          ayuda={tabulador ? 'Los precios salen del tabulador fijo.' : 'Tabulador apagado: los precios se capturan a mano (en la moneda de la cotización).'}
+        />
         <Opciones label="Plataforma" value={d.producto} onChange={(v) => set({ producto: v })} opciones={PRODUCTO_OPCIONES} />
         <Fila>
           <Numero label="Colaboradores" value={d.colaboradores} min={1} step="1" onChange={(v) => set({ colaboradores: v })} />
@@ -112,10 +121,27 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
               ['USD', 'Dólares (USD)'],
             ]}
           />
-          {d.moneda === 'USD' && (
+          {d.moneda === 'USD' && tabulador && (
             <Numero label="Tipo de cambio" prefijo="$" value={d.tipoCambio} onChange={(v) => set({ tipoCambio: v })} ayuda="Pesos por dólar" />
           )}
         </Fila>
+        {!tabulador && (
+          <>
+            <Fila>
+              <Numero label="Precio mensual por usuario" prefijo={simbolo} value={d.manual.precioUsuario} onChange={manual('precioUsuario')} />
+              <Numero label="Configuración inicial" prefijo={simbolo} value={d.manual.setup} onChange={manual('setup')} ayuda="0 = sin costo" />
+            </Fila>
+            <Fila>
+              <Numero label="Administradores incluidos" step="1" value={d.manual.adminsIncluidos} onChange={manual('adminsIncluidos')} />
+              <Numero label="Precio por admin extra" prefijo={simbolo} value={d.manual.precioAdminExtra} onChange={manual('precioAdminExtra')} ayuda="Mensual" />
+            </Fila>
+            <Fila>
+              <Numero label="Desc. trimestral %" value={d.manual.descuentoTrimestral} onChange={manual('descuentoTrimestral')} />
+              <Numero label="Desc. semestral %" value={d.manual.descuentoSemestral} onChange={manual('descuentoSemestral')} />
+              <Numero label="Desc. anual %" value={d.manual.descuentoAnual} onChange={manual('descuentoAnual')} />
+            </Fila>
+          </>
+        )}
         <dl className="resumen">
           <dt>Precio mensual por usuario</dt>
           <dd>{dinero(c.precioUsuario)}</dd>
@@ -134,7 +160,9 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
           <dt>Horas de soporte incluidas</dt>
           <dd>{d.horasSoporte.trim() || '8'}</dd>
         </dl>
-        <small className="nota">Precios fijos del tabulador para {miles(c.colaboradores)} colaboradores. Las horas de soporte se copian solas a la cotización.</small>
+        <small className="nota">
+          {tabulador ? `Precios fijos del tabulador para ${miles(c.colaboradores)} colaboradores.` : 'Precios capturados a mano.'} Las horas de soporte se copian solas a la cotización.
+        </small>
       </Seccion>
 
       <Destinatario d={d} set={set} ciudad />
@@ -146,6 +174,13 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
           onChange={(v) => set({ planesPago: v })}
           opciones={PLANES_PAGO_OPCIONES}
           ayuda="Selecciona los planes de pago que se mostrarán en la cotización."
+        />
+        <Fecha label="Fecha del primer pago" value={d.inicioPagos || d.fecha} onChange={(v) => set({ inicioPagos: v })} ayuda="Cada plan muestra su fecha y monto a pagar." />
+        <Checkbox
+          label="Agregar calendario de pagos"
+          checked={d.calendarioPagos}
+          onChange={(v) => set({ calendarioPagos: v })}
+          ayuda="Tabla con todas las fechas y montos de los primeros 12 meses de cada plan."
         />
       </Seccion>
 
