@@ -2,7 +2,7 @@ import { dinero, miles, num, pct } from '../lib/formato'
 import type { BonosData, ContratoLicenciaData, FeedbakData, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
-import { Area, Fecha, Fila, Lista, Numero, Opciones, Seccion, Texto } from './campos'
+import { Area, Checkbox, Fecha, Fila, Lista, MultiCheck, Numero, Opciones, Seccion, Texto } from './campos'
 
 interface Props<T> {
   d: T
@@ -54,6 +54,13 @@ function Destinatario<T extends { contacto: string; empresa: string; fecha: stri
 /* ───────── Feedbak ───────── */
 
 const PRODUCTO_OPCIONES = (Object.keys(PRODUCTOS) as ProductoFeedbak[]).map((k) => [k, PRODUCTOS[k].nombre] as const)
+
+const PLANES_PAGO_OPCIONES = [
+  ['mensual', 'Mensual'],
+  ['trimestral', 'Trimestral'],
+  ['semestral', 'Semestral'],
+  ['anual', 'Anual'],
+] as const
 
 export function FormFeedbak({ d, set }: Props<FeedbakData>) {
   const c = cotizarFeedbak({
@@ -128,12 +135,29 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
 
       <Destinatario d={d} set={set} ciudad />
 
+      <Seccion titulo="Planes de pago">
+        <MultiCheck
+          label="Mostrar en la cotización"
+          value={d.planesPago}
+          onChange={(v) => set({ planesPago: v })}
+          opciones={PLANES_PAGO_OPCIONES}
+          ayuda="Selecciona los planes de pago que se mostrarán en la cotización."
+        />
+      </Seccion>
+
       <Seccion titulo="Alcance" abierta={false}>
         <Fila>
           <Texto label="Capacitación (hrs)" value={d.capacitacionHoras} onChange={(v) => set({ capacitacionHoras: v })} />
           <Texto label="Horas de soporte incluidas" value={d.horasSoporte} onChange={(v) => set({ horasSoporte: v })} />
         </Fila>
-        <Texto label="Costo por hora de soporte adicional" value={d.costoHoraAdicional} onChange={(v) => set({ costoHoraAdicional: v })} />
+        <Checkbox
+          label="Mostrar costo por hora de soporte adicional"
+          checked={d.mostrarCostoHoraAdicional}
+          onChange={(v) => set({ mostrarCostoHoraAdicional: v })}
+        />
+        {d.mostrarCostoHoraAdicional && (
+          <Texto label="Costo por hora de soporte adicional" value={d.costoHoraAdicional} onChange={(v) => set({ costoHoraAdicional: v })} />
+        )}
       </Seccion>
 
       <Seccion titulo="Carta y términos" abierta={false}>
@@ -154,6 +178,16 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
           <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />
           <Texto label="Empresa del firmante" value={d.firmanteEmpresa} onChange={(v) => set({ firmanteEmpresa: v })} />
         </Fila>
+      </Seccion>
+
+      <Seccion titulo="Autor" abierta={false}>
+        <Texto
+          label="Cotización elaborada por"
+          value={d.creadoPor}
+          onChange={(v) => set({ creadoPor: v })}
+          placeholder="Se registra automáticamente al generar el PDF"
+          ayuda="Nombre o email de quien elaboró esta cotización."
+        />
       </Seccion>
     </>
   )
@@ -474,8 +508,12 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
             value={d.vigencia}
             onChange={(v) => set({ vigencia: v })}
             opciones={[
-              ['anual', 'Anual (12 meses)'],
+              ['mensual', 'Mensual (1 mes)'],
+              ['bimestral', 'Bimestral (2 meses)'],
+              ['trimestral', 'Trimestral (3 meses)'],
               ['semestral', 'Semestral (6 meses)'],
+              ['anual', 'Anual (12 meses)'],
+              ['bianual', 'Bianual (24 meses)'],
             ]}
           />
         </Fila>
@@ -494,7 +532,13 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
       </Seccion>
       <Seccion titulo="Texto del contrato" abierta={false}>
         <Area label="Título" value={d.titulo} filas={4} onChange={(v) => set({ titulo: v })} ayuda="{cliente}, {proveedor} y {representanteProveedor} se sustituyen." />
-        <Area label="Cláusulas" value={d.cuerpo} filas={16} onChange={(v) => set({ cuerpo: v })} ayuda={`${AYUDA_CUERPO} {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`} />
+        <Area
+          label="Cláusulas"
+          value={d.cuerpo}
+          filas={16}
+          onChange={(v) => set({ cuerpo: v })}
+          ayuda={`${AYUDA_CUERPO} Usa "## 1. Definiciones", "## 2. Vigencia", etc. para encontrar cada apartado fácil en el texto. {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`}
+        />
       </Seccion>
     </>
   )

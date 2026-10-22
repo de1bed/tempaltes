@@ -20,6 +20,8 @@ interface Base {
   firmante: string
 }
 
+export type PlanPago = 'mensual' | 'trimestral' | 'semestral' | 'anual'
+
 export interface FeedbakData extends Base {
   portada: Portada
   producto: ProductoFeedbak
@@ -27,6 +29,12 @@ export interface FeedbakData extends Base {
   administradores: string
   moneda: Moneda
   tipoCambio: string
+  /** Planes de pago a mostrar en la cotización. */
+  planesPago: PlanPago[]
+  /** Mostrar el costo por hora de soporte adicional. */
+  mostrarCostoHoraAdicional: boolean
+  /** Usuario que creó la cotización (se registra automáticamente). */
+  creadoPor: string
   ciudad: string
   puesto: string
   capacitacionHoras: string
@@ -705,6 +713,9 @@ export function datosIniciales(): Datos {
       titulo: '',
       notaMontos: '',
       terminos: '',
+      planesPago: ['mensual', 'semestral', 'anual'],
+      mostrarCostoHoraAdicional: true,
+      creadoPor: '',
       ...FEEDBAK.es,
     },
     servicios: {

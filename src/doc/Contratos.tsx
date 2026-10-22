@@ -113,17 +113,36 @@ function Firma({ nombre, detalle }: { nombre: ReactNode; detalle: ReactNode }) {
 
 /* ───────── Contrato de licencia y servicios ───────── */
 
+const MESES_VIGENCIA: Record<ContratoLicenciaData['vigencia'], number> = {
+  mensual: 1,
+  bimestral: 2,
+  trimestral: 3,
+  semestral: 6,
+  anual: 12,
+  bianual: 24,
+}
+
+const VIGENCIA_TEXTO: Record<ContratoLicenciaData['vigencia'], { es: string; en: string }> = {
+  mensual: { es: 'mensual', en: 'one-month' },
+  bimestral: { es: 'bimestral', en: 'two-month' },
+  trimestral: { es: 'trimestral', en: 'three-month' },
+  semestral: { es: 'semestral', en: 'six-month' },
+  anual: { es: 'anual', en: 'one-year' },
+  bianual: { es: 'bianual', en: 'two-year' },
+}
+
 export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p: Partial<ContratoLicenciaData>) => void }) {
   const t = traductor(d.idioma)
   const c$ = ligar(d, set)
-  const meses = d.vigencia === 'anual' ? 12 : 6
+  const meses = MESES_VIGENCIA[d.vigencia]
+  const fechaRenovacion = fechaLarga(d.idioma, sumarMeses(d.fecha, meses))
   const vars = {
     cliente: d.empresa.trim() || t('[NOMBRE DEL CLIENTE O RAZÓN SOCIAL]', '[CLIENT NAME OR CORPORATE NAME]'),
     proveedor: d.proveedor,
     representanteProveedor: d.firmante,
-    vigencia: d.idioma === 'es' ? d.vigencia : d.vigencia === 'anual' ? 'one-year' : 'six-month',
+    vigencia: VIGENCIA_TEXTO[d.vigencia][d.idioma],
     inicio: fechaLarga(d.idioma, d.fecha),
-    renovacion: fechaLarga(d.idioma, sumarMeses(d.fecha, meses)),
+    renovacion: fechaRenovacion,
   }
 
   const bloques: Bloque[] = [
@@ -136,6 +155,18 @@ export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p:
       ),
     },
     ...conFirmas(bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), vars, d.idioma)),
+    {
+      key: 'vigencia-resaltada',
+      nodo: (
+        <div className="vigencia-resaltada">
+          <strong>{t('Vigencia del contrato:', 'Agreement term:')}</strong>{' '}
+          {t(
+            `Desde ${vars.inicio} hasta ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].es})`,
+            `From ${vars.inicio} until ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].en})`
+          )}
+        </div>
+      ),
+    },
     {
       key: 'firmas',
       nodo: (

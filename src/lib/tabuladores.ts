@@ -70,6 +70,13 @@ export const PRODUCTOS: Record<ProductoFeedbak, DefinicionProducto> = {
 const ADMINS_INCLUIDOS = [2, 3, 6, 10, 20, 30, 50]
 const PRECIO_ADMIN_EXTRA = [250, 150, 100, 50, 10, 8, 5]
 
+export function descuentoTrimestral(n: number): number {
+  if (n < 101) return 0.01
+  if (n < 501) return 0.03
+  if (n <= 1500) return 0.06
+  return 0.08
+}
+
 export function descuentoSemestral(n: number): number {
   if (n < 101) return 0.03
   if (n < 501) return 0.06
@@ -107,6 +114,9 @@ export interface CotizacionFeedbak {
   totalMensual: number
   setup: number
   primeraFactura: number
+  trimestralBase: number
+  descuentoTrimestral: number
+  trimestral: number
   semestralBase: number
   descuentoSemestral: number
   semestral: number
@@ -133,7 +143,9 @@ export function cotizarFeedbak(e: EntradaFeedbak): CotizacionFeedbak {
   const setup = def.setup(n)
   const primeraFactura = totalMensual + setup
 
-  // Igual que el Excel: primera factura (con setup) + 5 u 11 mensualidades.
+  // Igual que el Excel: primera factura (con setup) + N-1 mensualidades.
+  const trimestralBase = primeraFactura + totalMensual * 2
+  const dTrim = descuentoTrimestral(n)
   const semestralBase = primeraFactura + totalMensual * 5
   const dSem = descuentoSemestral(n)
   const anualBase = primeraFactura + totalMensual * 11
@@ -152,6 +164,9 @@ export function cotizarFeedbak(e: EntradaFeedbak): CotizacionFeedbak {
     totalMensual: conv(totalMensual),
     setup: conv(setup),
     primeraFactura: conv(primeraFactura),
+    trimestralBase: conv(trimestralBase),
+    descuentoTrimestral: dTrim,
+    trimestral: conv(trimestralBase * (1 - dTrim)),
     semestralBase: conv(semestralBase),
     descuentoSemestral: dSem,
     semestral: conv(semestralBase * (1 - dSem)),

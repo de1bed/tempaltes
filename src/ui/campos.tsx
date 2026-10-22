@@ -85,6 +85,43 @@ export function Area(p: BaseProps & { value: string; onChange: (v: string) => vo
   )
 }
 
+export function Checkbox(p: BaseProps & { checked: boolean; onChange: (v: boolean) => void }) {
+  const id = useId()
+  return (
+    <div className="campo campo-check">
+      <label htmlFor={id}>
+        <input id={id} type="checkbox" checked={p.checked} onChange={(e) => p.onChange(e.target.checked)} />
+        {p.label}
+      </label>
+      {p.ayuda && <small>{p.ayuda}</small>}
+    </div>
+  )
+}
+
+export function MultiCheck<T extends string>(p: BaseProps & { value: T[]; onChange: (v: T[]) => void; opciones: readonly (readonly [T, string])[] }) {
+  const toggle = (opt: T) => {
+    if (p.value.includes(opt)) {
+      p.onChange(p.value.filter((v) => v !== opt))
+    } else {
+      p.onChange([...p.value, opt])
+    }
+  }
+  return (
+    <div className="campo campo-multicheck">
+      <span className="campo-label">{p.label}</span>
+      <div className="multicheck-opciones">
+        {p.opciones.map(([v, texto]) => (
+          <label key={v}>
+            <input type="checkbox" checked={p.value.includes(v)} onChange={() => toggle(v)} />
+            {texto}
+          </label>
+        ))}
+      </div>
+      {p.ayuda && <small>{p.ayuda}</small>}
+    </div>
+  )
+}
+
 /** Editor de filas (servicios, empleados…). */
 export function Lista<T>(p: {
   items: T[]

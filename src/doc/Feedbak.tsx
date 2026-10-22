@@ -1,11 +1,54 @@
+import type { ReactNode } from 'react'
 import { dinero, fechaEn, fechaFeedbak, miles, num, pct, primerNombre } from '../lib/formato'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { rellenar } from '../lib/modelo'
-import type { FeedbakData } from '../lib/modelo'
+import type { FeedbakData, PlanPago } from '../lib/modelo'
 import { contarSecciones, ligar } from '../lib/edicion'
 import { Editable, LineaEditable, Secciones } from './Editable'
 import { Paginado, type Bloque } from './Paginado'
-import { cotizarFeedbak } from '../lib/tabuladores'
+import { cotizarFeedbak, type CotizacionFeedbak } from '../lib/tabuladores'
+
+type PlanData = [string, string, string, number, number, number]
+
+function planesVisibles(planes: PlanPago[], es: boolean, conSetup: string, c: CotizacionFeedbak): PlanData[] {
+  const t = (textoEs: string, textoEn: string) => (es ? textoEs : textoEn)
+  const todos: Record<PlanPago, PlanData> = {
+    mensual: [
+      t('Pago Mensual', 'Monthly Payment'),
+      t('Precio Mensual', 'Monthly Price'),
+      t(`Pago mensual (1 mes${conSetup})`, `Monthly payment (1 month${conSetup})`),
+      c.primeraFactura,
+      0,
+      c.primeraFactura,
+    ],
+    trimestral: [
+      t('Descuento por pago Trimestral', 'Quarterly Payment Discount'),
+      t('Precio Trimestral', 'Quarterly Price'),
+      t(`Pago trimestral (3 meses${conSetup})`, `Quarterly payment (3 months${conSetup})`),
+      c.trimestralBase,
+      c.descuentoTrimestral,
+      c.trimestral,
+    ],
+    semestral: [
+      t('Descuento por pago Semestral', 'Semi-annual Payment Discount'),
+      t('Precio Semestral', 'Semi-annual Price'),
+      t(`Pago semestral (6 meses${conSetup})`, `Semi-annual payment (6 months${conSetup})`),
+      c.semestralBase,
+      c.descuentoSemestral,
+      c.semestral,
+    ],
+    anual: [
+      t('Descuento por pago Anualizado', 'Annual Payment Discount'),
+      t('Precio Anual', 'Annual Price'),
+      t(`Pago anual (12 meses${conSetup})`, `Annual payment (12 months${conSetup})`),
+      c.anualBase,
+      c.descuentoAnual,
+      c.anual,
+    ],
+  }
+  const orden: PlanPago[] = ['mensual', 'trimestral', 'semestral', 'anual']
+  return orden.filter((p) => planes.includes(p)).map((p) => todos[p])
+}
 
 /** Hoja membretada de Feedbak: encabezado, pie y marca de agua. */
 const fondo = (
@@ -107,27 +150,31 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
       nodo: (
         <table>
           <tbody>
-            {[
-              [t('Plataformas Incluídas:', 'Included Platforms:'), plataformas],
-              [t('Colaboradores:', 'Employees:'), <Editable key="colaboradores" {...c$('colaboradores')} mostrar={miles(c.colaboradores)} placeholder="0" />],
-              [t('Usuarios Administradores:', 'Administrator Users:'), admins],
+            {(
               [
-                t('Capacitación Personalizada:', 'Personalized Training:'),
-                <>
-                  {t('Incluida (', 'Included (')}
-                  <Editable {...c$('capacitacionHoras')} placeholder="0" /> hrs){t(' + Material Virtual', ' + Virtual Material')}
-                </>,
-              ],
-              [t('Configuración Inicial:', 'Initial Setup:'), c.setup > 0 ? dinero(c.setup) : t('Sin costo', 'No cost')],
-              [
-                t('Horas de soporte incluidas:', 'Support hours included:'),
-                <>
-                  <Editable {...c$('horasSoporte')} placeholder="0" /> {t('horas', 'hours')}
-                </>,
-              ],
-              [t('Costo por Hora de Soporte Adicional:', 'Cost per Additional Support Hour:'), <Editable key="costo" {...c$('costoHoraAdicional')} placeholder="$0.00" />],
-            ].map(([k, v]) => (
-              <tr key={k as string}>
+                [t('Plataformas Incluídas:', 'Included Platforms:'), plataformas],
+                [t('Colaboradores:', 'Employees:'), <Editable key="colaboradores" {...c$('colaboradores')} mostrar={miles(c.colaboradores)} placeholder="0" />],
+                [t('Usuarios Administradores:', 'Administrator Users:'), admins],
+                [
+                  t('Capacitación Personalizada:', 'Personalized Training:'),
+                  <>
+                    {t('Incluida (', 'Included (')}
+                    <Editable {...c$('capacitacionHoras')} placeholder="0" /> hrs){t(' + Material Virtual', ' + Virtual Material')}
+                  </>,
+                ],
+                [t('Configuración Inicial:', 'Initial Setup:'), c.setup > 0 ? dinero(c.setup) : t('Sin costo', 'No cost')],
+                [
+                  t('Horas de soporte incluidas:', 'Support hours included:'),
+                  <>
+                    <Editable {...c$('horasSoporte')} placeholder="0" /> {t('horas', 'hours')}
+                  </>,
+                ],
+                ...(d.mostrarCostoHoraAdicional
+                  ? [[t('Costo por Hora de Soporte Adicional:', 'Cost per Additional Support Hour:'), <Editable key="costo" {...c$('costoHoraAdicional')} placeholder="$0.00" />]]
+                  : []),
+              ] as [string, ReactNode][]
+            ).map(([k, v]) => (
+              <tr key={k}>
                 <td className="k">{k}</td>
                 <td className="v">{v}</td>
               </tr>
@@ -190,26 +237,7 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
         </table>
       ),
     },
-    ...(
-      [
-        [
-          t('Descuento por pago Semestral', 'Semi-annual Payment Discount'),
-          t('Precio Semestral', 'Semi-annual Price'),
-          t(`Pago semestral (6 meses${conSetup})`, `Semi-annual payment (6 months${conSetup})`),
-          c.semestralBase,
-          c.descuentoSemestral,
-          c.semestral,
-        ],
-        [
-          t('Descuento por pago Anualizado', 'Annual Payment Discount'),
-          t('Precio Anual', 'Annual Price'),
-          t(`Pago anual (12 meses${conSetup})`, `Annual payment (12 months${conSetup})`),
-          c.anualBase,
-          c.descuentoAnual,
-          c.anual,
-        ],
-      ] as const
-    ).map(([titulo, col, fila, base, desc, total]) => ({
+    ...planesVisibles(d.planesPago, es, conSetup, c).map(([titulo, col, fila, base, desc, total]) => ({
       key: titulo,
       nodo: (
         <table>
@@ -268,6 +296,12 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
           <div className="muted" style={{ fontSize: 11 }}>
             <Editable {...c$('firmanteEmpresa')} placeholder={t('Empresa', 'Company')} />
           </div>
+          {d.creadoPor.trim() && (
+            <div className="muted" style={{ fontSize: 10, marginTop: 12 }}>
+              {t('Cotización elaborada por: ', 'Quote prepared by: ')}
+              <Editable {...c$('creadoPor')} placeholder={t('Nombre del elaborador', 'Preparer name')} />
+            </div>
+          )}
         </div>
       ),
     },

@@ -283,6 +283,12 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     setErrorPdf('')
     setExportando({ hoja: 0, total: 0 })
     try {
+      // Registrar automáticamente el autor en cotizaciones Feedbak si el campo está vacío.
+      if (plantilla === 'feedbak' && !datos.feedbak.creadoPor.trim()) {
+        const autor = perfil.nombre.trim() || perfil.email
+        setEstado((e) => ({ ...e, datos: { ...e.datos, feedbak: { ...e.datos.feedbak, creadoPor: autor } } }))
+        await new Promise((r) => requestAnimationFrame(r))
+      }
       // El PDF sale de las hojas: si se están viendo los números, se muestra el documento
       // mientras se genera y al terminar se regresa a los números.
       if (verNumeros) {
