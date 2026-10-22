@@ -96,12 +96,13 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
 
   const intro = d.intro.split('\n')
   const secciones = contarSecciones(d.terminos)
+  const planes = planesVisibles(d.planesPago, es, conSetup, c)
 
   const bloques: Bloque[] = [
     {
       key: 'encabezado',
       nodo: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div className="muted" style={{ fontSize: 12.5 }}>
             <Editable {...c$('ciudad')} placeholder={t('Ciudad', 'City')} />
             {es ? ` a ${fechaFeedbak(d.fecha)}` : `, ${fechaEn(d.fecha)}`}
@@ -137,7 +138,7 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
       key: 'titulo',
       conSiguiente: true,
       nodo: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 2 }}>
           <div className="h-title">
             <Editable {...c$('titulo')} placeholder={t('Título', 'Title')} />
           </div>
@@ -184,12 +185,9 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
       ),
     },
     {
-      // Los precios empiezan en hoja nueva, como en la plantilla original, salvo que la
-      // carta ya haya pasado a otra hoja (entonces siguen ahí, sin dejar huecos).
       key: 'precios',
-      salto: 'primera',
       nodo: (
-        <table style={{ marginTop: 4 }}>
+        <table>
           <thead>
             <tr>
               <th className="dark">{t('Concepto', 'Item')}</th>
@@ -237,29 +235,35 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
         </table>
       ),
     },
-    ...planesVisibles(d.planesPago, es, conSetup, c).map(([titulo, col, fila, base, desc, total]) => ({
-      key: titulo,
-      nodo: (
-        <table>
-          <thead>
-            <tr>
-              <th className="green">{titulo}</th>
-              <th className="green">{col}</th>
-              <th className="green">{t('Descuento (%)', 'Discount (%)')}</th>
-              <th className="green">{t('Monto', 'Amount')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>{fila}</td>
-              <td className="r">{dinero(base)}</td>
-              <td className="r">{pct(desc)}</td>
-              <td className="r strong">{dinero(total)}</td>
-            </tr>
-          </tbody>
-        </table>
-      ),
-    })),
+    ...(planes.length > 0
+      ? [
+          {
+            key: 'planes',
+            nodo: (
+              <table>
+                <thead>
+                  <tr>
+                    <th className="green">{t('Plan de pago', 'Payment plan')}</th>
+                    <th className="green">{t('Precio', 'Price')}</th>
+                    <th className="green">{t('Descuento (%)', 'Discount (%)')}</th>
+                    <th className="green">{t('Monto', 'Amount')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {planes.map(([titulo, , fila, base, desc, total]) => (
+                    <tr key={titulo}>
+                      <td>{fila}</td>
+                      <td className="r">{dinero(base)}</td>
+                      <td className="r">{pct(desc)}</td>
+                      <td className="r strong">{dinero(total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ),
+          },
+        ]
+      : []),
     {
       key: 'nota',
       nodo: (
@@ -272,7 +276,7 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
       key: 'terminos-titulo',
       conSiguiente: true,
       nodo: (
-        <div className="h-title" style={{ paddingTop: 12 }}>
+        <div className="h-title" style={{ paddingTop: 4 }}>
           {t('Términos y Condiciones del Servicio (SaaS)', 'Service Terms and Conditions (SaaS)')}
         </div>
       ),
@@ -287,7 +291,7 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
     {
       key: 'firma',
       nodo: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, paddingTop: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, paddingTop: 10 }}>
           <div style={{ color: '#3D5257' }}>{t('Atentamente', 'Sincerely')}</div>
           <div style={{ height: 26 }} />
           <div className="accent" style={{ fontWeight: 600, borderTop: '1px solid #6FC08D', paddingTop: 6, width: 230 }}>

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ligar } from '../lib/edicion'
 import { fecha, fechaEn, fechaEs, traductor } from '../lib/formato'
 import type { ContratoLicenciaData, Idioma, NdaData } from '../lib/modelo'
+import { TESTIGO_TREVE } from '../lib/contratos'
 import { rellenar } from '../lib/modelo'
 import { Editable, LineaEditable } from './Editable'
 import { Paginado, type Bloque } from './Paginado'
@@ -157,14 +158,21 @@ export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p:
     ...conFirmas(bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), vars, d.idioma)),
     {
       key: 'vigencia-resaltada',
+      conSiguiente: true,
       nodo: (
-        <div className="vigencia-resaltada">
-          <strong>{t('Vigencia del contrato:', 'Agreement term:')}</strong>{' '}
-          {t(
-            `Desde ${vars.inicio} hasta ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].es})`,
-            `From ${vars.inicio} until ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].en})`
-          )}
-        </div>
+        <table className="vigencia-resaltada">
+          <tbody>
+            <tr>
+              <td>
+                <strong>{t('Vigencia del contrato:', 'Agreement term:')}</strong>{' '}
+                {t(
+                  `Desde ${vars.inicio} hasta ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].es})`,
+                  `From ${vars.inicio} until ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].en})`,
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       ),
     },
     {
@@ -184,8 +192,14 @@ export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p:
             detalle={t('Testigo', 'Witness')}
           />
           <Firma
-            nombre={<Editable {...c$('testigoProveedor')} placeholder={t('Nombre del testigo', 'Witness name')} />}
-            detalle={`${t('Testigo', 'Witness')} · ${d.proveedor}`}
+            nombre={
+              <Editable
+                {...c$('testigoProveedor')}
+                mostrar={d.testigoProveedor.trim() || TESTIGO_TREVE}
+                placeholder={TESTIGO_TREVE}
+              />
+            }
+            detalle={`${t('Testigo Treve', 'Treve witness')} · ${d.proveedor}`}
           />
         </div>
       ),

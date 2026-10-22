@@ -1,4 +1,5 @@
 import { dinero, miles, num, pct } from '../lib/formato'
+import { TESTIGO_TREVE } from '../lib/contratos'
 import type { BonosData, ContratoLicenciaData, FeedbakData, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
@@ -528,7 +529,12 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
       <Seccion titulo="Proveedor" abierta={false}>
         <Texto label="Razón social" value={d.proveedor} onChange={(v) => set({ proveedor: v })} />
         <Texto label="Representante legal" value={d.firmante} onChange={(v) => set({ firmante: v })} />
-        <Texto label="Testigo del proveedor" value={d.testigoProveedor} onChange={(v) => set({ testigoProveedor: v })} />
+        <Texto
+          label="Testigo de Treve / Feedbak"
+          value={d.testigoProveedor}
+          onChange={(v) => set({ testigoProveedor: v })}
+          placeholder={TESTIGO_TREVE}
+        />
       </Seccion>
       <Seccion titulo="Texto del contrato" abierta={false}>
         <Area label="Título" value={d.titulo} filas={4} onChange={(v) => set({ titulo: v })} ayuda="{cliente}, {proveedor} y {representanteProveedor} se sustituyen." />

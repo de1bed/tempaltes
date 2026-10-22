@@ -31,6 +31,7 @@ import { Inicio } from './ui/Inicio'
 import { Admin } from './auth/Admin'
 import { Salas } from './salas/Salas'
 import { Felicitaciones } from './felicitaciones/Felicitaciones'
+import { TESTIGO_TREVE } from './lib/contratos'
 import { registrar, type Perfil } from './lib/supabase'
 
 const CLAVE = 'cotizador:v1'
@@ -65,6 +66,8 @@ function cargar(): Estado {
       const inicial = previo?.idioma ? cambiarIdioma(k, datos[k], previo.idioma) : datos[k]
       datos[k] = { ...inicial, ...(previo ?? {}) } as never
     }
+    // Borradores viejos traían el testigo de Treve vacío: se rellena el nombre por defecto.
+    if (!datos.licencia.testigoProveedor.trim()) datos.licencia.testigoProveedor = TESTIGO_TREVE
     return { plantilla: guardado.plantilla && guardado.plantilla in datos ? guardado.plantilla : 'feedbak', datos }
   } catch {
     return base
