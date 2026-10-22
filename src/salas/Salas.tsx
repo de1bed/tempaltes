@@ -6,6 +6,7 @@ import { AccesoExternos } from './AccesoExternos'
 import { AgregarCalendario } from './AgregarCalendario'
 import { CampoInvitados, CintaDia, Calendario, Flecha, HorariosLibres, type BloqueAgenda } from './componentes'
 import { ConexionOutlook } from './ConexionOutlook'
+import { EditarDetalles } from './EditarDetalles'
 import { Historial, HistorialReservacion } from './Historial'
 import { Solicitudes } from './Solicitudes'
 import { aFecha, diasHabiles, horaDe, horariosLibres, local, sumarDias, textoDia, type Bloque } from './tiempo'
@@ -659,6 +660,7 @@ function Proxima({ r, perfil, adminSalas, sala, conOutlook, mover, alCambiar }: 
   const [enviando, setEnviando] = useState(false)
   const [falla, setFalla] = useState('')
   const [verHistorial, setVerHistorial] = useState(false)
+  const [editando, setEditando] = useState(false)
   const resp = responsableDe(r)
   const mia = esMia(r, perfil)
   const puede = mia || adminSalas
@@ -711,6 +713,9 @@ function Proxima({ r, perfil, adminSalas, sala, conOutlook, mover, alCambiar }: 
           <button type="button" className="btn secundario" disabled={enviando} onClick={mover}>
             Cambiar horario
           </button>
+          <button type="button" className="btn secundario" disabled={enviando} onClick={() => setEditando((v) => !v)} aria-expanded={editando}>
+            Editar detalles
+          </button>
           {confirmando ? (
             <span className="salas-cancelar">
               <input aria-label="Razón (opcional)" placeholder={mia ? 'Razón (opcional)' : 'Razón para el responsable (opcional)'} maxLength={300} value={razon} onChange={(e) => setRazon(e.target.value)} />
@@ -732,6 +737,17 @@ function Proxima({ r, perfil, adminSalas, sala, conOutlook, mover, alCambiar }: 
         </div>
       )}
       {falla && <div className="alerta" role="alert">{falla}</div>}
+      {editando && (
+        <EditarDetalles
+          inicial={{ motivo: r.motivo, personas: r.personas, invitados: r.invitados, notas: r.notas ?? '', enlace_reunion: r.enlace_reunion ?? '' }}
+          guardar={async (cambios) => (await salasApi<{ outlook: EstadoOutlook }>('editar', { id: r.id, ...cambios, app: urlApp() })).outlook}
+          alCerrar={() => setEditando(false)}
+          alTerminar={(texto, detalle) => {
+            setEditando(false)
+            alCambiar({ texto, detalle })
+          }}
+        />
+      )}
       {verHistorial && <HistorialReservacion id={r.id} />}
       {!mia && adminSalas && <small className="nota">Como administrador de salas puedes cambiarla o cancelarla; el responsable recibe el aviso.</small>}
       {r.enlace_reunion && (

@@ -553,6 +553,8 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .historial-lista .admin-acciones { align-self: center; }
 @media (max-width: 600px) { .historial-filtros { grid-template-columns: 1fr; } }
 
+.editar-detalles { margin-top: 4px; padding: 14px; border: 1px solid var(--linea); border-top: 1px solid var(--linea); border-radius: 10px; background: #fafbfb; }
+
 /* ───── Vista previa ───── */
 .vista { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .barra { display: flex; align-items: center; gap: 12px; padding: 10px 18px; background: #fff; border-bottom: 1px solid var(--linea); flex-wrap: wrap; }

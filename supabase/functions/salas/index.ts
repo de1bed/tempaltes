@@ -676,6 +676,67 @@ async function moverReservacion(anterior: Reservacion, sala: Sala, inicio: Date,
   return { reservacion: r, outlook }
 }
 
+interface CambiosDetalle {
+  motivo?: string
+  personas?: number
+  invitados?: string[]
+  notas?: string
+  enlace_reunion?: string
+}
+
+/** Lee del cuerpo solo los datos que vienen (los que no vienen no cambian). */
+function cambiosDetalle(cuerpo: Record<string, unknown>): CambiosDetalle {
+  const c: CambiosDetalle = {}
+  if (cuerpo.motivo !== undefined) c.motivo = texto(cuerpo.motivo, 200, 'el motivo de la reunión')
+  if (cuerpo.personas !== undefined) c.personas = personas(cuerpo.personas)
+  if (cuerpo.invitados !== undefined) c.invitados = invitados(cuerpo.invitados)
+  if (cuerpo.notas !== undefined) c.notas = texto(cuerpo.notas, 1000)
+  if (cuerpo.enlace_reunion !== undefined) c.enlace_reunion = enlaceReunion(cuerpo.enlace_reunion)
+  return c
+}
+
+const ETIQUETAS: Record<keyof CambiosDetalle, string> = { motivo: 'motivo', personas: 'personas', invitados: 'invitados', notas: 'notas', enlace_reunion: 'link de reunión' }
+
+/**
+ * Cambia motivo, personas, invitados, notas o link sin tocar el horario. En Outlook se actualiza el mismo
+ * evento: los invitados nuevos reciben la invitación, los que se quitan reciben la cancelación y el resto, la actualización.
+ */
+async function editarReservacion(anterior: Reservacion, c: CambiosDetalle, quien: Persona, urlApp: string | null) {
+  const cambiaron = (Object.keys(c) as (keyof CambiosDetalle)[]).filter((k) => JSON.stringify(c[k]) !== JSON.stringify(anterior[k] ?? (k === 'invitados' ? [] : '')))
+  if (cambiaron.length === 0) throw new ErrorSalas('No hay cambios que guardar')
+  const nuevos = Object.fromEntries(cambiaron.map((k) => [k, c[k]]))
+  const { data, error } = await admin.from('reservaciones').update({ ...nuevos, actualizado: new Date().toISOString() }).eq('id', anterior.id).eq('estado', 'activa').select('*').single()
+  if (error) throw error
+  const r = data as Reservacion
+  const sala = await leerSala(r.sala_id)
+  const aviso: Aviso = { tipo: 'actualizada', cambios: cambiaron.map((k) => ETIQUETAS[k]) }
+  const gestion = await enlaceGestion(r, urlApp)
+  let outlook: 'ok' | 'error' | 'no' = 'no'
+  if (usaOutlook(sala) && r.outlook_event_id) {
+    try {
+      const evento = eventoOutlook(r, sala, urlApp, true, aviso, gestion)
+      const res = await graph(`/me/events/${encodeURIComponent(r.outlook_event_id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ subject: evento.subject, body: evento.body, location: evento.location, attendees: evento.attendees }),
+      })
+      if (!res.ok) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
+      await guardarSync(r.id, { sync_error: null })
+      outlook = 'ok'
+    } catch (e) {
+      console.error(e)
+      outlook = 'error'
+      await guardarSync(r.id, { sync_error: String(e).slice(0, 500) })
+    }
+  }
+  // Sin Outlook (o si falló), el aviso llega por correo a todos los de la lista nueva.
+  const avisados: AvisoEnviado =
+    outlook === 'ok' ? { medio: 'outlook', a: asistentes(r) } : await avisarPorCorreo(r, `Actualizada: ${r.motivo} · ${sala.nombre}, ${horarioCorto(r)}`, cuerpoInvitacion(datosReunion(r, sala, urlApp, gestion), aviso))
+  const antes = Object.fromEntries(cambiaron.map((k) => [k, anterior[k]]))
+  await historial(r, 'editada', quien, { antes, despues: nuevos, por_admin: !esDueno(anterior, quien), aviso: avisados })
+  await registrar(quien, 'sala_editada', sala, r)
+  return { reservacion: r, outlook }
+}
+
 /** Razón visible para los invitados cuando cancela o mueve alguien que no es el responsable. */
 const porQuien = (r: Reservacion, quien: Persona) => (esDueno(r, quien) ? `La canceló ${quien.nombre || quien.email}.` : `La canceló ${quien.nombre || quien.email} (administración de salas).`)
 
@@ -778,7 +839,7 @@ async function manejarExterno(req: Request, cuerpo: Record<string, unknown>) {
       const r = await reservacionPorToken(cuerpo.token)
       const sala = await leerSala(r.sala_id)
       return {
-        reservacion: { codigo: r.codigo, sala_id: sala.id, sala: sala.nombre, inicio: r.inicio, fin: r.fin, motivo: r.motivo, estado: r.estado, responsable: responsable(r), empresa: r.empresa, invitados: r.invitados, notas: r.notas, enlace_reunion: r.enlace_reunion },
+        reservacion: { codigo: r.codigo, sala_id: sala.id, sala: sala.nombre, inicio: r.inicio, fin: r.fin, motivo: r.motivo, personas: r.personas, estado: r.estado, responsable: responsable(r), empresa: r.empresa, invitados: r.invitados, notas: r.notas, enlace_reunion: r.enlace_reunion },
         max_horas: EXTERNO_MAX_HORAS,
       }
     }
@@ -796,6 +857,12 @@ async function manejarExterno(req: Request, cuerpo: Record<string, unknown>) {
       const [inicio, fin] = validarHorario(cuerpo.inicio, cuerpo.fin, EXTERNO_MAX_HORAS)
       const { reservacion: r, outlook } = await moverReservacion(anterior, sala, inicio, fin, personaExterna(anterior), app(cuerpo.app))
       return { reservacion: { inicio: r.inicio, fin: r.fin }, outlook }
+    }
+    case 'externo_editar': {
+      const anterior = await reservacionPorToken(cuerpo.token)
+      exigirVigente(anterior)
+      const { reservacion: r, outlook } = await editarReservacion(anterior, cambiosDetalle(cuerpo), personaExterna(anterior), app(cuerpo.app))
+      return { reservacion: { motivo: r.motivo, personas: r.personas, invitados: r.invitados, notas: r.notas, enlace_reunion: r.enlace_reunion }, outlook }
     }
     case 'externo_cancelar': {
       const r = await reservacionPorToken(cuerpo.token)
@@ -844,6 +911,11 @@ async function manejar(req: Request) {
       const sala = await leerSala(cuerpo.sala_id || anterior.sala_id)
       const [inicio, fin] = validarHorario(cuerpo.inicio, cuerpo.fin)
       return moverReservacion(anterior, sala, inicio, fin, quien, urlApp)
+    }
+
+    case 'editar': {
+      const anterior = await leerReservacion(cuerpo.id, quien)
+      return editarReservacion(anterior, cambiosDetalle(cuerpo), quien, urlApp)
     }
 
     case 'cancelar': {

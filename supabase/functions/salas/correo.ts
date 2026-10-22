@@ -5,6 +5,7 @@ import { TZ_ETIQUETA, ZONA } from './zona.ts'
 const AZUL = '#0b4c5e'
 const NARANJA = '#E77425'
 const GRIS = '#5a6b70'
+const VERDE = '#2f7d4f'
 
 export interface Persona {
   nombre: string
@@ -37,6 +38,7 @@ export type Aviso =
   | { tipo: 'cambio'; antes: { sala: string; inicio: string; fin: string } }
   | { tipo: 'cedida'; a: string; motivo: string }
   | { tipo: 'admin'; quien: string }
+  | { tipo: 'actualizada'; cambios: string[] }
 
 export const escapar = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
@@ -77,6 +79,8 @@ function textoAviso(a: Aviso): string {
       NARANJA,
     )
   }
+  if (a.tipo === 'actualizada')
+    return caja(`<strong>Se actualizaron los datos de esta reunión</strong> (${a.cambios.map(escapar).join(', ')}). El horario no cambió.`, '#eef6f1', VERDE)
   if (a.tipo === 'cedida') return caja(`<strong>El horario se cedió a ${escapar(a.a)}</strong> para: ${escapar(a.motivo)}.`, '#fff4e0', NARANJA)
   return caja(`Cambio hecho por la administración de salas (${escapar(a.quien)}).`, '#eef1f2', AZUL)
 }
@@ -115,7 +119,7 @@ export function cuerpoInvitacion(d: DatosReunion, aviso?: Aviso): string {
 <table role="presentation" style="border-collapse:collapse;width:100%">${filas}</table>
 ${enlaces.length ? `<div style="margin-top:16px;font-size:13px">${enlaces.join(' &nbsp;·&nbsp; ')}</div>` : ''}`
   const pie = `Acepta esta invitación para agregarla a tu calendario. Para cambiarla o cancelarla usa la app de salas de Trevé${d.gestion ? ' o el enlace de arriba' : ''}; los invitados reciben la actualización automáticamente.`
-  return marco(aviso?.tipo === 'cambio' ? 'Reunión reprogramada' : 'Reunión en sala de juntas', cuerpo, pie)
+  return marco(aviso?.tipo === 'cambio' ? 'Reunión reprogramada' : aviso?.tipo === 'actualizada' ? 'Reunión actualizada' : 'Reunión en sala de juntas', cuerpo, pie)
 }
 
 /** Texto corto de cancelación (Outlook lo agrega a su aviso). */

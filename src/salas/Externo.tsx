@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { IMG } from '../lib/imagenes'
 import { salasPublico, type EstadoOutlook } from '../lib/supabase'
 import { CampoInvitados, Calendario, CintaDia, Flecha, HorariosLibres } from './componentes'
+import { EditarDetalles } from './EditarDetalles'
 import { conMayuscula, conPendientes, DURACIONES, error, minutosDe, textoDuracion, textoReunion } from './util'
 import { aFecha, diasHabiles, horariosLibres, local, textoDia, type Bloque } from './tiempo'
 
@@ -403,6 +404,7 @@ interface ReservaExterna {
   inicio: string
   fin: string
   motivo: string
+  personas: number
   estado: string
   responsable: { nombre: string; email: string }
   empresa: string | null
@@ -418,6 +420,7 @@ function Gestion({ token }: { token: string }) {
   const [falla, setFalla] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [moviendo, setMoviendo] = useState(false)
+  const [editando, setEditando] = useState(false)
   const [hecho, setHecho] = useState('')
   const [version, setVersion] = useState(0)
   const [ahora] = useState(() => Date.now())
@@ -467,10 +470,14 @@ function Gestion({ token }: { token: string }) {
             ) : !vigente ? (
               <p className="nota">Esta reunión ya pasó.</p>
             ) : (
-              !moviendo && (
+              !moviendo &&
+              !editando && (
                 <div className="admin-acciones">
                   <button type="button" className="btn primario" disabled={enviando} onClick={() => (setMoviendo(true), setHecho(''))}>
                     Cambiar horario
+                  </button>
+                  <button type="button" className="btn secundario" disabled={enviando} onClick={() => (setEditando(true), setHecho(''))}>
+                    Editar detalles
                   </button>
                   <button
                     type="button"
@@ -497,6 +504,16 @@ function Gestion({ token }: { token: string }) {
           </>
         )}
       </section>
+      {r && vigente && editando && (
+        <section className="admin-caja">
+          <EditarDetalles
+            inicial={{ motivo: r.motivo, personas: r.personas ?? 1, invitados: r.invitados, notas: r.notas ?? '', enlace_reunion: r.enlace_reunion ?? '' }}
+            guardar={async (cambios) => (await salasPublico<{ outlook: EstadoOutlook }>('externo_editar', { token, ...cambios, app: enlacePagina(`externo/${r.sala_id}`) })).outlook}
+            alCerrar={() => setEditando(false)}
+            alTerminar={(texto, detalle) => (setEditando(false), setHecho(detalle ? `${texto} ${detalle}.` : texto), setVersion((v) => v + 1))}
+          />
+        </section>
+      )}
       {r && vigente && moviendo && (
         <MoverExterno
           r={r}
