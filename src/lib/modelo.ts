@@ -1,5 +1,5 @@
 import { hoyISO } from './formato'
-import { LICENCIA, NDA, type ContratoLicenciaData, type NdaData } from './contratos'
+import { LICENCIA, NDA, TESTIGO_TREVE, type ContratoLicenciaData, type NdaData } from './contratos'
 import type { Moneda, ProductoFeedbak } from './tabuladores'
 import { corridasIniciales, type GeneralData, type Hilos33Data, type KofileData } from '../corridas/tipos'
 
@@ -859,7 +859,7 @@ export function datosIniciales(): Datos {
       numero: 'FEED-CON-26-0001',
       vigencia: 'anual',
       testigoCliente: '',
-      testigoProveedor: '',
+      testigoProveedor: TESTIGO_TREVE,
       titulo: '',
       cuerpo: '',
       ...LICENCIA.es,

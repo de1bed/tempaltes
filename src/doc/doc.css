@@ -40,30 +40,31 @@
 .cover-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
 /* ───────── Feedbak ───────── */
-.fb { color: #1B2B30; padding: 178px 92px 142px; }
+.fb { color: #1B2B30; padding: 168px 88px 128px; }
 .fb .bg { position: absolute; left: 0; width: 100%; z-index: 0; }
 .fb .bg.header { top: 0; }
 .fb .bg.footer { bottom: 0; }
 .fb .bg.mark { bottom: 120px; right: 0; left: auto; width: 52%; }
 .fb .muted { color: #5A6B70; }
 .fb .accent { color: #0B4C5E; }
-.fb .letter p { font-size: 12.5px; line-height: 1.6; }
-.fb .h-title { font-size: 15px; font-weight: 700; color: #0B4C5E; letter-spacing: -0.2px; }
-.fb table { font-size: 11.5px; }
-.fb td { padding: 6px 10px; border: 1px solid #D3E5DB; }
+.fb .letter p { font-size: 12px; line-height: 1.5; }
+.fb .h-title { font-size: 14px; font-weight: 700; color: #0B4C5E; letter-spacing: -0.2px; }
+.fb table { font-size: 10.5px; }
+.fb td { padding: 4px 8px; border: 1px solid #D3E5DB; }
 .fb td.k { background: #EDF6F1; width: 46%; }
 .fb td.v { font-weight: 500; }
-.fb th { padding: 7px 10px; font-weight: 600; text-align: right; }
+.fb th { padding: 5px 8px; font-weight: 600; text-align: right; }
 .fb th:first-child { text-align: left; width: 46%; }
 .fb th + th { width: 18%; }
 .fb th.dark { background: #0B4C5E; color: #fff; border: 1px solid #0B4C5E; }
 .fb th.green { background: #6FC08D; color: #0B4C5E; border: 1px solid #6FC08D; }
 .fb tr.total td { background: #EDF6F1; }
 .fb .strong { font-weight: 700; color: #0B4C5E; }
-.fb .h-sec { font-size: 12px; font-weight: 600; color: #0B4C5E; margin-bottom: 5px; }
-.fb [data-bloque] { padding-bottom: 12px; }
+.fb .h-sec { font-size: 11px; font-weight: 600; color: #0B4C5E; margin-bottom: 3px; }
+.fb [data-bloque] { padding-bottom: 7px; }
 .fb [data-bloque] ul.terms { margin-bottom: 0; }
-.fb ul.terms { margin: 0 0 14px; font-size: 10.5px; line-height: 1.5; color: #3D5257; gap: 3px; }
+.fb ul.terms { margin: 0 0 8px; font-size: 9.5px; line-height: 1.42; color: #3D5257; gap: 2px; }
+.fb .seccion-doc { margin-bottom: 2px; }
 
 /* ───────── Staffvia ───────── */
 .sv-cover { background: #fff url(../assets/treve-cover.png) center / cover no-repeat; }
@@ -182,18 +183,22 @@
 .contrato .nda-subtitulo { font-size: 10.5px; font-weight: 500; color: #5A6B70; text-align: center; }
 .contrato .nda-datos { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; font-size: 10.5px; }
 .contrato .nda-datos strong { color: #0B4C5E; font-weight: 600; }
-.contrato .vigencia-resaltada {
-  margin: 16px 0;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #EDF6F1 0%, #D8EEE0 100%);
-  border: 2px solid #6FC08D;
-  border-radius: 6px;
-  font-size: 11px;
-  line-height: 1.5;
-  color: #0B4C5E;
+/* Fondo sólido (no degradado): modern-screenshot no captura bien linear-gradient. */
+.contrato table.vigencia-resaltada { margin: 10px 0 0; }
+.contrato table.vigencia-resaltada td {
+  background: #EDF6F1;
+  border: 2.5px solid #6FC08D;
+  padding: 10px 14px;
   text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #0B4C5E;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
-.contrato .vigencia-resaltada strong { font-weight: 700; }
+.contrato table.vigencia-resaltada strong { font-weight: 700; }
+.contrato .firma-nombre { min-height: 1.35em; }
 
 /* Copia invisible con la que Paginado mide los bloques */
 .page.medidor { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
@@ -219,6 +224,13 @@
 .hojas.modo-pdf .vacio { display: none !important; }
 .hojas.modo-pdf .editable { outline: none !important; background: none !important; }
 .hojas.modo-pdf .editable:empty::before { content: none !important; }
+/* En firmas el nombre vacío debe verse en el PDF (el ::before se apaga arriba). */
+.hojas.modo-pdf .firma-nombre .editable:empty::before {
+  content: attr(data-placeholder) !important;
+  color: #0B4C5E;
+  font-style: italic;
+  font-weight: 600;
+}
 
 /* ───────── Corridas (Treve) ───────── */
 .corrida { color: #1B2B30; padding: 64px 64px 72px; }

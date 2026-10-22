@@ -28,6 +28,9 @@ interface ContratoBase {
 
 export type VigenciaContrato = 'mensual' | 'bimestral' | 'trimestral' | 'semestral' | 'anual' | 'bianual'
 
+/** Testigo por defecto del lado Treve / Feedbak (el otro representante legal). */
+export const TESTIGO_TREVE = 'RAQUEL SALAS TOVAR'
+
 export interface ContratoLicenciaData extends ContratoBase {
   numero: string
   vigencia: VigenciaContrato
