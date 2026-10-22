@@ -506,19 +506,22 @@ const AYUDA_CUERPO =
 
 function saltarAClausula(cuerpo: string, indice: number, seccion: HTMLDetailsElement | null, area: HTMLTextAreaElement | null) {
   if (seccion) seccion.open = true
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const el = area
-      const pos = posicionClausula(cuerpo, indice)
-      if (!el || !pos) return
-      el.focus()
-      el.setSelectionRange(pos.start, pos.end)
-      const cs = getComputedStyle(el)
-      const lh = Number.parseFloat(cs.lineHeight) || Number.parseFloat(cs.fontSize) * 1.45 || 18
-      el.scrollTop = Math.max(0, pos.linea * lh - el.clientHeight * 0.25)
-      el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-    })
-  })
+  const aplicar = (quedan: number) => {
+    const el = area
+    const pos = posicionClausula(cuerpo, indice)
+    if (!el || !pos) return
+    if (el.clientHeight < 24 && quedan > 0) {
+      requestAnimationFrame(() => aplicar(quedan - 1))
+      return
+    }
+    el.focus()
+    el.setSelectionRange(pos.start, pos.end)
+    const lineas = Math.max(cuerpo.split('\n').length, 1)
+    const px = el.scrollHeight / lineas
+    el.scrollTop = Math.max(0, pos.linea * px - el.clientHeight * 0.25)
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }
+  requestAnimationFrame(() => aplicar(8))
 }
 
 function IndiceClausulas({ cuerpo, onIrA }: { cuerpo: string; onIrA: (indice: number) => void }) {
