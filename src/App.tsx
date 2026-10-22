@@ -35,7 +35,9 @@ import { TESTIGO_TREVE } from './lib/contratos'
 import { registrar, type Perfil } from './lib/supabase'
 import { MandarCotizacion } from './corridas/MandarCotizacion'
 import { marcarEnvio, NOMBRES_CORRIDA, nominaDesdeCorrida, type EnvioCorrida } from './corridas/envios'
-import { BandejaCorridas } from './ui/BandejaCorridas'
+import { AvisoCorridas } from './ui/BandejaCorridas'
+import { Historial } from './historial/Historial'
+import { guardarEnHistorial } from './lib/historial'
 
 const CLAVE = 'cotizador:v1'
 
@@ -43,7 +45,7 @@ const CLAVE = 'cotizador:v1'
 const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos', corrida: 'corridas' }
 const RUTA_BONOS = 'bonos-33-hilos'
 /** Pantallas fuera de los documentos. */
-type Pantalla = 'admin' | 'salas' | 'felicitaciones' | 'bonos'
+type Pantalla = 'admin' | 'salas' | 'felicitaciones' | 'bonos' | 'historial'
 const ruta = () => window.location.hash.replace(/^#\/?/, '')
 /** Solo abre por dirección las secciones a las que la persona tiene acceso. */
 function seccionDeRuta(permitidas: TipoDocumento[]): TipoDocumento | null {
@@ -158,14 +160,17 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   const puedeFelicitaciones = perfil.es_admin || perfil.secciones.includes('felicitaciones')
   // Bonos de 33 Hilos: quien tiene Corridas.
   const puedeBonos = perfil.es_admin || perfil.secciones.includes('corrida')
+  // Historial: quien hace cotizaciones, contratos o corridas.
+  const puedeHistorial = perfil.es_admin || perfil.secciones.some((s) => s === 'cotizacion' || s === 'contrato' || s === 'corrida')
   const pantallaDeRuta = useCallback((): Pantalla | null => {
     const r = ruta()
+    if (r === 'historial' && puedeHistorial) return 'historial'
     if (r === 'admin' && perfil.es_admin) return 'admin'
     if (r === 'salas' && puedeSalas) return 'salas'
     if (r === 'felicitaciones' && puedeFelicitaciones) return 'felicitaciones'
     if (r === RUTA_BONOS && puedeBonos) return 'bonos'
     return null
-  }, [perfil.es_admin, puedeSalas, puedeFelicitaciones, puedeBonos])
+  }, [perfil.es_admin, puedeSalas, puedeFelicitaciones, puedeBonos, puedeHistorial])
   const [estado, setEstado] = useState<Estado>(() => enSeccion(cargar(), seccionDeRuta(permitidas)))
   const [seccion, setSeccion] = useState<TipoDocumento | null>(() => seccionDeRuta(permitidas))
   const [pantalla, setPantalla] = useState<Pantalla | null>(pantallaDeRuta)
@@ -334,6 +339,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
       await generarPdf(hojas, tamano, nombreArchivo(estado), (hoja, total) => setExportando({ hoja, total }))
       // Bitácora: quién generó qué, con los datos tal cual para poder revisarlo después.
       registrar('pdf', { plantilla, documento: nombreArchivo(estado), detalle: datos[plantilla] })
+      guardarEnHistorial(perfil, { tipo: actual.tipo, plantilla, formato: 'pdf', documento: nombreArchivo(estado), empresa: datos[plantilla].empresa ?? '', datos: datos[plantilla] })
     } catch (e) {
       console.error(e)
       setErrorPdf('No se pudo generar el PDF. Intenta de nuevo; si sigue fallando, recarga la página.')
@@ -361,6 +367,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     try {
       await descargarExcel(corrida, datos[corrida])
       registrar('excel', { plantilla: corrida, documento: nombreCorrida(corrida, datos[corrida]), detalle: datos[corrida] })
+      guardarEnHistorial(perfil, { tipo: 'corrida', plantilla: corrida, formato: 'excel', documento: nombreCorrida(corrida, datos[corrida]), empresa: datos[corrida].empresa, datos: datos[corrida] })
     } catch (e) {
       console.error(e)
       setErrorPdf(`No se pudo generar el Excel: ${e instanceof Error ? e.message : String(e)}`)
@@ -378,6 +385,8 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   if (pantalla === 'salas') return <Salas perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'felicitaciones') return <Felicitaciones perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'bonos') return <Bonos33 perfil={perfil} irAInicio={irAInicio} salir={salir} />
+  if (pantalla === 'historial')
+    return <Historial perfil={perfil} irAInicio={irAInicio} salir={salir} abrirDocumento={abrirDocumento} convertirCorrida={convertirCorrida} />
   /** Corrida recibida → cotización de nómina con sus montos (y queda marcada como convertida). */
   async function convertirCorrida(e: EnvioCorrida) {
     if (e.estado === 'pendiente') await marcarEnvio(e.id, 'convertida', perfil)
@@ -390,7 +399,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     abrir('cotizacion', 'payroll')
   }
 
-  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} abrirBonos={puedeBonos ? () => abrirPantalla('bonos') : undefined} bandeja={permitidas.includes('cotizacion') ? <BandejaCorridas perfil={perfil} convertir={convertirCorrida} /> : undefined} salir={salir} />
+  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} abrirBonos={puedeBonos ? () => abrirPantalla('bonos') : undefined} bandeja={permitidas.includes('cotizacion') ? <AvisoCorridas abrir={() => abrirPantalla('historial')} /> : undefined} abrirHistorial={puedeHistorial ? () => abrirPantalla('historial') : undefined} salir={salir} />
   const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
   const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
 

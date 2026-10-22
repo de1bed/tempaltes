@@ -148,9 +148,13 @@ Bonos trimestrales que manda 33 Threads por correo (tabla con nombre, Gross/Net 
 4. **Facturación**: (bono bruto + cuotas patronales) × (1 + servicio). Cuotas: las de toda la semana con bono (formato actual) o solo el incremento por el bono.
 5. **Salidas**: Excel con fórmulas (Billing summary, Payroll runs sin/con bono por persona y Notas), tabla para pegar en el correo al cliente y corridas guardadas (`hilos33_bonos`).
 
+### Historial
+
+Módulo **Historial** (en el inicio de quien tiene Cotizaciones, Contratos o Corridas): cada PDF o Excel que se genera queda guardado con quién lo hizo, cuándo, el cliente y los datos, y **Abrir** lo vuelve a cargar tal cual. Pestañas por tipo, búsqueda por cliente/puesto/documento y filtro por persona. Cada quien ve lo de sus secciones; quien hace cotizaciones también ve las corridas (con sus montos y **Convertir en cotización**) y la pestaña **Corridas recibidas**. Tabla `historial` con RLS; los documentos anteriores se pasaron desde la bitácora.
+
 ### Corridas → cotizaciones
 
-En una corrida, **Mandar a cotizaciones** la envía (con una nota opcional) a la bandeja **Corridas recibidas**, que aparece en el inicio de quien tiene permiso de Cotizaciones. **Convertir en cotización** abre *Staffvia · Nómina* con el cliente, el puesto y los montos semanales de la corrida (sueldo bruto, cuotas patronales y provisión de finiquito; las corridas catorcenales se llevan a semana). Queda registrado quién la mandó, quién la convirtió y cuándo (historial en la bandeja y en la bitácora). Tabla `envios_corrida` con RLS: solo envía quien tiene Corridas y solo convierte quien tiene Cotizaciones.
+En una corrida, **Mandar a cotizaciones** la envía (con una nota opcional) a la bandeja **Corridas recibidas**, que aparece en el Historial de quien tiene permiso de Cotizaciones (y un aviso en su inicio cuando hay pendientes). **Convertir en cotización** abre *Staffvia · Nómina* con el cliente, el puesto y los montos semanales de la corrida (sueldo bruto, cuotas patronales y provisión de finiquito; las corridas catorcenales se llevan a semana). Queda registrado quién la mandó, quién la convirtió y cuándo (historial en la bandeja y en la bitácora). Tabla `envios_corrida` con RLS: solo envía quien tiene Corridas y solo convierte quien tiene Cotizaciones.
 
 ## Tabuladores Feedbak
 

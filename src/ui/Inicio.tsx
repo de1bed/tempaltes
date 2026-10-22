@@ -44,11 +44,13 @@ interface Props {
   abrirBonos?: () => void
   /** Corridas recibidas (solo para quien hace cotizaciones). */
   bandeja?: ReactNode
+  /** Historial de documentos (quien tiene cotizaciones, contratos o corridas). */
+  abrirHistorial?: () => void
   salir: () => void
 }
 
 /** Pantalla de inicio: elegir qué hacer entre las secciones a las que tiene acceso la persona. */
-export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, abrirBonos, bandeja, salir }: Props) {
+export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, abrirBonos, bandeja, abrirHistorial, salir }: Props) {
   const secciones = SECCIONES.filter((s) => permitidas.includes(s.tipo))
   return (
     <div className="inicio">
@@ -154,6 +156,23 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abri
                 <span className="tarjeta-titulo">Felicitaciones</span>
                 <span className="tarjeta-desc">Cumpleaños, aniversarios, bienvenidas y despedidas con foto y datos del directorio.</span>
                 <span className="tarjeta-pie">Crear imagen →</span>
+              </button>
+            </section>
+          )}
+          {abrirHistorial && (
+            <section className="tarjeta" style={{ borderTopColor: '#5E8C9A' }}>
+              <button type="button" className="tarjeta-cab" onClick={abrirHistorial}>
+                <span className="tarjeta-icono" style={{ color: '#5E8C9A' }}>
+                  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" />
+                      <path d="M3 4v4h4M12 7.5V12l3 2" />
+                    </g>
+                  </svg>
+                </span>
+                <span className="tarjeta-titulo">Historial</span>
+                <span className="tarjeta-desc">Todas las cotizaciones, contratos y corridas: quién las hizo y cuándo. Aquí llegan las corridas para cotizar.</span>
+                <span className="tarjeta-pie">Ver historial →</span>
               </button>
             </section>
           )}

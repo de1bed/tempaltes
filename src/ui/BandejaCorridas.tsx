@@ -6,7 +6,7 @@ import { leerEnvios, marcarEnvio, NOMBRES_CORRIDA, type EnvioCorrida } from '../
 const cuando = (iso: string) => new Date(iso).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
 
 /** Inicio de quien hace cotizaciones: corridas que le mandaron, para convertirlas en cotización. */
-export function BandejaCorridas({ perfil, convertir }: { perfil: Perfil; convertir: (e: EnvioCorrida) => Promise<void> }) {
+export function BandejaCorridas({ perfil, convertir, mostrarVacia }: { perfil: Perfil; convertir: (e: EnvioCorrida) => Promise<void>; mostrarVacia?: boolean }) {
   const [envios, setEnvios] = useState<EnvioCorrida[] | null>(null)
   const [error, setError] = useState('')
   const [verHistorial, setVerHistorial] = useState(false)
@@ -33,10 +33,11 @@ export function BandejaCorridas({ perfil, convertir }: { perfil: Perfil; convert
     }
   }
 
-  if (!envios && !error) return null
+  if (!envios && !error) return mostrarVacia ? <p className="nota">Cargando…</p> : null
   const pendientes = envios?.filter((e) => e.estado === 'pendiente') ?? []
   const atendidas = envios?.filter((e) => e.estado !== 'pendiente') ?? []
-  if (!error && pendientes.length === 0 && atendidas.length === 0) return null
+  if (!error && pendientes.length === 0 && atendidas.length === 0)
+    return mostrarVacia ? <section className="bandeja"><p className="nota">Todavía no han mandado corridas. Cuando alguien use "Mandar a cotizaciones" en una corrida, aparece aquí.</p></section> : null
 
   return (
     <section className="bandeja">
@@ -88,6 +89,29 @@ export function BandejaCorridas({ perfil, convertir }: { perfil: Perfil; convert
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+/** Aviso en el inicio de quien hace cotizaciones: cuántas corridas esperan, con acceso al Historial. */
+export function AvisoCorridas({ abrir }: { abrir: () => void }) {
+  const [pendientes, setPendientes] = useState(0)
+  useEffect(() => {
+    leerEnvios().then(
+      (r) => setPendientes(r.filter((e) => e.estado === 'pendiente').length),
+      () => setPendientes(0),
+    )
+  }, [])
+  if (pendientes === 0) return null
+  return (
+    <section className="bandeja bandeja-aviso">
+      <h2>
+        Corridas recibidas <span className="bandeja-num">{pendientes}</span>
+      </h2>
+      <span className="nota">{pendientes === 1 ? 'Hay 1 corrida esperando cotización.' : `Hay ${pendientes} corridas esperando cotización.`}</span>
+      <button type="button" className="btn primario" onClick={abrir}>
+        Ver en Historial
+      </button>
     </section>
   )
 }
