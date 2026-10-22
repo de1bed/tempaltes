@@ -1,5 +1,5 @@
 import { dinero, miles, num, pct } from '../lib/formato'
-import { TESTIGO_TREVE } from '../lib/contratos'
+import { TESTIGO_TREVE, listarClausulas } from '../lib/contratos'
 import type { BonosData, ContratoLicenciaData, FeedbakData, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
@@ -130,8 +130,10 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
           <dd>{dinero(c.semestral)}</dd>
           <dt>Anual (−{pct(c.descuentoAnual)})</dt>
           <dd>{dinero(c.anual)}</dd>
+          <dt>Horas de soporte incluidas</dt>
+          <dd>{d.horasSoporte.trim() || '8'}</dd>
         </dl>
-        <small className="nota">Precios fijos del tabulador para {miles(c.colaboradores)} colaboradores.</small>
+        <small className="nota">Precios fijos del tabulador para {miles(c.colaboradores)} colaboradores. Las horas de soporte se copian solas a la cotización.</small>
       </Seccion>
 
       <Destinatario d={d} set={set} ciudad />
@@ -149,7 +151,12 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
       <Seccion titulo="Alcance" abierta={false}>
         <Fila>
           <Texto label="Capacitación (hrs)" value={d.capacitacionHoras} onChange={(v) => set({ capacitacionHoras: v })} />
-          <Texto label="Horas de soporte incluidas" value={d.horasSoporte} onChange={(v) => set({ horasSoporte: v })} />
+          <Texto
+            label="Horas de soporte incluidas"
+            value={d.horasSoporte}
+            onChange={(v) => set({ horasSoporte: v })}
+            ayuda="Se copia sola a la cotización y a los términos ({horasSoporte})."
+          />
         </Fila>
         <Checkbox
           label="Mostrar costo por hora de soporte adicional"
@@ -174,21 +181,19 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
         />
       </Seccion>
 
-      <Seccion titulo="Firma" abierta={false}>
-        <Fila>
-          <Texto label="Firmante" value={d.firmante} onChange={(v) => set({ firmante: v })} />
-          <Texto label="Empresa del firmante" value={d.firmanteEmpresa} onChange={(v) => set({ firmanteEmpresa: v })} />
-        </Fila>
-      </Seccion>
-
-      <Seccion titulo="Autor" abierta={false}>
+      <Seccion titulo="Cotización elaborada por">
         <Texto
-          label="Cotización elaborada por"
+          label="Nombre"
           value={d.creadoPor}
-          onChange={(v) => set({ creadoPor: v })}
-          placeholder="Se registra automáticamente al generar el PDF"
-          ayuda="Nombre o email de quien elaboró esta cotización."
+          onChange={(v) => set({ creadoPor: v, firmante: v })}
+          placeholder="Se toma de tu cuenta"
+          ayuda="Nombre, correo y teléfono de quien elabora la cotización. Salen en el cierre, sin línea de firma."
         />
+        <Fila>
+          <Texto label="Correo" value={d.creadoPorEmail} onChange={(v) => set({ creadoPorEmail: v })} placeholder="nombre@feedbakmx.com" />
+          <Texto label="Teléfono" value={d.creadoPorTelefono} onChange={(v) => set({ creadoPorTelefono: v })} placeholder="664 000 0000" />
+        </Fila>
+        <Texto label="Empresa" value={d.firmanteEmpresa} onChange={(v) => set({ firmanteEmpresa: v })} />
       </Seccion>
     </>
   )
@@ -498,10 +503,25 @@ export function FormHaatsHoras({ d, set }: Props<HaatsHorasData>) {
 const AYUDA_CUERPO =
   'Una línea por párrafo. "## " = cláusula (se numera sola), "### " = subtítulo, "- " = inciso a), b)… Las hojas se reparten solas.'
 
+function IndiceClausulas({ cuerpo }: { cuerpo: string }) {
+  const titulos = listarClausulas(cuerpo)
+  if (titulos.length === 0) return null
+  return (
+    <div className="indice-clausulas">
+      <div className="indice-clausulas-titulo">Apartados del contrato</div>
+      <ol>
+        {titulos.map((titulo, i) => (
+          <li key={`${i}-${titulo}`}>{titulo}</li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
 export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
   return (
     <>
-      <Seccion titulo="Contrato">
+      <Seccion titulo="1. Contrato">
         <Fila>
           <Texto label="Número de contrato" value={d.numero} onChange={(v) => set({ numero: v })} />
           <Opciones
@@ -521,12 +541,12 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
         <Fecha label="Fecha de inicio" value={d.fecha} onChange={(v) => set({ fecha: v })} />
         <small className="nota">La fecha de renovación se calcula con la vigencia.</small>
       </Seccion>
-      <Seccion titulo="Cliente">
+      <Seccion titulo="2. Cliente">
         <Texto label="Razón social del cliente" value={d.empresa} onChange={(v) => set({ empresa: v })} placeholder="APTIV Services México S. de R.L. de C.V." />
         <Texto label="Representante legal del cliente" value={d.contacto} onChange={(v) => set({ contacto: v })} />
         <Texto label="Testigo del cliente" value={d.testigoCliente} onChange={(v) => set({ testigoCliente: v })} />
       </Seccion>
-      <Seccion titulo="Proveedor" abierta={false}>
+      <Seccion titulo="3. Proveedor" abierta={false}>
         <Texto label="Razón social" value={d.proveedor} onChange={(v) => set({ proveedor: v })} />
         <Texto label="Representante legal" value={d.firmante} onChange={(v) => set({ firmante: v })} />
         <Texto
@@ -536,14 +556,15 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
           placeholder={TESTIGO_TREVE}
         />
       </Seccion>
-      <Seccion titulo="Texto del contrato" abierta={false}>
+      <IndiceClausulas cuerpo={d.cuerpo} />
+      <Seccion titulo="4. Texto del contrato" abierta={false}>
         <Area label="Título" value={d.titulo} filas={4} onChange={(v) => set({ titulo: v })} ayuda="{cliente}, {proveedor} y {representanteProveedor} se sustituyen." />
         <Area
           label="Cláusulas"
           value={d.cuerpo}
           filas={16}
           onChange={(v) => set({ cuerpo: v })}
-          ayuda={`${AYUDA_CUERPO} Usa "## 1. Definiciones", "## 2. Vigencia", etc. para encontrar cada apartado fácil en el texto. {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`}
+          ayuda={`${AYUDA_CUERPO} El índice de arriba numera cada "## " para encontrarla. {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`}
         />
       </Seccion>
     </>
@@ -553,15 +574,15 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
 export function FormNda({ d, set }: Props<NdaData>) {
   return (
     <>
-      <Seccion titulo="Contrato">
+      <Seccion titulo="1. Contrato">
         <Fecha label="Fecha de entrada en vigencia" value={d.fecha} onChange={(v) => set({ fecha: v })} />
       </Seccion>
-      <Seccion titulo="Cliente">
+      <Seccion titulo="2. Cliente">
         <Texto label="Razón social del cliente" value={d.empresa} onChange={(v) => set({ empresa: v })} />
         <Texto label="Representante legal del cliente" value={d.contacto} onChange={(v) => set({ contacto: v })} />
         <Texto label="Dirección del cliente" value={d.direccionCliente} onChange={(v) => set({ direccionCliente: v })} />
       </Seccion>
-      <Seccion titulo="Proveedor" abierta={false}>
+      <Seccion titulo="3. Proveedor" abierta={false}>
         <Texto label="Razón social" value={d.proveedor} onChange={(v) => set({ proveedor: v })} />
         <Texto label="Representantes responsables" value={d.representantesProveedor} onChange={(v) => set({ representantesProveedor: v })} />
         <Texto label="Dirección" value={d.direccionProveedor} onChange={(v) => set({ direccionProveedor: v })} />
@@ -570,7 +591,8 @@ export function FormNda({ d, set }: Props<NdaData>) {
           <Texto label="Testigo" value={d.testigo} onChange={(v) => set({ testigo: v })} />
         </Fila>
       </Seccion>
-      <Seccion titulo="Texto del contrato" abierta={false}>
+      <IndiceClausulas cuerpo={d.cuerpo} />
+      <Seccion titulo="4. Texto del contrato" abierta={false}>
         <Fila>
           <Texto label="Título" value={d.titulo} onChange={(v) => set({ titulo: v })} />
           <Texto label="Subtítulo" value={d.subtitulo} onChange={(v) => set({ subtitulo: v })} />
@@ -580,7 +602,7 @@ export function FormNda({ d, set }: Props<NdaData>) {
           value={d.cuerpo}
           filas={16}
           onChange={(v) => set({ cuerpo: v })}
-          ayuda={`${AYUDA_CUERPO} {cliente}, {representante}, {proveedor}, {direccionCliente} y {fecha} se sustituyen.`}
+          ayuda={`${AYUDA_CUERPO} El índice de arriba numera cada "## ". {cliente}, {representante}, {proveedor}, {direccionCliente} y {fecha} se sustituyen.`}
         />
       </Seccion>
     </>

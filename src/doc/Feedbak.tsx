@@ -80,11 +80,13 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
     : `${c.adminsIncluidos} Administrators (no additional cost)` + (extra > 0 ? ` + ${extra} additional` : '')
   const conSetup = c.setup > 0 ? t(', incluye configuración inicial', ', includes initial setup') : ''
   const nombre = primerNombre(d.contacto) || t('[Nombre]', '[Name]')
+  const horasIncluidas = d.horasSoporte.trim() || '8'
   const vars = {
     plataformas,
     Moneda: monedaLarga,
     moneda: es ? monedaLarga.toLowerCase() : monedaLarga,
     precioAdmin: `${dinero(c.precioAdminExtra)} ${sufijo}`,
+    horasSoporte: horasIncluidas,
   }
   const terminos = {
     ...c$('terminos'),
@@ -167,7 +169,7 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
                 [
                   t('Horas de soporte incluidas:', 'Support hours included:'),
                   <>
-                    <Editable {...c$('horasSoporte')} placeholder="0" /> {t('horas', 'hours')}
+                    <Editable {...c$('horasSoporte')} mostrar={horasIncluidas} placeholder="0" /> {t('horas', 'hours')}
                   </>,
                 ],
                 ...(d.mostrarCostoHoraAdicional
@@ -291,21 +293,20 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
     {
       key: 'firma',
       nodo: (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, paddingTop: 10 }}>
+        <div className="fb-contacto">
           <div style={{ color: '#3D5257' }}>{t('Atentamente', 'Sincerely')}</div>
-          <div style={{ height: 26 }} />
-          <div className="accent" style={{ fontWeight: 600, borderTop: '1px solid #6FC08D', paddingTop: 6, width: 230 }}>
-            <Editable {...c$('firmante')} placeholder={t('Nombre de quien firma', 'Signer name')} />
+          <div className="accent" style={{ fontWeight: 600 }}>
+            <Editable {...c$('creadoPor')} placeholder={t('Nombre de la ejecutiva', 'Account executive name')} />
+          </div>
+          <div className={d.creadoPorEmail.trim() ? 'muted' : 'muted vacio'} style={{ fontSize: 11 }}>
+            <Editable {...c$('creadoPorEmail')} placeholder={t('Correo', 'Email')} />
+          </div>
+          <div className={d.creadoPorTelefono.trim() ? 'muted' : 'muted vacio'} style={{ fontSize: 11 }}>
+            <Editable {...c$('creadoPorTelefono')} placeholder={t('Teléfono', 'Phone')} />
           </div>
           <div className="muted" style={{ fontSize: 11 }}>
             <Editable {...c$('firmanteEmpresa')} placeholder={t('Empresa', 'Company')} />
           </div>
-          {d.creadoPor.trim() && (
-            <div className="muted" style={{ fontSize: 10, marginTop: 12 }}>
-              {t('Cotización elaborada por: ', 'Quote prepared by: ')}
-              <Editable {...c$('creadoPor')} placeholder={t('Nombre del elaborador', 'Preparer name')} />
-            </div>
-          )}
         </div>
       ),
     },

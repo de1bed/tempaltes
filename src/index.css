@@ -90,6 +90,11 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .portada img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .portada.activa { border-color: var(--verde); box-shadow: 0 0 0 2px #6fc08d55; }
 
+.indice-clausulas { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 8px; background: #fafbfb; }
+.indice-clausulas-titulo { font-size: 11.5px; font-weight: 600; color: var(--marca); margin-bottom: 6px; }
+.indice-clausulas ol { margin: 0; padding-left: 22px; font-size: 12px; line-height: 1.45; color: var(--tinta); }
+.indice-clausulas li { margin: 2px 0; }
+
 .lista { display: flex; flex-direction: column; gap: 10px; }
 .lista-item { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--linea); border-radius: 6px; background: #fafbfb; }
 .lista-cab { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 600; color: var(--suave); }

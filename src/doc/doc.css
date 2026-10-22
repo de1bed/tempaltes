@@ -65,6 +65,7 @@
 .fb [data-bloque] ul.terms { margin-bottom: 0; }
 .fb ul.terms { margin: 0 0 8px; font-size: 9.5px; line-height: 1.42; color: #3D5257; gap: 2px; }
 .fb .seccion-doc { margin-bottom: 2px; }
+.fb .fb-contacto { display: flex; flex-direction: column; gap: 2px; font-size: 12px; padding-top: 10px; }
 
 /* ───────── Staffvia ───────── */
 .sv-cover { background: #fff url(../assets/treve-cover.png) center / cover no-repeat; }

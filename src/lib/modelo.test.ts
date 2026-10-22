@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { cambiarIdioma, datosIniciales } from './modelo'
+import { listarClausulas } from './contratos'
+import { cambiarIdioma, datosIniciales, rellenar } from './modelo'
 
 describe('cambiarIdioma', () => {
   it('traduce los textos que no se han editado', () => {
@@ -18,6 +19,18 @@ describe('cambiarIdioma', () => {
     expect(en.intro).toBe('Texto propio')
     expect(en.empresa).toBe('PLD Blinds')
     expect(en.tituloPortada).toBe('Employer Registration Certificate Filing')
+  })
+})
+
+describe('Feedbak: horas de soporte y cláusulas', () => {
+  it('sustituye {horasSoporte} en los términos', () => {
+    expect(rellenar(datosIniciales().feedbak.terminos, { horasSoporte: '8' })).toContain('incluye 8 horas de soporte')
+  })
+
+  it('lista las cláusulas del contrato numerables', () => {
+    const titulos = listarClausulas(datosIniciales().licencia.cuerpo)
+    expect(titulos[0]).toMatch(/Definiciones/i)
+    expect(titulos.length).toBeGreaterThan(8)
   })
 })
 
