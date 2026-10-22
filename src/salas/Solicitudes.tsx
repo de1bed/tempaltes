@@ -6,7 +6,7 @@ interface Solicitud {
   id: string
   solicitante_email: string
   solicitante_nombre: string
-  datos: { motivo: string; personas: number; invitados: string[]; notas: string; responsable_nombre: string; responsable_email: string }
+  datos: { motivo: string; personas: number; invitados: string[]; notas: string; enlace_reunion?: string; responsable_nombre: string; responsable_email: string }
   mensaje: string
   estado: 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada' | 'vencida'
   respuesta: string | null
@@ -126,6 +126,7 @@ function Recibida({ s, perfil, nombreSala, alResponder }: { s: Solicitud; perfil
         </span>
         <small>
           Para: «{s.datos.motivo}» · {s.datos.personas} personas{s.datos.invitados.length ? ` · ${s.datos.invitados.length} ${s.datos.invitados.length === 1 ? 'invitado' : 'invitados'}` : ''}
+          {s.datos.enlace_reunion ? ` · ${s.datos.enlace_reunion}` : ''}
         </small>
         {s.mensaje && <p className="salas-mensaje">“{s.mensaje}”</p>}
       </div>

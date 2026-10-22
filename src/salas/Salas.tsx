@@ -203,7 +203,7 @@ export function Salas({ perfil, irAInicio, salir }: { perfil: Perfil; irAInicio:
         <div ref={arriba} className="salas-titulo">
           <div>
             <h1>Salas</h1>
-            <p className="admin-intro">Lunes a viernes de 7:00 a.m. a 9:00 p.m., hasta 30 días adelante.</p>
+            <p className="admin-intro">Lunes a viernes de 7:00 a.m. a 9:00 p.m., hasta 30 días adelante, hora de Tijuana.</p>
           </div>
         </div>
 
@@ -440,6 +440,7 @@ function FormReunion({ perfil, modo, alTerminar, alCerrar }: { perfil: Perfil; m
   const [motivo, setMotivo] = useState('')
   const [personas, setPersonas] = useState('2')
   const [invitados, setInvitados] = useState<string[]>([])
+  const [enlaceReunion, setEnlaceReunion] = useState('')
   const [notas, setNotas] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [otro, setOtro] = useState(false)
@@ -460,6 +461,7 @@ function FormReunion({ perfil, modo, alTerminar, alCerrar }: { perfil: Perfil; m
       motivo,
       personas: Number(personas),
       invitados: conPendientes('res-invitados', invitados),
+      enlace_reunion: enlaceReunion.trim(),
       notas,
       responsable_nombre: otro ? respNombre : perfil.nombre,
       responsable_email: otro ? respEmail : perfil.email,
@@ -555,8 +557,21 @@ function FormReunion({ perfil, modo, alTerminar, alCerrar }: { perfil: Perfil; m
         <small>{conOutlook ? 'Escríbelos una sola vez: Outlook les manda la invitación para aceptarla y agregarla a su calendario.' : 'Esta sala no está conectada a Outlook: al reservar podrás agregarla a tu calendario e invitar desde ahí.'}</small>
       </div>
       <div className="campo">
+        <label htmlFor="res-enlace">Link de reunión (Meet, Zoom, etc.)</label>
+        <input
+          id="res-enlace"
+          type="url"
+          inputMode="url"
+          maxLength={500}
+          value={enlaceReunion}
+          onChange={(e) => setEnlaceReunion(e.target.value)}
+          placeholder="https://meet.google.com/… o https://zoom.us/j/…"
+        />
+        <small>Opcional. Sale en la invitación (ubicación y descripción) y en el detalle de la reservación.</small>
+      </div>
+      <div className="campo">
         <label htmlFor="res-notas">Notas (opcional)</label>
-        <textarea id="res-notas" rows={2} maxLength={1000} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Equipo que se necesita, liga de videollamada, etc." />
+        <textarea id="res-notas" rows={2} maxLength={1000} value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Equipo que se necesita, etc." />
       </div>
       {solicitud && (
         <div className="campo">
@@ -719,6 +734,14 @@ function Proxima({ r, perfil, adminSalas, sala, conOutlook, mover, alCambiar }: 
       {falla && <div className="alerta" role="alert">{falla}</div>}
       {verHistorial && <HistorialReservacion id={r.id} />}
       {!mia && adminSalas && <small className="nota">Como administrador de salas puedes cambiarla o cancelarla; el responsable recibe el aviso.</small>}
+      {r.enlace_reunion && (
+        <small className="nota">
+          Link de reunión:{' '}
+          <a href={r.enlace_reunion} target="_blank" rel="noopener noreferrer">
+            {r.enlace_reunion}
+          </a>
+        </small>
+      )}
       {r.notas && <small className="nota">Notas: {r.notas}</small>}
     </li>
   )

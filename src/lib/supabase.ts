@@ -94,6 +94,8 @@ export interface Reservacion {
   responsable_nombre: string | null
   responsable_email: string | null
   notas: string
+  /** Meet, Zoom, etc. Vacío si no lo pusieron. */
+  enlace_reunion: string
   origen: 'cuenta' | 'externo'
   empresa: string | null
 }

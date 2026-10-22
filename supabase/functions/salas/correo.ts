@@ -1,7 +1,7 @@
 // Contenido de las invitaciones y avisos que manda Outlook (HTML sencillo con estilos en línea,
 // que se ve bien en Outlook, Gmail y el celular). Sin dependencias: se prueba con vitest.
+import { TZ_ETIQUETA, ZONA } from './zona.ts'
 
-const ZONA = 'America/Mexico_City'
 const AZUL = '#0b4c5e'
 const NARANJA = '#E77425'
 const GRIS = '#5a6b70'
@@ -22,6 +22,8 @@ export interface DatosReunion {
   personas: number
   invitados: string[]
   notas: string
+  /** Meet, Zoom, etc. Opcional; va en la invitación (ubicación y descripción). */
+  enlace_reunion?: string
   codigo: string
   /** Externo: empresa de quien reserva. */
   empresa?: string | null
@@ -93,8 +95,11 @@ function marco(titulo: string, cuerpo: string, pie: string) {
 /** Cuerpo del evento de Outlook (lo que ven quien reserva, los invitados y la sala). */
 export function cuerpoInvitacion(d: DatosReunion, aviso?: Aviso): string {
   const filas = [
-    fila('Cuándo', `<strong>${textoDia(d.inicio)}</strong><br>${textoHorario(d.inicio, d.fin)} <span style="color:${GRIS}">(${textoDuracion(d.inicio, d.fin)}, hora del centro de México)</span>`),
+    fila('Cuándo', `<strong>${textoDia(d.inicio)}</strong><br>${textoHorario(d.inicio, d.fin)} <span style="color:${GRIS}">(${textoDuracion(d.inicio, d.fin)}, ${TZ_ETIQUETA})</span>`),
     fila('Dónde', `<strong>${escapar(d.sala)}</strong> · Oficinas Trevé`),
+    d.enlace_reunion?.trim()
+      ? fila('Link de reunión', `<a href="${escapar(d.enlace_reunion.trim())}" style="color:${AZUL}">${escapar(d.enlace_reunion.trim())}</a>`)
+      : '',
     fila('Reserva', persona(d.responsable) + (d.empresa ? `<br><span style="color:${GRIS}">${escapar(d.empresa)}</span>` : '')),
     d.registro && d.registro.email.toLowerCase() !== d.responsable.email.toLowerCase() ? fila('Registró', persona(d.registro)) : '',
     fila('Personas', String(d.personas)),

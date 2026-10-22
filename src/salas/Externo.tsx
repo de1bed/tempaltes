@@ -174,7 +174,7 @@ function Agenda({ sala, codigo }: { sala: { id: string; nombre: string }; codigo
   }
 
   return (
-    <Marco titulo={`Reservar ${sala.nombre}`} subtitulo="Lunes a viernes de 7:00 a.m. a 9:00 p.m. Elige día, duración y horario libre.">
+    <Marco titulo={`Reservar ${sala.nombre}`} subtitulo="Lunes a viernes de 7:00 a.m. a 9:00 p.m., hora de Tijuana. Elige día, duración y horario libre.">
       <section className="admin-caja">
         <div className="salas-controles">
           <div className="campo salas-duracion">
@@ -298,6 +298,7 @@ function FormExterno({
   const [motivo, setMotivo] = useState('')
   const [personas, setPersonas] = useState('2')
   const [invitados, setInvitados] = useState<string[]>([])
+  const [enlaceReunion, setEnlaceReunion] = useState('')
   const [notas, setNotas] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [falla, setFalla] = useState('')
@@ -316,6 +317,7 @@ function FormExterno({
         motivo,
         personas: Number(personas),
         invitados: conPendientes('ext-invitados', invitados),
+        enlace_reunion: enlaceReunion.trim(),
         notas,
         ...datos,
         app: enlacePagina(`externo/${sala.id}`),
@@ -368,6 +370,19 @@ function FormExterno({
         <small>Les llega la invitación para aceptarla y agregarla a su calendario. A ti también.</small>
       </div>
       <div className="campo">
+        <label htmlFor="ext-enlace">Link de reunión (Meet, Zoom, etc.)</label>
+        <input
+          id="ext-enlace"
+          type="url"
+          inputMode="url"
+          maxLength={500}
+          value={enlaceReunion}
+          onChange={(e) => setEnlaceReunion(e.target.value)}
+          placeholder="https://meet.google.com/… o https://zoom.us/j/…"
+        />
+        <small>Opcional. Sale en la invitación.</small>
+      </div>
+      <div className="campo">
         <label htmlFor="ext-notas">Notas (opcional)</label>
         <textarea id="ext-notas" rows={2} maxLength={1000} value={notas} onChange={(e) => setNotas(e.target.value)} />
       </div>
@@ -392,6 +407,8 @@ interface ReservaExterna {
   responsable: { nombre: string; email: string }
   empresa: string | null
   invitados: string[]
+  notas: string
+  enlace_reunion: string
 }
 
 /** Desde el enlace de la invitación (o con código y correo): ver, cambiar de horario o cancelar, sin cuenta. */
@@ -434,6 +451,15 @@ function Gestion({ token }: { token: string }) {
               A nombre de {r.responsable.nombre} ({r.responsable.email}){r.empresa ? ` · ${r.empresa}` : ''}
               {r.invitados.length ? ` · ${r.invitados.length} ${r.invitados.length === 1 ? 'invitado' : 'invitados'}` : ''}
             </p>
+            {r.enlace_reunion && (
+              <p className="nota">
+                Link de reunión:{' '}
+                <a href={r.enlace_reunion} target="_blank" rel="noopener noreferrer">
+                  {r.enlace_reunion}
+                </a>
+              </p>
+            )}
+            {r.notas && <p className="nota">Notas: {r.notas}</p>}
             {r.estado !== 'activa' ? (
               <div className="credenciales">
                 <strong>Esta reservación está cancelada.</strong>
