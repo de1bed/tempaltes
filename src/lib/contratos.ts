@@ -26,9 +26,11 @@ interface ContratoBase {
   cuerpo: string
 }
 
+export type VigenciaContrato = 'mensual' | 'bimestral' | 'trimestral' | 'semestral' | 'anual' | 'bianual'
+
 export interface ContratoLicenciaData extends ContratoBase {
   numero: string
-  vigencia: 'anual' | 'semestral'
+  vigencia: VigenciaContrato
   testigoCliente: string
   testigoProveedor: string
 }
