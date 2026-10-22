@@ -148,6 +148,10 @@ Bonos trimestrales que manda 33 Threads por correo (tabla con nombre, Gross/Net 
 4. **Facturación**: (bono bruto + cuotas patronales) × (1 + servicio). Cuotas: las de toda la semana con bono (formato actual) o solo el incremento por el bono.
 5. **Salidas**: Excel con fórmulas (Billing summary, Payroll runs sin/con bono por persona y Notas), tabla para pegar en el correo al cliente y corridas guardadas (`hilos33_bonos`).
 
+### Corridas → cotizaciones
+
+En una corrida, **Mandar a cotizaciones** la envía (con una nota opcional) a la bandeja **Corridas recibidas**, que aparece en el inicio de quien tiene permiso de Cotizaciones. **Convertir en cotización** abre *Staffvia · Nómina* con el cliente, el puesto y los montos semanales de la corrida (sueldo bruto, cuotas patronales y provisión de finiquito; las corridas catorcenales se llevan a semana). Queda registrado quién la mandó, quién la convirtió y cuándo (historial en la bandeja y en la bitácora). Tabla `envios_corrida` con RLS: solo envía quien tiene Corridas y solo convierte quien tiene Cotizaciones.
+
 ## Tabuladores Feedbak
 
 `src/lib/tabuladores.ts` transcribe los Excel `Cotizador … Cliente 00-2026` (hoja "2025", columna Pesos). Con el producto y el número de colaboradores se calculan:

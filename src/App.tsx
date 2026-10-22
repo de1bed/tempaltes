@@ -33,6 +33,9 @@ import { Salas } from './salas/Salas'
 import { Felicitaciones } from './felicitaciones/Felicitaciones'
 import { TESTIGO_TREVE } from './lib/contratos'
 import { registrar, type Perfil } from './lib/supabase'
+import { MandarCotizacion } from './corridas/MandarCotizacion'
+import { marcarEnvio, NOMBRES_CORRIDA, nominaDesdeCorrida, type EnvioCorrida } from './corridas/envios'
+import { BandejaCorridas } from './ui/BandejaCorridas'
 
 const CLAVE = 'cotizador:v1'
 
@@ -344,7 +347,8 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   const esCorrida = actual.tipo === 'corrida'
   const corrida = esCorrida ? (plantilla as CorridaId) : null
   // Si falta un dato crítico no se genera nada (el formulario dice qué falta).
-  const corridaBloqueada = corrida ? calcularCorrida(corrida, datos[corrida]).faltantes.length > 0 : false
+  const resultadoCorrida = corrida ? calcularCorrida(corrida, datos[corrida]) : null
+  const corridaBloqueada = resultadoCorrida ? resultadoCorrida.faltantes.length > 0 : false
   const [generandoExcel, setGenerandoExcel] = useState(false)
   // Vista de la corrida: el documento (hojas) o solo los números para copiar.
   const [vistaCorrida, setVistaCorrida] = useState<'documento' | 'numeros'>(() => leerPreferencia('vistaCorrida', 'documento'))
@@ -374,7 +378,19 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   if (pantalla === 'salas') return <Salas perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'felicitaciones') return <Felicitaciones perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'bonos') return <Bonos33 perfil={perfil} irAInicio={irAInicio} salir={salir} />
-  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} abrirBonos={puedeBonos ? () => abrirPantalla('bonos') : undefined} salir={salir} />
+  /** Corrida recibida → cotización de nómina con sus montos (y queda marcada como convertida). */
+  async function convertirCorrida(e: EnvioCorrida) {
+    if (e.estado === 'pendiente') await marcarEnvio(e.id, 'convertida', perfil)
+    setEstado((est) => ({ ...est, datos: { ...est.datos, payroll: nominaDesdeCorrida(e, est.datos.payroll) } }))
+    registrar('corrida_convertida', {
+      plantilla: 'payroll',
+      documento: `${NOMBRES_CORRIDA[e.corrida]} de ${e.enviado_por_nombre || e.enviado_por_email} · ${e.puesto || 'sin puesto'} · ${e.empresa || 'sin cliente'}`,
+      detalle: e.resumen,
+    })
+    abrir('cotizacion', 'payroll')
+  }
+
+  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} abrirBonos={puedeBonos ? () => abrirPantalla('bonos') : undefined} bandeja={permitidas.includes('cotizacion') ? <BandejaCorridas perfil={perfil} convertir={convertirCorrida} /> : undefined} salir={salir} />
   const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
   const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
 
@@ -544,6 +560,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
               </span>
             ) : corrida ? (
               <>
+                {resultadoCorrida && <MandarCotizacion id={corrida} d={datos[corrida]} r={resultadoCorrida} perfil={perfil} deshabilitado={corridaBloqueada} />}
                 <button type="button" className="btn secundario" onClick={() => {
                     void descargarValidacion(corrida, datos[corrida])
                     registrar('validacion', { plantilla: corrida, documento: nombreCorrida(corrida, datos[corrida]), detalle: datos[corrida] })

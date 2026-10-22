@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { PLANTILLAS, type PlantillaId, type TipoDocumento } from '../lib/modelo'
 import { IMG } from '../lib/imagenes'
 import { SECCIONES, type Seccion } from '../lib/secciones'
@@ -41,11 +42,13 @@ interface Props {
   abrirFelicitaciones?: () => void
   /** Bonos de 33 Hilos (permiso de Corridas). */
   abrirBonos?: () => void
+  /** Corridas recibidas (solo para quien hace cotizaciones). */
+  bandeja?: ReactNode
   salir: () => void
 }
 
 /** Pantalla de inicio: elegir qué hacer entre las secciones a las que tiene acceso la persona. */
-export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, abrirBonos, salir }: Props) {
+export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, abrirBonos, bandeja, salir }: Props) {
   const secciones = SECCIONES.filter((s) => permitidas.includes(s.tipo))
   return (
     <div className="inicio">
@@ -62,6 +65,7 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abri
           <div className="marca-kicker">FEEDBAK · STAFFVIA · HAATS</div>
           <h1>¿Qué quieres hacer hoy?</h1>
         </header>
+        {bandeja}
 
         <div className="inicio-tarjetas">
           {secciones.length === 0 && !abrirSalas && !abrirFelicitaciones && !abrirBonos && !perfil.es_admin && (

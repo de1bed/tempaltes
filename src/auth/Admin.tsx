@@ -212,6 +212,8 @@ const ACCIONES: Record<string, string> = {
   cuenta_actualizada: 'Cambió permisos de',
   contrasena_asignada: 'Asignó contraseña nueva a',
   cuenta_eliminada: 'Eliminó la cuenta',
+  corrida_enviada: 'Mandó corrida a cotizaciones',
+  corrida_convertida: 'Convirtió corrida en cotización',
   sala_reservada: 'Reservó sala',
   sala_movida: 'Movió reservación',
   sala_cancelada: 'Canceló reservación',
