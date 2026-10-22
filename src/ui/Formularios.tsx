@@ -1,5 +1,6 @@
+import { useRef } from 'react'
 import { dinero, miles, num, pct } from '../lib/formato'
-import { TESTIGO_TREVE, listarClausulas } from '../lib/contratos'
+import { TESTIGO_TREVE, listarClausulas, posicionClausula } from '../lib/contratos'
 import type { BonosData, ContratoLicenciaData, FeedbakData, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
@@ -503,7 +504,24 @@ export function FormHaatsHoras({ d, set }: Props<HaatsHorasData>) {
 const AYUDA_CUERPO =
   'Una línea por párrafo. "## " = cláusula (se numera sola), "### " = subtítulo, "- " = inciso a), b)… Las hojas se reparten solas.'
 
-function IndiceClausulas({ cuerpo }: { cuerpo: string }) {
+function saltarAClausula(cuerpo: string, indice: number, seccion: HTMLDetailsElement | null, area: HTMLTextAreaElement | null) {
+  if (seccion) seccion.open = true
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const el = area
+      const pos = posicionClausula(cuerpo, indice)
+      if (!el || !pos) return
+      el.focus()
+      el.setSelectionRange(pos.start, pos.end)
+      const cs = getComputedStyle(el)
+      const lh = Number.parseFloat(cs.lineHeight) || Number.parseFloat(cs.fontSize) * 1.45 || 18
+      el.scrollTop = Math.max(0, pos.linea * lh - el.clientHeight * 0.25)
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    })
+  })
+}
+
+function IndiceClausulas({ cuerpo, onIrA }: { cuerpo: string; onIrA: (indice: number) => void }) {
   const titulos = listarClausulas(cuerpo)
   if (titulos.length === 0) return null
   return (
@@ -511,7 +529,11 @@ function IndiceClausulas({ cuerpo }: { cuerpo: string }) {
       <div className="indice-clausulas-titulo">Apartados del contrato</div>
       <ol>
         {titulos.map((titulo, i) => (
-          <li key={`${i}-${titulo}`}>{titulo}</li>
+          <li key={`${i}-${titulo}`}>
+            <button type="button" className="indice-clausulas-btn" onClick={() => onIrA(i)}>
+              {titulo}
+            </button>
+          </li>
         ))}
       </ol>
     </div>
@@ -519,6 +541,8 @@ function IndiceClausulas({ cuerpo }: { cuerpo: string }) {
 }
 
 export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
+  const cuerpoRef = useRef<HTMLTextAreaElement>(null)
+  const textoRef = useRef<HTMLDetailsElement>(null)
   return (
     <>
       <Seccion titulo="1. Contrato">
@@ -556,15 +580,16 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
           placeholder={TESTIGO_TREVE}
         />
       </Seccion>
-      <IndiceClausulas cuerpo={d.cuerpo} />
-      <Seccion titulo="4. Texto del contrato" abierta={false}>
+      <IndiceClausulas cuerpo={d.cuerpo} onIrA={(i) => saltarAClausula(d.cuerpo, i, textoRef.current, cuerpoRef.current)} />
+      <Seccion ref={textoRef} titulo="4. Texto del contrato" abierta={false}>
         <Area label="Título" value={d.titulo} filas={4} onChange={(v) => set({ titulo: v })} ayuda="{cliente}, {proveedor} y {representanteProveedor} se sustituyen." />
         <Area
+          ref={cuerpoRef}
           label="Cláusulas"
           value={d.cuerpo}
           filas={16}
           onChange={(v) => set({ cuerpo: v })}
-          ayuda={`${AYUDA_CUERPO} El índice de arriba numera cada "## " para encontrarla. {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`}
+          ayuda={`${AYUDA_CUERPO} Clic en un apartado del índice para ir a esa cláusula. {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`}
         />
       </Seccion>
     </>
@@ -572,6 +597,8 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
 }
 
 export function FormNda({ d, set }: Props<NdaData>) {
+  const cuerpoRef = useRef<HTMLTextAreaElement>(null)
+  const textoRef = useRef<HTMLDetailsElement>(null)
   return (
     <>
       <Seccion titulo="1. Contrato">
@@ -591,18 +618,19 @@ export function FormNda({ d, set }: Props<NdaData>) {
           <Texto label="Testigo" value={d.testigo} onChange={(v) => set({ testigo: v })} />
         </Fila>
       </Seccion>
-      <IndiceClausulas cuerpo={d.cuerpo} />
-      <Seccion titulo="4. Texto del contrato" abierta={false}>
+      <IndiceClausulas cuerpo={d.cuerpo} onIrA={(i) => saltarAClausula(d.cuerpo, i, textoRef.current, cuerpoRef.current)} />
+      <Seccion ref={textoRef} titulo="4. Texto del contrato" abierta={false}>
         <Fila>
           <Texto label="Título" value={d.titulo} onChange={(v) => set({ titulo: v })} />
           <Texto label="Subtítulo" value={d.subtitulo} onChange={(v) => set({ subtitulo: v })} />
         </Fila>
         <Area
+          ref={cuerpoRef}
           label="Cláusulas"
           value={d.cuerpo}
           filas={16}
           onChange={(v) => set({ cuerpo: v })}
-          ayuda={`${AYUDA_CUERPO} El índice de arriba numera cada "## ". {cliente}, {representante}, {proveedor}, {direccionCliente} y {fecha} se sustituyen.`}
+          ayuda={`${AYUDA_CUERPO} Clic en un apartado del índice para ir a esa cláusula. {cliente}, {representante}, {proveedor}, {direccionCliente} y {fecha} se sustituyen.`}
         />
       </Seccion>
     </>

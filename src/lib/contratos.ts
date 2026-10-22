@@ -40,6 +40,22 @@ export function listarClausulas(cuerpo: string): string[] {
     .filter(Boolean)
 }
 
+/** Posición de la cláusula `indice` (0-based) en el texto del contrato. */
+export function posicionClausula(cuerpo: string, indice: number): { start: number; end: number; linea: number } | null {
+  const lineas = cuerpo.split('\n')
+  let n = 0
+  let offset = 0
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i]
+    if (linea.startsWith('## ')) {
+      if (n === indice) return { start: offset, end: offset + linea.length, linea: i }
+      n++
+    }
+    offset += linea.length + 1
+  }
+  return null
+}
+
 export interface ContratoLicenciaData extends ContratoBase {
   numero: string
   vigencia: VigenciaContrato

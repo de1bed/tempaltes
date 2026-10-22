@@ -889,7 +889,20 @@ export function datosIniciales(): Datos {
   }
 }
 
+/**
+ * Borradores viejos decían "las horas de soporte indicadas" sin el número.
+ * Se deja el token para que `rellenar` ponga las horas capturadas.
+ */
+export function normalizarTerminosFeedbak(terminos: string): string {
+  return terminos
+    .replace(/las horas de soporte indicadas/gi, '{horasSoporte} horas de soporte')
+    .replace(/the support hours indicated/gi, '{horasSoporte} support hours')
+}
+
 /** Sustituye {clave} por su valor; las claves desconocidas quedan intactas. */
 export function rellenar(texto: string, vars: Record<string, string>): string {
-  return texto.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? vars[k] : m))
+  let t = texto
+  const horas = vars.horasSoporte?.trim()
+  if (horas) t = normalizarTerminosFeedbak(t)
+  return t.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? vars[k] : m))
 }

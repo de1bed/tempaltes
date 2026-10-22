@@ -1,13 +1,16 @@
-import { useId, type ReactNode } from 'react'
+import { forwardRef, useId, type ReactNode } from 'react'
 
-export function Seccion({ titulo, children, abierta = true }: { titulo: string; children: ReactNode; abierta?: boolean }) {
+export const Seccion = forwardRef<HTMLDetailsElement, { titulo: string; children: ReactNode; abierta?: boolean }>(function Seccion(
+  { titulo, children, abierta = true },
+  ref,
+) {
   return (
-    <details className="seccion" open={abierta}>
+    <details className="seccion" open={abierta} ref={ref}>
       <summary>{titulo}</summary>
       <div className="seccion-body">{children}</div>
     </details>
   )
-}
+})
 
 export function Fila({ children }: { children: ReactNode }) {
   return <div className="fila">{children}</div>
@@ -74,16 +77,18 @@ export function Opciones<T extends string>(
   )
 }
 
-export function Area(p: BaseProps & { value: string; onChange: (v: string) => void; filas?: number }) {
-  const id = useId()
-  return (
-    <div className="campo">
-      <label htmlFor={id}>{p.label}</label>
-      <textarea id={id} rows={p.filas ?? 4} value={p.value} onChange={(e) => p.onChange(e.target.value)} />
-      {p.ayuda && <small>{p.ayuda}</small>}
-    </div>
-  )
-}
+export const Area = forwardRef<HTMLTextAreaElement, BaseProps & { value: string; onChange: (v: string) => void; filas?: number }>(
+  function Area(p, ref) {
+    const id = useId()
+    return (
+      <div className="campo">
+        <label htmlFor={id}>{p.label}</label>
+        <textarea ref={ref} id={id} rows={p.filas ?? 4} value={p.value} onChange={(e) => p.onChange(e.target.value)} />
+        {p.ayuda && <small>{p.ayuda}</small>}
+      </div>
+    )
+  },
+)
 
 export function Checkbox(p: BaseProps & { checked: boolean; onChange: (v: boolean) => void }) {
   const id = useId()

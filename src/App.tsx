@@ -4,7 +4,7 @@ import { ContratoLicencia, Nda } from './doc/Contratos'
 import { HaatsHoras, HaatsMensual } from './doc/Haats'
 import { Bonos, Gmm, Payroll, Reclutamiento, Servicios } from './doc/Staffvia'
 import { hoyISO } from './lib/formato'
-import { cambiarIdioma, datosIniciales, PLANTILLAS, type Datos, type Idioma, type PlantillaId, type TipoDocumento } from './lib/modelo'
+import { cambiarIdioma, datosIniciales, normalizarTerminosFeedbak, PLANTILLAS, type Datos, type Idioma, type PlantillaId, type TipoDocumento } from './lib/modelo'
 import { PRODUCTOS } from './lib/tabuladores'
 import {
   FormBonos,
@@ -69,6 +69,7 @@ function cargar(): Estado {
     // Borradores viejos traían el testigo de Treve vacío: se rellena el nombre por defecto.
     if (!datos.licencia.testigoProveedor.trim()) datos.licencia.testigoProveedor = TESTIGO_TREVE
     if (!datos.feedbak.horasSoporte.trim()) datos.feedbak.horasSoporte = '8'
+    datos.feedbak.terminos = normalizarTerminosFeedbak(datos.feedbak.terminos)
     return { plantilla: guardado.plantilla && guardado.plantilla in datos ? guardado.plantilla : 'feedbak', datos }
   } catch {
     return base
