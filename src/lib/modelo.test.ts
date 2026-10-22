@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { listarClausulas } from './contratos'
-import { cambiarIdioma, datosIniciales, rellenar } from './modelo'
+import { listarClausulas, posicionClausula } from './contratos'
+import { cambiarIdioma, datosIniciales, normalizarTerminosFeedbak, rellenar } from './modelo'
 
 describe('cambiarIdioma', () => {
   it('traduce los textos que no se han editado', () => {
@@ -27,10 +27,29 @@ describe('Feedbak: horas de soporte y cláusulas', () => {
     expect(rellenar(datosIniciales().feedbak.terminos, { horasSoporte: '8' })).toContain('incluye 8 horas de soporte')
   })
 
+  it('pone el número aunque el borrador traiga la frase genérica', () => {
+    const viejo = 'La propuesta incluye las horas de soporte indicadas durante la implementación.'
+    const en = 'This proposal includes the support hours indicated during implementation.'
+    expect(rellenar(viejo, { horasSoporte: '12' })).toContain('incluye 12 horas de soporte')
+    expect(rellenar(viejo, { horasSoporte: '12' })).not.toMatch(/indicadas/)
+    expect(rellenar(en, { horasSoporte: '12' })).toContain('includes 12 support hours')
+    expect(normalizarTerminosFeedbak(viejo)).toContain('{horasSoporte} horas de soporte')
+  })
+
   it('lista las cláusulas del contrato numerables', () => {
     const titulos = listarClausulas(datosIniciales().licencia.cuerpo)
     expect(titulos[0]).toMatch(/Definiciones/i)
     expect(titulos.length).toBeGreaterThan(8)
+  })
+
+  it('ubica cada cláusula del índice en el texto', () => {
+    const cuerpo = datosIniciales().licencia.cuerpo
+    const titulos = listarClausulas(cuerpo)
+    const primera = posicionClausula(cuerpo, 0)
+    const ultima = posicionClausula(cuerpo, titulos.length - 1)
+    expect(cuerpo.slice(primera!.start, primera!.end)).toBe(`## ${titulos[0]}`)
+    expect(cuerpo.slice(ultima!.start, ultima!.end)).toBe(`## ${titulos[titulos.length - 1]}`)
+    expect(posicionClausula(cuerpo, titulos.length)).toBeNull()
   })
 })
 
