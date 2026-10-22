@@ -9,9 +9,8 @@
 // entre personas y reservación para externos (sin cuenta) con el código impreso de cada sala.
 import { createClient } from 'npm:@supabase/supabase-js@2.117.1'
 import { comentarioCancelacion, correoCancelacion, correoRespuesta, correoSolicitud, cuerpoInvitacion, textoDia, textoHorario, type Aviso, type DatosReunion } from './correo.ts'
-import { DOMINIO_UID, generarFeed, ocupadosDeIcs } from './ics.ts'
-
-const ZONA = 'America/Mexico_City'
+import { DOMINIO_UID, generarFeed, horaGraph, lugarConEnlace, ocupadosDeIcs } from './ics.ts'
+import { ZONA } from './zona.ts'
 const HORA_INICIO = 7 // 7:00 a.m.
 const HORA_FIN = 21 // 9:00 p.m.
 const DIAS_ADELANTE = 30
@@ -84,6 +83,7 @@ interface Reservacion {
   responsable_nombre: string | null
   responsable_email: string | null
   notas: string
+  enlace_reunion: string
   origen: 'cuenta' | 'externo'
   empresa: string | null
 }
@@ -100,7 +100,7 @@ async function exigirPersona(req: Request): Promise<Persona> {
   return { id: data.user.id, email: perfil.email, nombre: perfil.nombre, es_admin: perfil.es_admin, admin_salas: adminSalas, externo: false }
 }
 
-// ───── Horario (hora de la Ciudad de México) ─────
+// ───── Horario (hora de Tijuana) ─────
 
 const formato = new Intl.DateTimeFormat('en-US', {
   timeZone: ZONA,
@@ -118,7 +118,7 @@ function local(fecha: Date) {
   return { dia: `${p.year}-${p.month}-${p.day}`, semana: p.weekday, minutos: Number(p.hour) * 60 + Number(p.minute) }
 }
 
-/** Inicio y fin (UTC) del día `YYYY-MM-DD` en la Ciudad de México. */
+/** Inicio y fin (UTC) del día `YYYY-MM-DD` en Tijuana. */
 function rangoDelDia(dia: string): [Date, Date] {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) throw new ErrorSalas('Fecha no válida')
   // Medianoche local = medianoche UTC menos el desfase de ese momento.
@@ -178,6 +178,14 @@ function personas(v: unknown): number {
   const n = Number(v ?? 1)
   if (!Number.isInteger(n) || n < 1 || n > 100) throw new ErrorSalas('Número de personas no válido')
   return n
+}
+
+/** Meet, Zoom, etc. Vacío si no lo pusieron. */
+function enlaceReunion(v: unknown): string {
+  const s = texto(v, 500)
+  if (!s) return ''
+  if (!/^https?:\/\/[^\s<>"]+$/i.test(s)) throw new ErrorSalas('El link de reunión no es una URL válida.')
+  return s
 }
 
 /** Dirección de la app que manda el navegador (para los enlaces de los correos). */
@@ -266,7 +274,6 @@ async function enviarCorreo(para: string[], asunto: string, html: string): Promi
 
 const usaOutlook = (sala: Sala) => outlookConfigurado && Boolean(sala.calendario_id)
 const calendario = (sala: Sala) => `/me/calendars/${encodeURIComponent(sala.calendario_id!)}`
-const utc = (d: Date | string) => ({ dateTime: new Date(d).toISOString().replace('Z', ''), timeZone: 'UTC' })
 const desdeGraph = (t: { dateTime: string }) => new Date(t.dateTime.endsWith('Z') ? t.dateTime : `${t.dateTime}Z`)
 
 /** Microsoft regresa aquí (GET) después de que el administrador conecta la cuenta. */
@@ -353,6 +360,7 @@ function datosReunion(r: Reservacion, sala: Sala, urlApp: string | null, gestion
     personas: r.personas,
     invitados: r.invitados,
     notas: r.notas,
+    enlace_reunion: r.enlace_reunion,
     codigo: r.codigo,
     empresa: r.empresa,
     app: urlApp,
@@ -364,9 +372,9 @@ function eventoOutlook(r: Reservacion, sala: Sala, urlApp: string | null, conInv
   return {
     subject: `${r.motivo} · ${sala.nombre}`,
     body: { contentType: 'HTML', content: cuerpoInvitacion(datosReunion(r, sala, urlApp, gestion), aviso) },
-    start: utc(r.inicio),
-    end: utc(r.fin),
-    location: { displayName: sala.nombre },
+    start: horaGraph(r.inicio),
+    end: horaGraph(r.fin),
+    location: { displayName: lugarConEnlace(sala.nombre, r.enlace_reunion) },
     showAs: 'busy',
     transactionId: r.id,
     ...(conInvitados ? { attendees: asistentes(r).map((address) => ({ emailAddress: { address }, type: 'required' })) } : {}),
@@ -550,6 +558,7 @@ interface NuevaReservacion {
   personas: number
   invitados: string[]
   notas: string
+  enlace_reunion: string
   responsable: { nombre: string; email: string }
   empresa?: string | null
   /** Reservación que se está reemplazando (su evento de Outlook todavía existe y no cuenta como choque). */
@@ -568,6 +577,7 @@ async function crearReservacion(n: NuevaReservacion, quien: Persona, urlApp: str
       personas: n.personas,
       invitados: n.invitados,
       notas: n.notas,
+      enlace_reunion: n.enlace_reunion,
       creado_por: quien.id,
       creado_por_email: quien.email,
       creado_por_nombre: quien.nombre,
@@ -642,7 +652,7 @@ async function moverReservacion(anterior: Reservacion, sala: Sala, inicio: Date,
     if (mismaSala && usaOutlook(sala) && anterior.outlook_event_id) {
       const res = await graph(`/me/events/${encodeURIComponent(anterior.outlook_event_id)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ start: utc(inicio), end: utc(fin), body: { contentType: 'HTML', content: cuerpoInvitacion(datosReunion(r, sala, urlApp, gestion), aviso) } }),
+        body: JSON.stringify({ start: horaGraph(inicio), end: horaGraph(fin), body: { contentType: 'HTML', content: cuerpoInvitacion(datosReunion(r, sala, urlApp, gestion), aviso) } }),
       })
       if (!res.ok) throw new Error(`Outlook (${res.status}): ${await res.text()}`)
       await guardarSync(r.id, { sync_error: null })
@@ -741,7 +751,7 @@ async function manejarExterno(req: Request, cuerpo: Record<string, unknown>) {
       if ((count ?? 0) >= EXTERNO_MAX_ACTIVAS) throw new ErrorSalas(`Ya tienes ${EXTERNO_MAX_ACTIVAS} reservaciones próximas. Cancela alguna o pide apoyo a Trevé.`, 429)
       const quien: Persona = { id: null, email, nombre, es_admin: false, admin_salas: false, externo: true }
       const resultado = await crearReservacion(
-        { sala, inicio, fin, motivo: texto(cuerpo.motivo, 200, 'el motivo'), personas: personas(cuerpo.personas), invitados: invitados(cuerpo.invitados), notas: texto(cuerpo.notas, 1000), responsable: { nombre, email }, empresa },
+        { sala, inicio, fin, motivo: texto(cuerpo.motivo, 200, 'el motivo'), personas: personas(cuerpo.personas), invitados: invitados(cuerpo.invitados), notas: texto(cuerpo.notas, 1000), enlace_reunion: enlaceReunion(cuerpo.enlace_reunion), responsable: { nombre, email }, empresa },
         quien,
         app(cuerpo.app),
       )
@@ -768,7 +778,7 @@ async function manejarExterno(req: Request, cuerpo: Record<string, unknown>) {
       const r = await reservacionPorToken(cuerpo.token)
       const sala = await leerSala(r.sala_id)
       return {
-        reservacion: { codigo: r.codigo, sala_id: sala.id, sala: sala.nombre, inicio: r.inicio, fin: r.fin, motivo: r.motivo, estado: r.estado, responsable: responsable(r), empresa: r.empresa, invitados: r.invitados },
+        reservacion: { codigo: r.codigo, sala_id: sala.id, sala: sala.nombre, inicio: r.inicio, fin: r.fin, motivo: r.motivo, estado: r.estado, responsable: responsable(r), empresa: r.empresa, invitados: r.invitados, notas: r.notas, enlace_reunion: r.enlace_reunion },
         max_horas: EXTERNO_MAX_HORAS,
       }
     }
@@ -823,7 +833,7 @@ async function manejar(req: Request) {
         email: cuerpo.responsable_email ? correo(cuerpo.responsable_email, 'quien reserva') : quien.email,
       }
       return crearReservacion(
-        { sala, inicio, fin, motivo: texto(cuerpo.motivo, 200, 'el motivo de la reunión'), personas: personas(cuerpo.personas), invitados: invitados(cuerpo.invitados), notas: texto(cuerpo.notas, 1000), responsable: resp },
+        { sala, inicio, fin, motivo: texto(cuerpo.motivo, 200, 'el motivo de la reunión'), personas: personas(cuerpo.personas), invitados: invitados(cuerpo.invitados), notas: texto(cuerpo.notas, 1000), enlace_reunion: enlaceReunion(cuerpo.enlace_reunion), responsable: resp },
         quien,
         urlApp,
       )
@@ -866,6 +876,7 @@ async function manejar(req: Request) {
         personas: personas(cuerpo.personas),
         invitados: invitados(cuerpo.invitados),
         notas: texto(cuerpo.notas, 1000),
+        enlace_reunion: enlaceReunion(cuerpo.enlace_reunion),
         responsable_nombre: texto(cuerpo.responsable_nombre, 120) || quien.nombre,
         responsable_email: cuerpo.responsable_email ? correo(cuerpo.responsable_email, 'quien reserva') : quien.email,
       }
@@ -915,7 +926,7 @@ async function manejar(req: Request) {
       const aceptar = cuerpo.aceptar === true
       const respuesta = texto(cuerpo.respuesta, 500)
       const solicitante: Persona = { id: s.solicitante_id, email: s.solicitante_email, nombre: s.solicitante_nombre, es_admin: false, admin_salas: false, externo: false }
-      const d = s.datos as { motivo: string; personas: number; invitados: string[]; notas: string; responsable_nombre: string; responsable_email: string }
+      const d = s.datos as { motivo: string; personas: number; invitados: string[]; notas: string; enlace_reunion?: string; responsable_nombre: string; responsable_email: string }
       let nueva: Reservacion | null = null
       if (aceptar) {
         // Se libera el horario y se reserva para quien lo pidió; si eso falla, se reactiva la original.
@@ -923,7 +934,7 @@ async function manejar(req: Request) {
         await admin.from('reservaciones').update({ estado: 'cancelada', actualizado: new Date().toISOString() }).eq('id', objetivo.id)
         try {
           const creada = await crearReservacion(
-            { sala, inicio: new Date(objetivo.inicio), fin: new Date(objetivo.fin), motivo: d.motivo, personas: d.personas, invitados: d.invitados, notas: d.notas, responsable: { nombre: d.responsable_nombre, email: d.responsable_email }, reemplaza: objetivo },
+            { sala, inicio: new Date(objetivo.inicio), fin: new Date(objetivo.fin), motivo: d.motivo, personas: d.personas, invitados: d.invitados, notas: d.notas, enlace_reunion: enlaceReunion(d.enlace_reunion), responsable: { nombre: d.responsable_nombre, email: d.responsable_email }, reemplaza: objetivo },
             solicitante,
             urlApp,
           )
@@ -963,7 +974,7 @@ async function manejar(req: Request) {
         return { historial: data ?? [] }
       }
       exigirAdminSalas(quien)
-      // Por mes (YYYY-MM, hora de la Ciudad de México); sin mes, las últimas 150 acciones.
+      // Por mes (YYYY-MM, hora de Tijuana); sin mes, las últimas 150 acciones.
       let consulta = admin.from('salas_historial').select('*, reservaciones(codigo, sala_id, motivo, inicio, fin, estado, origen, empresa)')
       const mes = typeof cuerpo.mes === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(cuerpo.mes) ? cuerpo.mes : null
       if (mes) {
@@ -1127,12 +1138,14 @@ async function feedDeSala(token: string): Promise<Response> {
         `Reserva: ${responsable(r).nombre} (${responsable(r).email})${r.empresa ? ` · ${r.empresa}` : ''}`,
         `Personas: ${r.personas}`,
         r.invitados.length ? `Invitados: ${r.invitados.join(', ')}` : '',
+        r.enlace_reunion ? `Link de reunión: ${r.enlace_reunion}` : '',
         r.notas ? `Notas: ${r.notas}` : '',
         `Código: ${r.codigo}`,
       ]
         .filter(Boolean)
         .join('\n'),
-      lugar: nombre,
+      lugar: lugarConEnlace(nombre, r.enlace_reunion),
+      url: r.enlace_reunion?.trim() || undefined,
       actualizado: r.actualizado ?? r.inicio,
     })),
   )

@@ -1,5 +1,6 @@
-// Horario de las salas, siempre en hora de la Ciudad de México (aunque el navegador esté en otra zona).
-export const ZONA = 'America/Mexico_City'
+// Horario de las salas, siempre en hora de Tijuana (aunque el navegador esté en otra zona).
+export const ZONA = 'America/Tijuana'
+export const TZ_ETIQUETA = 'hora de Tijuana'
 export const HORA_INICIO = 7
 export const HORA_FIN = 21
 export const DIAS_ADELANTE = 30
@@ -11,17 +12,61 @@ const partes = new Intl.DateTimeFormat('en-US', {
   day: '2-digit',
   hour: '2-digit',
   minute: '2-digit',
+  second: '2-digit',
   weekday: 'short',
   hourCycle: 'h23',
 })
 
-/** Día (`YYYY-MM-DD`), día de la semana y minutos desde medianoche, en la Ciudad de México. */
-export function local(fecha: Date) {
+function partesDe(fecha: Date) {
   const p = Object.fromEntries(partes.formatToParts(fecha).map((x) => [x.type, x.value]))
+  if (p.hour === '24') p.hour = '00'
+  return p
+}
+
+/** Día (`YYYY-MM-DD`), día de la semana y minutos desde medianoche, en Tijuana. */
+export function local(fecha: Date) {
+  const p = partesDe(fecha)
   return { dia: `${p.year}-${p.month}-${p.day}`, semana: p.weekday, minutos: Number(p.hour) * 60 + Number(p.minute) }
 }
 
-/** Momento exacto de `dia` a los `minutos` (hora de la Ciudad de México). */
+/** Compacto local para ICS DTSTART/DTEND con TZID=America/Tijuana (sin Z). */
+export function icsLocal(iso: string): string {
+  const p = partesDe(new Date(iso))
+  return `${p.year}${p.month}${p.day}T${p.hour}${p.minute}${p.second || '00'}`
+}
+
+/** Reloj de pared RFC3339 sin offset, para Outlook/Google + America/Tijuana. */
+export function rfc3339Local(iso: string): string {
+  const p = partesDe(new Date(iso))
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second || '00'}`
+}
+
+/**
+ * America/Tijuana sigue el DST del Pacífico de EE. UU. (excepción fronteriza).
+ * Outlook necesita este VTIMEZONE o puede asumir Ciudad de México (UTC-6) y correr la junta una hora.
+ */
+export const VTIMEZONE_TIJUANA = [
+  'BEGIN:VTIMEZONE',
+  `TZID:${ZONA}`,
+  `X-LIC-LOCATION:${ZONA}`,
+  'BEGIN:DAYLIGHT',
+  'TZOFFSETFROM:-0800',
+  'TZOFFSETTO:-0700',
+  'TZNAME:PDT',
+  'DTSTART:19700308T020000',
+  'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU',
+  'END:DAYLIGHT',
+  'BEGIN:STANDARD',
+  'TZOFFSETFROM:-0700',
+  'TZOFFSETTO:-0800',
+  'TZNAME:PST',
+  'DTSTART:19701101T020000',
+  'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU',
+  'END:STANDARD',
+  'END:VTIMEZONE',
+]
+
+/** Momento exacto de `dia` a los `minutos` (hora de Tijuana). */
 export function aFecha(dia: string, minutos: number): Date {
   const base = new Date(`${dia}T12:00:00Z`)
   const desfase = local(base).minutos - 12 * 60

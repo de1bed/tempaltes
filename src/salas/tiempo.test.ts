@@ -1,11 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { aFecha, diasHabiles, horariosLibres, indiceSemana, local, mesesDelRango, semanasDelMes, sumarDias, textoHora } from './tiempo'
+import { aFecha, diasHabiles, horariosLibres, icsLocal, indiceSemana, local, mesesDelRango, rfc3339Local, semanasDelMes, sumarDias, textoHora, ZONA } from './tiempo'
 
-describe('horario de salas (Ciudad de México)', () => {
-  it('convierte hora local a UTC (UTC-6, sin horario de verano)', () => {
-    expect(aFecha('2026-10-12', 9 * 60).toISOString()).toBe('2026-10-12T15:00:00.000Z')
-    expect(aFecha('2026-12-01', 7 * 60).toISOString()).toBe('2026-12-01T13:00:00.000Z')
-    expect(local(new Date('2026-10-12T15:00:00Z'))).toEqual({ dia: '2026-10-12', semana: 'Mon', minutos: 540 })
+describe('horario de salas (Tijuana)', () => {
+  it('convierte 11:00 Tijuana a 18:00 UTC en PDT, no al mediodía de Ciudad de México', () => {
+    // 22 oct 2026 es PDT (UTC-7). Ciudad de México sería 11:00 → 17:00 UTC y el invite mostraría 12:00.
+    expect(aFecha('2026-10-22', 11 * 60).toISOString()).toBe('2026-10-22T18:00:00.000Z')
+    expect(aFecha('2026-10-22', 12 * 60).toISOString()).toBe('2026-10-22T19:00:00.000Z')
+    expect(local(new Date('2026-10-22T18:00:00Z'))).toEqual({ dia: '2026-10-22', semana: 'Thu', minutos: 11 * 60 })
+    expect(ZONA).toBe('America/Tijuana')
+  })
+
+  it('respeta el horario de invierno (PST, UTC-8)', () => {
+    expect(aFecha('2026-12-01', 7 * 60).toISOString()).toBe('2026-12-01T15:00:00.000Z')
+    expect(aFecha('2026-12-01', 11 * 60).toISOString()).toBe('2026-12-01T19:00:00.000Z')
+    expect(local(new Date('2026-12-01T19:00:00Z')).minutos).toBe(11 * 60)
+  })
+
+  it('escribe reloj de pared local sin Z para ICS y Graph', () => {
+    const inicio = aFecha('2026-10-22', 11 * 60).toISOString()
+    const fin = aFecha('2026-10-22', 12 * 60).toISOString()
+    expect(icsLocal(inicio)).toBe('20261022T110000')
+    expect(icsLocal(fin)).toBe('20261022T120000')
+    expect(rfc3339Local(inicio)).toBe('2026-10-22T11:00:00')
+    expect(rfc3339Local(inicio).includes('Z')).toBe(false)
   })
 
   it('solo días hábiles en los próximos 30 días', () => {
@@ -17,7 +34,7 @@ describe('horario de salas (Ciudad de México)', () => {
 
   it('horarios libres respetan lo ocupado, la duración y las 9 p.m.', () => {
     const antes = new Date('2026-10-01T00:00:00Z')
-    const ocupado = [{ inicio: '2026-10-12T15:00:00Z', fin: '2026-10-12T16:00:00Z' }] // 9 a 10 a.m.
+    const ocupado = [{ inicio: '2026-10-12T16:00:00Z', fin: '2026-10-12T17:00:00Z' }] // 9 a 10 a.m. Tijuana
     const libres = horariosLibres('2026-10-12', 60, ocupado, antes)
     expect(libres[0]).toBe(7 * 60)
     expect(libres).toContain(8 * 60)
@@ -45,7 +62,7 @@ describe('horario de salas (Ciudad de México)', () => {
   })
 
   it('no ofrece horarios que ya pasaron', () => {
-    const libres = horariosLibres('2026-10-12', 30, [], new Date('2026-10-12T18:10:00Z')) // 12:10 p.m.
+    const libres = horariosLibres('2026-10-12', 30, [], new Date('2026-10-12T19:10:00Z')) // 12:10 p.m. Tijuana
     expect(libres[0]).toBe(12 * 60 + 30)
   })
 })

@@ -143,7 +143,7 @@ export function Historial({ nombreSala }: { nombreSala: (id: string) => string }
   const visibles = (lista ?? []).filter(
     (e) => !q || [e.quien_nombre, e.quien_email, e.reservaciones?.motivo, e.reservaciones?.codigo, e.reservaciones?.empresa].some((x) => x?.toLowerCase().includes(q)),
   )
-  // Agrupado por día (hora de la Ciudad de México), del más reciente al más antiguo.
+  // Agrupado por día (hora de Tijuana), del más reciente al más antiguo.
   const dias: { dia: string; entradas: Entrada[] }[] = []
   for (const e of visibles) {
     const dia = local(new Date(e.creado)).dia

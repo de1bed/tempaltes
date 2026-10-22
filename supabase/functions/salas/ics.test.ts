@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import ICAL from 'ical.js'
-import { DOMINIO_UID, generarFeed, ocupadosDeIcs } from './ics'
+import { DOMINIO_UID, generarFeed, horaGraph, icsLocal, ocupadosDeIcs, rfc3339Local } from './ics'
 
 // Como lo publica Outlook.com: zona horaria de Windows con su VTIMEZONE.
 const OUTLOOK = [
@@ -82,8 +82,8 @@ describe('ocupadosDeIcs', () => {
     const martes = bloques.filter((b) => b.fin.slice(11, 16) === '15:30' || b.inicio.slice(11, 16) === '19:00')
     expect(martes.map((b) => b.inicio)).toEqual(['2026-10-20T15:00:00.000Z', '2026-11-03T19:00:00.000Z'])
   })
-  it('todo el día ocupa el día completo en México', () => {
-    expect(bloques).toContainEqual({ inicio: '2026-10-22T06:00:00.000Z', fin: '2026-10-23T06:00:00.000Z' })
+  it('todo el día ocupa el día completo en Tijuana (PDT)', () => {
+    expect(bloques).toContainEqual({ inicio: '2026-10-22T07:00:00.000Z', fin: '2026-10-23T07:00:00.000Z' })
   })
   it('no cuenta libres, cancelados ni reservaciones de la app', () => {
     expect(bloques.some((b) => b.inicio.startsWith('2026-10-21'))).toBe(false)
@@ -156,7 +156,9 @@ describe('generarFeed', () => {
   ])
 
   it('es un calendario válido que se vuelve a leer igual', () => {
-    const ev = new ICAL.Event(new ICAL.Component(ICAL.parse(feed)).getFirstSubcomponent('vevent')!)
+    const raiz = new ICAL.Component(ICAL.parse(feed))
+    for (const tz of raiz.getAllSubcomponents('vtimezone')) ICAL.TimezoneService.register(new ICAL.Timezone(tz))
+    const ev = new ICAL.Event(raiz.getFirstSubcomponent('vevent')!)
     expect(ev.uid).toBe(`r1@${DOMINIO_UID}`)
     expect(ev.summary).toBe('Junta con cliente; revisión, presupuesto · Ana')
     expect(ev.description).toContain('SALA-ABC123')
@@ -169,6 +171,53 @@ describe('generarFeed', () => {
   it('lo que genera se lee como ocupado', () => {
     expect(ocupadosDeIcs(feed, new Date('2026-10-20T00:00:00Z'), new Date('2026-10-21T00:00:00Z'))).toEqual([
       { inicio: '2026-10-20T16:00:00.000Z', fin: '2026-10-20T17:00:00.000Z' },
+    ])
+  })
+})
+
+describe('invitación 11:00–12:00 America/Tijuana (no Ciudad de México)', () => {
+  const inicio = '2026-10-22T18:00:00.000Z' // 11:00 Tijuana PDT; sería 12:00 en México
+  const fin = '2026-10-22T19:00:00.000Z'
+  const link = 'https://meet.google.com/abc-defg-hij'
+  const feed = generarFeed('Sala principal · Treve', [
+    {
+      id: 'sample',
+      codigo: 'SALA-SAMPLE',
+      inicio,
+      fin,
+      titulo: 'Sala principal · Sample Booker',
+      descripcion: `Link de reunión: ${link}\nCódigo: SALA-SAMPLE`,
+      lugar: `Sala principal | ${link}`,
+      actualizado: inicio,
+      url: link,
+    },
+  ])
+
+  it('Graph usa reloj de pared + America/Tijuana, no UTC con Z', () => {
+    expect(horaGraph(inicio)).toEqual({ dateTime: '2026-10-22T11:00:00', timeZone: 'America/Tijuana' })
+    expect(horaGraph(fin)).toEqual({ dateTime: '2026-10-22T12:00:00', timeZone: 'America/Tijuana' })
+    expect(rfc3339Local(inicio).includes('Z')).toBe(false)
+    expect(icsLocal(inicio)).toBe('20261022T110000')
+  })
+
+  it('ICS lleva TZID America/Tijuana a las 11:00, no las 12:00 de Ciudad de México', () => {
+    expect(feed).toMatch(/TZID:America\/Tijuana/)
+    expect(feed).toMatch(/DTSTART;TZID=America\/Tijuana:20261022T110000/)
+    expect(feed).toMatch(/DTEND;TZID=America\/Tijuana:20261022T120000/)
+    expect(feed.includes('America/Mexico_City')).toBe(false)
+    expect(feed.includes('hora del centro de México')).toBe(false)
+    expect(/DTSTART:20261022T180000Z/.test(feed)).toBe(false)
+  })
+
+  it('el link de reunión va en LOCATION, URL y DESCRIPTION', () => {
+    expect(feed).toContain(`URL:${link}`)
+    expect(feed).toMatch(/LOCATION:Sala principal \| https:\/\/meet.google.com\/abc-defg-hij/)
+    expect(feed).toMatch(/DESCRIPTION:[\s\S]*Link de reunión/)
+  })
+
+  it('el instante UTC se conserva al volver a leer el ICS', () => {
+    expect(ocupadosDeIcs(feed, new Date('2026-10-22T00:00:00Z'), new Date('2026-10-23T00:00:00Z'))).toEqual([
+      { inicio, fin },
     ])
   })
 })

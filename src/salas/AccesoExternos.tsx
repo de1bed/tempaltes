@@ -125,7 +125,7 @@ function HojaQR({ sala, codigo, cerrar }: { sala: Sala; codigo: string; cerrar: 
           <li>Te llega la invitación a tu correo. Para cambiar el horario o cancelar, usa el enlace que viene en ella (o escanea este QR y entra con el código de tu reservación).</li>
         </ol>
         <div className="salas-hoja-pie">
-          Lunes a viernes de 7:00 a.m. a 9:00 p.m. · {enlace.replace(/^https?:\/\//, '')}
+          Lunes a viernes de 7:00 a.m. a 9:00 p.m., hora de Tijuana · {enlace.replace(/^https?:\/\//, '')}
         </div>
       </div>
     </div>
