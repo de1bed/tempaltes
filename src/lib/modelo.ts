@@ -35,6 +35,8 @@ export interface FeedbakData extends Base {
   mostrarCostoHoraAdicional: boolean
   /** Usuario que creó la cotización (se registra automáticamente). */
   creadoPor: string
+  creadoPorEmail: string
+  creadoPorTelefono: string
   ciudad: string
   puesto: string
   capacitacionHoras: string
@@ -243,7 +245,7 @@ En el supuesto de que el monto total de la factura entregada y no objetada por �
 Los precios podrán actualizarse anualmente conforme a inflación (Índice INPC) u otros factores de mercado.
 El cliente será notificado con al menos 30 días de anticipación.
 ## 3. Alcance de la Implementación y Soporte
-La propuesta incluye las horas de soporte indicadas durante la implementación. Para horas adicionales, favor de solicitar una cotización separada.
+La propuesta incluye {horasSoporte} horas de soporte durante la implementación. Para horas adicionales, favor de solicitar una cotización separada.
 Toda configuración especial o requisito para la puesta en marcha y el correcto funcionamiento de la plataforma, es cubierto por el tiempo disponible de “Implementación”. En caso de agotar todas las horas y requerir horas adicionales, estas serán facturadas por paquetes por separado con un costo de $1,200.00 por hora (más IVA) y un tiempo de respuesta de hasta 24 horas en días hábiles. En caso de ser un soporte o servicio urgente este tendrá un costo de $1,900.00 pesos (más IVA) por hora en un tiempo no mayor a 3 horas, en caso de ser fuera de horario de oficina se agregará el 20% de costo sobre total de tiempo. Horarios de Lun-Jue 8am a 6pm y Vie 8am a 3pm PST. Sábados y Domingos no son días hábiles.
 Gastos de viáticos fuera de la ciudad (cuando aplique y previa autorización del cliente) correrán por cuenta del cliente.
 ## 4. Hardware y Responsabilidades del Cliente
@@ -288,7 +290,7 @@ If the total amount of an invoice delivered and not disputed by “The Client”
 Prices may be updated annually based on inflation (Mexican INPC index) or other market factors.
 The client will be notified at least 30 days in advance.
 ## 3. Implementation Scope and Support
-This proposal includes the support hours indicated during implementation. For additional hours, please request a separate quote.
+This proposal includes {horasSoporte} support hours during implementation. For additional hours, please request a separate quote.
 Any special configuration or requirement for the launch and proper operation of the platform is covered by the available “Implementation” time. If all hours are used and additional hours are required, they will be invoiced separately in packages at $1,200.00 MXN per hour (plus VAT), with a response time of up to 24 business hours. Urgent support or services will cost $1,900.00 MXN (plus VAT) per hour, with a response time of no more than 3 hours; outside office hours, a 20% surcharge will be added to the total time. Office hours: Mon–Thu 8am to 6pm and Fri 8am to 3pm PST. Saturdays and Sundays are not business days.
 Out-of-town travel expenses (when applicable and with prior client authorization) will be covered by the client.
 ## 4. Hardware and Client Responsibilities
@@ -716,6 +718,8 @@ export function datosIniciales(): Datos {
       planesPago: ['mensual', 'semestral', 'anual'],
       mostrarCostoHoraAdicional: true,
       creadoPor: '',
+      creadoPorEmail: '',
+      creadoPorTelefono: '',
       ...FEEDBAK.es,
     },
     servicios: {

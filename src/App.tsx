@@ -68,6 +68,7 @@ function cargar(): Estado {
     }
     // Borradores viejos traían el testigo de Treve vacío: se rellena el nombre por defecto.
     if (!datos.licencia.testigoProveedor.trim()) datos.licencia.testigoProveedor = TESTIGO_TREVE
+    if (!datos.feedbak.horasSoporte.trim()) datos.feedbak.horasSoporte = '8'
     return { plantilla: guardado.plantilla && guardado.plantilla in datos ? guardado.plantilla : 'feedbak', datos }
   } catch {
     return base
@@ -196,6 +197,25 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     }
   }, [estado])
 
+  // Nombre y correo de la sesión; el teléfono se recuerda en este navegador.
+  useEffect(() => {
+    const telPref = leerPreferencia('telefonoEjecutiva', '')
+    setEstado((e) => {
+      const f = e.datos.feedbak
+      const nombre = f.creadoPor.trim() || perfil.nombre.trim() || perfil.email
+      const email = f.creadoPorEmail.trim() || perfil.email
+      const tel = f.creadoPorTelefono.trim() || telPref
+      const horas = f.horasSoporte.trim() || '8'
+      if (nombre === f.creadoPor && email === f.creadoPorEmail && tel === f.creadoPorTelefono && horas === f.horasSoporte) return e
+      return { ...e, datos: { ...e.datos, feedbak: { ...f, creadoPor: nombre, creadoPorEmail: email, creadoPorTelefono: tel, horasSoporte: horas, firmante: f.firmante.trim() || nombre } } }
+    })
+  }, [perfil])
+
+  useEffect(() => {
+    const tel = datos.feedbak.creadoPorTelefono.trim()
+    if (tel) guardarPreferencia('telefonoEjecutiva', tel)
+  }, [datos.feedbak.creadoPorTelefono])
+
   // Marca las hojas cuyo contenido no cabe (se cortaría al imprimir).
   const revisarDesbordes = useCallback(() => {
     const hojas = vistaRef.current?.querySelectorAll<HTMLElement>('.page:not(.medidor)')
@@ -286,11 +306,16 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     setErrorPdf('')
     setExportando({ hoja: 0, total: 0 })
     try {
-      // Registrar automáticamente el autor en cotizaciones Feedbak si el campo está vacío.
-      if (plantilla === 'feedbak' && !datos.feedbak.creadoPor.trim()) {
-        const autor = perfil.nombre.trim() || perfil.email
-        setEstado((e) => ({ ...e, datos: { ...e.datos, feedbak: { ...e.datos.feedbak, creadoPor: autor } } }))
-        await new Promise((r) => requestAnimationFrame(r))
+      // Completar autor/contacto de Feedbak si faltan, para que salgan en el PDF.
+      if (plantilla === 'feedbak') {
+        const f = datos.feedbak
+        const nombre = f.creadoPor.trim() || perfil.nombre.trim() || perfil.email
+        const email = f.creadoPorEmail.trim() || perfil.email
+        const horas = f.horasSoporte.trim() || '8'
+        if (nombre !== f.creadoPor || email !== f.creadoPorEmail || horas !== f.horasSoporte) {
+          setEstado((e) => ({ ...e, datos: { ...e.datos, feedbak: { ...e.datos.feedbak, creadoPor: nombre, creadoPorEmail: email, horasSoporte: horas } } }))
+          await new Promise((r) => requestAnimationFrame(r))
+        }
       }
       // El PDF sale de las hojas: si se están viendo los números, se muestra el documento
       // mientras se genera y al terminar se regresa a los números.

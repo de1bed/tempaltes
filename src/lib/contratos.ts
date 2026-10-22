@@ -31,6 +31,15 @@ export type VigenciaContrato = 'mensual' | 'bimestral' | 'trimestral' | 'semestr
 /** Testigo por defecto del lado Treve / Feedbak (el otro representante legal). */
 export const TESTIGO_TREVE = 'RAQUEL SALAS TOVAR'
 
+/** Títulos de cláusula (`## `) en el orden del contrato, para el índice de edición. */
+export function listarClausulas(cuerpo: string): string[] {
+  return cuerpo
+    .split('\n')
+    .filter((l) => l.startsWith('## '))
+    .map((l) => l.slice(3).trim())
+    .filter(Boolean)
+}
+
 export interface ContratoLicenciaData extends ContratoBase {
   numero: string
   vigencia: VigenciaContrato
