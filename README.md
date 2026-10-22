@@ -97,6 +97,9 @@ La sección **Contratos** tiene el contrato de licencia y servicios de Feedbak y
 - **Las hojas se reparten solas**: el texto se mide y se acomoda en hojas A4; un título de cláusula nunca queda solo al final de una hoja. El pie lleva "Página X de N" y, en el contrato, el número de contrato.
 - **Formato del texto**: `## ` cláusula (se numera sola), `### ` subtítulo, `- ` inciso a), b)…, cualquier otra línea es un párrafo. `{cliente}`, `{proveedor}`, `{vigencia}`, `{inicio}`, `{renovacion}`, `{representante}`, `{fecha}`, etc. se llenan con el formulario. La fecha de renovación se calcula con la vigencia (anual o semestral).
 
+- **Vigencia**: mensual a bianual, o **personalizada** (se elige la fecha de terminación, hasta 5 años después del inicio). En la cláusula de vigencia, las fechas de inicio y terminación salen en negritas, y al final va un recuadro con la vigencia.
+- **Negritas**: `**texto**` sale en negritas. En el cuadro "Cláusulas" se selecciona el texto y se usa el botón **Negritas** (o Ctrl+B / ⌘B); en la hoja también funciona Ctrl+B / ⌘B.
+
 Los textos de los contratos están en `src/lib/contratos.ts`.
 
 ## Corridas (simulaciones salariales)

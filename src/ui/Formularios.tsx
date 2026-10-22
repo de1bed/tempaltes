@@ -1,6 +1,6 @@
 import { useRef } from 'react'
-import { dinero, miles, num, pct } from '../lib/formato'
-import { TESTIGO_TREVE, listarClausulas, posicionClausula } from '../lib/contratos'
+import { dinero, fechaEs, miles, num, pct } from '../lib/formato'
+import { finDeVigencia, MAX_MESES_PERSONALIZADA, sumarMesesVigencia, TESTIGO_TREVE, listarClausulas, posicionClausula } from '../lib/contratos'
 import type { BonosData, ContratoLicenciaData, FeedbakData, PreciosManualesTexto, NdaData, GmmData, HaatsHorasData, HaatsMensualData, PayrollData, ReclutamientoData, ServiciosData } from '../lib/modelo'
 import { IMG, PORTADAS } from '../lib/imagenes'
 import { cotizarFeedbak, PRODUCTOS, type ProductoFeedbak } from '../lib/tabuladores'
@@ -537,7 +537,7 @@ export function FormHaatsHoras({ d, set }: Props<HaatsHorasData>) {
 /* ───────── Contratos ───────── */
 
 const AYUDA_CUERPO =
-  'Una línea por párrafo. "## " = cláusula (se numera sola), "### " = subtítulo, "- " = inciso a), b)… Las hojas se reparten solas.'
+  'Una línea por párrafo. "## " = cláusula (se numera sola), "### " = subtítulo, "- " = inciso a), b)…, **texto** = negritas (selecciona y usa el botón o Ctrl+B / ⌘B, también en la hoja). Las hojas se reparten solas.'
 
 function saltarAClausula(cuerpo: string, indice: number, seccion: HTMLDetailsElement | null, area: HTMLTextAreaElement | null) {
   if (seccion) seccion.open = true
@@ -589,7 +589,10 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
           <Opciones
             label="Vigencia inicial"
             value={d.vigencia}
-            onChange={(v) => set({ vigencia: v })}
+            onChange={(v) =>
+              // Personalizada arranca con un año; luego se elige la fecha.
+              set(v === 'personalizada' && !d.finVigencia ? { vigencia: v, finVigencia: sumarMesesVigencia(d.fecha, 12) } : { vigencia: v })
+            }
             opciones={[
               ['mensual', 'Mensual (1 mes)'],
               ['bimestral', 'Bimestral (2 meses)'],
@@ -597,11 +600,31 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
               ['semestral', 'Semestral (6 meses)'],
               ['anual', 'Anual (12 meses)'],
               ['bianual', 'Bianual (24 meses)'],
+              ['personalizada', 'Personalizada (elige la fecha)'],
             ]}
           />
         </Fila>
-        <Fecha label="Fecha de inicio" value={d.fecha} onChange={(v) => set({ fecha: v })} />
-        <small className="nota">La fecha de renovación se calcula con la vigencia.</small>
+        <Fila>
+          <Fecha label="Fecha de inicio" value={d.fecha} onChange={(v) => set({ fecha: v })} />
+          {d.vigencia === 'personalizada' && (
+            <Fecha
+              label="Fecha de terminación"
+              value={d.finVigencia ?? ''}
+              min={d.fecha}
+              max={sumarMesesVigencia(d.fecha, MAX_MESES_PERSONALIZADA)}
+              onChange={(v) => set({ finVigencia: v })}
+            />
+          )}
+        </Fila>
+        {d.vigencia === 'personalizada' && d.finVigencia && d.finVigencia !== finDeVigencia(d) ? (
+          <div className="alerta" role="alert">
+            La terminación debe ser después del inicio y como máximo 5 años después. Se usará el {fechaEs(finDeVigencia(d))}.
+          </div>
+        ) : (
+          <small className="nota">
+            {d.vigencia === 'personalizada' ? 'Elige cualquier fecha de terminación, hasta 5 años después del inicio.' : 'La fecha de renovación se calcula con la vigencia.'}
+          </small>
+        )}
       </Seccion>
       <Seccion titulo="2. Cliente">
         <Texto label="Razón social del cliente" value={d.empresa} onChange={(v) => set({ empresa: v })} placeholder="APTIV Services México S. de R.L. de C.V." />
@@ -626,6 +649,7 @@ export function FormLicencia({ d, set }: Props<ContratoLicenciaData>) {
           label="Cláusulas"
           value={d.cuerpo}
           filas={16}
+          negritas
           onChange={(v) => set({ cuerpo: v })}
           ayuda={`${AYUDA_CUERPO} Clic en un apartado del índice para ir a esa cláusula. {cliente}, {proveedor}, {vigencia}, {inicio} y {renovacion} se sustituyen.`}
         />
@@ -667,6 +691,7 @@ export function FormNda({ d, set }: Props<NdaData>) {
           label="Cláusulas"
           value={d.cuerpo}
           filas={16}
+          negritas
           onChange={(v) => set({ cuerpo: v })}
           ayuda={`${AYUDA_CUERPO} Clic en un apartado del índice para ir a esa cláusula. {cliente}, {representante}, {proveedor}, {direccionCliente} y {fecha} se sustituyen.`}
         />

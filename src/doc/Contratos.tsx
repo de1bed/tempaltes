@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { ligar } from '../lib/edicion'
-import { fecha, fechaEn, fechaEs, traductor } from '../lib/formato'
+import { fechaEn, fechaEs, traductor } from '../lib/formato'
 import type { ContratoLicenciaData, Idioma, NdaData } from '../lib/modelo'
-import { TESTIGO_TREVE } from '../lib/contratos'
+import { finDeVigencia, TESTIGO_TREVE, textoVigencia } from '../lib/contratos'
 import { rellenar } from '../lib/modelo'
 import { Editable, LineaEditable } from './Editable'
 import { Paginado, type Bloque } from './Paginado'
@@ -11,13 +11,6 @@ const LETRAS = 'abcdefghijklmnopqrstuvwxyz'
 
 /** Fecha larga según idioma: "24 de septiembre de 2026" / "September 24, 2026". */
 const fechaLarga = (idioma: Idioma, iso: string) => (idioma === 'es' ? fechaEs(iso) : fechaEn(iso))
-
-/** Suma meses a una fecha ISO. */
-function sumarMeses(iso: string, meses: number): string {
-  const d = fecha(iso)
-  d.setMonth(d.getMonth() + meses)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 /**
  * Convierte el cuerpo de un contrato en bloques editables:
@@ -29,7 +22,8 @@ function bloquesCuerpo(cuerpo: string, onCambio: (v: string) => void, vars: Reco
   let clausula = 0
   let inciso = 0
   return items.map((l, i) => {
-    const comun = { items, i, onCambio, id: 'cuerpo', vars }
+    // **texto** en negritas; Ctrl+B / ⌘B en la hoja.
+    const comun = { items, i, onCambio, id: 'cuerpo', vars, marcado: true }
     if (l.startsWith('## ')) {
       clausula++
       inciso = 0
@@ -114,34 +108,16 @@ function Firma({ nombre, detalle }: { nombre: ReactNode; detalle: ReactNode }) {
 
 /* ───────── Contrato de licencia y servicios ───────── */
 
-const MESES_VIGENCIA: Record<ContratoLicenciaData['vigencia'], number> = {
-  mensual: 1,
-  bimestral: 2,
-  trimestral: 3,
-  semestral: 6,
-  anual: 12,
-  bianual: 24,
-}
-
-const VIGENCIA_TEXTO: Record<ContratoLicenciaData['vigencia'], { es: string; en: string }> = {
-  mensual: { es: 'mensual', en: 'one-month' },
-  bimestral: { es: 'bimestral', en: 'two-month' },
-  trimestral: { es: 'trimestral', en: 'three-month' },
-  semestral: { es: 'semestral', en: 'six-month' },
-  anual: { es: 'anual', en: 'one-year' },
-  bianual: { es: 'bianual', en: 'two-year' },
-}
-
 export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p: Partial<ContratoLicenciaData>) => void }) {
   const t = traductor(d.idioma)
   const c$ = ligar(d, set)
-  const meses = MESES_VIGENCIA[d.vigencia]
-  const fechaRenovacion = fechaLarga(d.idioma, sumarMeses(d.fecha, meses))
+  const fechaRenovacion = fechaLarga(d.idioma, finDeVigencia(d))
+  const duracion = textoVigencia(d, d.idioma)
   const vars = {
     cliente: d.empresa.trim() || t('[NOMBRE DEL CLIENTE O RAZÓN SOCIAL]', '[CLIENT NAME OR CORPORATE NAME]'),
     proveedor: d.proveedor,
     representanteProveedor: d.firmante,
-    vigencia: VIGENCIA_TEXTO[d.vigencia][d.idioma],
+    vigencia: duracion,
     inicio: fechaLarga(d.idioma, d.fecha),
     renovacion: fechaRenovacion,
   }
@@ -155,7 +131,8 @@ export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p:
         </p>
       ),
     },
-    ...conFirmas(bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), vars, d.idioma)),
+    // En el texto, las fechas de inicio y terminación de la vigencia van en negritas.
+    ...conFirmas(bloquesCuerpo(d.cuerpo, (v) => set({ cuerpo: v }), { ...vars, inicio: `**${vars.inicio}**`, renovacion: `**${vars.renovacion}**` }, d.idioma)),
     {
       key: 'vigencia-resaltada',
       conSiguiente: true,
@@ -166,8 +143,8 @@ export function ContratoLicencia({ d, set }: { d: ContratoLicenciaData; set: (p:
               <td>
                 <strong>{t('Vigencia del contrato:', 'Agreement term:')}</strong>{' '}
                 {t(
-                  `Desde ${vars.inicio} hasta ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].es})`,
-                  `From ${vars.inicio} until ${fechaRenovacion} (${VIGENCIA_TEXTO[d.vigencia].en})`,
+                  `Desde ${vars.inicio} hasta ${fechaRenovacion} (${duracion.replace(/^de /, '')})`,
+                  `From ${vars.inicio} until ${fechaRenovacion} (${duracion})`,
                 )}
               </td>
             </tr>

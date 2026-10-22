@@ -1,4 +1,5 @@
 import type { Idioma } from './modelo'
+import { sinMarcas } from './marcado'
 
 /**
  * Contratos (licencia Feedbak y NDA). El cuerpo es texto por líneas:
@@ -26,7 +27,7 @@ interface ContratoBase {
   cuerpo: string
 }
 
-export type VigenciaContrato = 'mensual' | 'bimestral' | 'trimestral' | 'semestral' | 'anual' | 'bianual'
+export type VigenciaContrato = 'mensual' | 'bimestral' | 'trimestral' | 'semestral' | 'anual' | 'bianual' | 'personalizada'
 
 /** Testigo por defecto del lado Treve / Feedbak (el otro representante legal). */
 export const TESTIGO_TREVE = 'RAQUEL SALAS TOVAR'
@@ -36,7 +37,7 @@ export function listarClausulas(cuerpo: string): string[] {
   return cuerpo
     .split('\n')
     .filter((l) => l.startsWith('## '))
-    .map((l) => l.slice(3).trim())
+    .map((l) => sinMarcas(l.slice(3)).trim())
     .filter(Boolean)
 }
 
@@ -59,6 +60,8 @@ export function posicionClausula(cuerpo: string, indice: number): { start: numbe
 export interface ContratoLicenciaData extends ContratoBase {
   numero: string
   vigencia: VigenciaContrato
+  /** Solo con vigencia personalizada: fecha de terminación (hasta 5 años después del inicio). */
+  finVigencia?: string
   testigoCliente: string
   testigoProveedor: string
 }
@@ -324,4 +327,60 @@ This Agreement constitutes the entire agreement regarding the Confidential Infor
 - Neither party will be obligated under this Agreement to purchase or otherwise acquire services or products from the other party.
 This instrument is signed in the City of Tijuana, Baja California, on {fecha}.`,
   },
+}
+
+/* ───────── Vigencia del contrato de licencia ───────── */
+
+/** Vigencia personalizada: hasta 5 años después del inicio. */
+export const MAX_MESES_PERSONALIZADA = 60
+
+const MESES_VIGENCIA: Record<Exclude<VigenciaContrato, 'personalizada'>, number> = {
+  mensual: 1,
+  bimestral: 2,
+  trimestral: 3,
+  semestral: 6,
+  anual: 12,
+  bianual: 24,
+}
+
+const VIGENCIA_TEXTO: Record<Exclude<VigenciaContrato, 'personalizada'>, { es: string; en: string }> = {
+  mensual: { es: 'mensual', en: 'one-month' },
+  bimestral: { es: 'bimestral', en: 'two-month' },
+  trimestral: { es: 'trimestral', en: 'three-month' },
+  semestral: { es: 'semestral', en: 'six-month' },
+  anual: { es: 'anual', en: 'one-year' },
+  bianual: { es: 'bianual', en: 'two-year' },
+}
+
+const aISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const deISO = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number)
+  return y && m && d ? new Date(y, m - 1, d) : null
+}
+
+/** Suma meses a una fecha ISO. */
+export function sumarMesesVigencia(iso: string, meses: number): string {
+  const d = deISO(iso) ?? new Date()
+  d.setMonth(d.getMonth() + meses)
+  return aISO(d)
+}
+
+/** Fecha de terminación: la elegida (personalizada, dentro de 5 años) o inicio + meses de la vigencia. */
+export function finDeVigencia(d: Pick<ContratoLicenciaData, 'fecha' | 'vigencia' | 'finVigencia'>): string {
+  if (d.vigencia !== 'personalizada') return sumarMesesVigencia(d.fecha, MESES_VIGENCIA[d.vigencia])
+  const maximo = sumarMesesVigencia(d.fecha, MAX_MESES_PERSONALIZADA)
+  const fin = d.finVigencia && deISO(d.finVigencia) ? d.finVigencia : ''
+  if (!fin || fin <= d.fecha) return sumarMesesVigencia(d.fecha, 12)
+  return fin > maximo ? maximo : fin
+}
+
+/** Duración en texto para la cláusula: "anual" / "de 30 meses" / "de 400 días" (en inglés: "one-year", "30-month", "400-day"). */
+export function textoVigencia(d: Pick<ContratoLicenciaData, 'fecha' | 'vigencia' | 'finVigencia'>, idioma: Idioma): string {
+  if (d.vigencia !== 'personalizada') return VIGENCIA_TEXTO[d.vigencia][idioma]
+  const fin = finDeVigencia(d)
+  for (let n = 1; n <= MAX_MESES_PERSONALIZADA; n++) {
+    if (sumarMesesVigencia(d.fecha, n) === fin) return idioma === 'es' ? `de ${n} ${n === 1 ? 'mes' : 'meses'}` : `${n}-month`
+  }
+  const dias = Math.round((deISO(fin)!.getTime() - deISO(d.fecha)!.getTime()) / 86_400_000)
+  return idioma === 'es' ? `de ${dias} ${dias === 1 ? 'día' : 'días'}` : `${dias}-day`
 }

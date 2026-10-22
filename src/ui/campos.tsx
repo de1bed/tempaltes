@@ -1,4 +1,5 @@
-import { forwardRef, useId, type ReactNode } from 'react'
+import { forwardRef, useId, useImperativeHandle, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { alternarNegritas } from '../lib/marcado'
 
 export const Seccion = forwardRef<HTMLDetailsElement, { titulo: string; children: ReactNode; abierta?: boolean }>(function Seccion(
   { titulo, children, abierta = true },
@@ -21,12 +22,12 @@ interface BaseProps {
   ayuda?: string
 }
 
-export function Texto(p: BaseProps & { value: string; onChange: (v: string) => void; placeholder?: string; type?: 'text' | 'date' }) {
+export function Texto(p: BaseProps & { value: string; onChange: (v: string) => void; placeholder?: string; type?: 'text' | 'date'; min?: string; max?: string }) {
   const id = useId()
   return (
     <div className="campo">
       <label htmlFor={id}>{p.label}</label>
-      <input id={id} type={p.type ?? 'text'} value={p.value} placeholder={p.placeholder} onChange={(e) => p.onChange(e.target.value)} />
+      <input id={id} type={p.type ?? 'text'} value={p.value} placeholder={p.placeholder} min={p.min} max={p.max} onChange={(e) => p.onChange(e.target.value)} />
       {p.ayuda && <small>{p.ayuda}</small>}
     </div>
   )
@@ -41,6 +42,8 @@ export function Numero(p: BaseProps & { value: string; onChange: (v: string) => 
         {p.prefijo && <span>{p.prefijo}</span>}
         <input
           id={id}
+          // El espacio a la izquierda crece con el prefijo ("$", "US$"…) para que no se encime con el número.
+          style={p.prefijo ? { paddingLeft: `calc(${p.prefijo.length}ch + 19px)` } : undefined}
           type="number"
           inputMode="decimal"
           step={p.step ?? 'any'}
@@ -54,7 +57,7 @@ export function Numero(p: BaseProps & { value: string; onChange: (v: string) => 
   )
 }
 
-export function Fecha(p: BaseProps & { value: string; onChange: (v: string) => void }) {
+export function Fecha(p: BaseProps & { value: string; onChange: (v: string) => void; min?: string; max?: string }) {
   return <Texto {...p} type="date" />
 }
 
@@ -77,13 +80,41 @@ export function Opciones<T extends string>(
   )
 }
 
-export const Area = forwardRef<HTMLTextAreaElement, BaseProps & { value: string; onChange: (v: string) => void; filas?: number }>(
+export const Area = forwardRef<HTMLTextAreaElement, BaseProps & { value: string; onChange: (v: string) => void; filas?: number; negritas?: boolean }>(
   function Area(p, ref) {
     const id = useId()
+    const area = useRef<HTMLTextAreaElement>(null)
+    useImperativeHandle(ref, () => area.current!, [])
+
+    /** Pone o quita **negritas** en lo seleccionado y deja la selección en el mismo texto. */
+    function negritas() {
+      const el = area.current
+      if (!el) return
+      const r = alternarNegritas(p.value, el.selectionStart, el.selectionEnd)
+      p.onChange(r.texto)
+      requestAnimationFrame(() => {
+        el.focus()
+        el.setSelectionRange(r.inicio, r.fin)
+      })
+    }
+    function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+      if (p.negritas && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        negritas()
+      }
+    }
+
     return (
       <div className="campo">
-        <label htmlFor={id}>{p.label}</label>
-        <textarea ref={ref} id={id} rows={p.filas ?? 4} value={p.value} onChange={(e) => p.onChange(e.target.value)} />
+        <div className="campo-cab">
+          <label htmlFor={id}>{p.label}</label>
+          {p.negritas && (
+            <button type="button" className="btn-negritas" onMouseDown={(e) => e.preventDefault()} onClick={negritas} title="Negritas (Ctrl+B / ⌘B)">
+              <strong>B</strong> Negritas
+            </button>
+          )}
+        </div>
+        <textarea ref={area} id={id} rows={p.filas ?? 4} value={p.value} onKeyDown={onKeyDown} onChange={(e) => p.onChange(e.target.value)} />
         {p.ayuda && <small>{p.ayuda}</small>}
       </div>
     )

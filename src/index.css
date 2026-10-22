@@ -79,6 +79,10 @@ body { margin: 0; background: var(--fondo); color: var(--tinta); }
 .con-prefijo { position: relative; }
 .con-prefijo span { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--suave); }
 .con-prefijo input { padding-left: 20px; }
+.campo-cab { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.btn-negritas { font: inherit; font-size: 11.5px; padding: 2px 9px; border: 1px solid #c9d3d7; border-radius: 6px; background: #fff; color: var(--marca); cursor: pointer; }
+.btn-negritas:hover { background: #f1f5f6; }
+.btn-negritas:focus-visible { outline: 2px solid var(--verde); outline-offset: 1px; }
 
 .resumen { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 4px 0 0; padding: 10px 12px; background: #edf6f1; border-radius: 6px; font-size: 12px; }
 .resumen dt { color: var(--suave); }

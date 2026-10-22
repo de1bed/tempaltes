@@ -2,6 +2,7 @@ import { useContext, useLayoutEffect, useRef, type ClipboardEvent, type CSSPrope
 import { flushSync } from 'react-dom'
 import { cursorAl, EnMedidor, enfocar, posicionCursor, type Ligado } from '../lib/edicion'
 import { rellenar } from '../lib/modelo'
+import { aHtml, alternarNegritas } from '../lib/marcado'
 
 /**
  * Edición directa sobre la vista previa. Cada texto editable está ligado a un
@@ -20,9 +21,36 @@ interface EditableProps extends Ligado {
   onEnter?: (posicion: number, el: HTMLElement) => void
   /** Retroceso con el texto vacío (para quitar un punto de una lista). */
   onBorrarVacio?: () => void
+  /** **texto** se muestra en negritas; Ctrl+B / ⌘B pone o quita negritas en la selección. */
+  marcado?: boolean
 }
 
-export function Editable({ valor, onCambio, mostrar, placeholder, id, className, style, onEnter, onBorrarVacio }: EditableProps) {
+/** Selección [inicio, fin) dentro del texto del elemento. */
+function seleccionEn(el: HTMLElement): [number, number] {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return [0, 0]
+  const r = sel.getRangeAt(0)
+  const medir = (nodo: Node, offset: number) => {
+    const pre = document.createRange()
+    pre.selectNodeContents(el)
+    pre.setEnd(nodo, offset)
+    return pre.toString().length
+  }
+  return [medir(r.startContainer, r.startOffset), medir(r.endContainer, r.endOffset)]
+}
+
+function seleccionar(el: HTMLElement, inicio: number, fin: number) {
+  const nodo = el.firstChild ?? el
+  const largo = nodo.textContent?.length ?? 0
+  const r = document.createRange()
+  r.setStart(nodo, Math.min(inicio, largo))
+  r.setEnd(nodo, Math.min(fin, largo))
+  const sel = window.getSelection()
+  sel?.removeAllRanges()
+  sel?.addRange(r)
+}
+
+export function Editable({ valor, onCambio, mostrar, placeholder, id, className, style, onEnter, onBorrarVacio, marcado }: EditableProps) {
   const ref = useRef<HTMLSpanElement>(null)
   const enfocado = useRef(false)
   const medidor = useContext(EnMedidor)
@@ -33,7 +61,11 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
   useLayoutEffect(() => {
     ultimo.current = { valor, texto }
     const el = ref.current
-    if (el && !enfocado.current && el.textContent !== texto) el.textContent = texto
+    if (!el || enfocado.current) return
+    if (marcado) {
+      const html = aHtml(texto)
+      if (el.innerHTML !== html) el.innerHTML = html
+    } else if (el.textContent !== texto) el.textContent = texto
   })
 
   function onKeyDown(e: KeyboardEvent<HTMLSpanElement>) {
@@ -47,6 +79,13 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
       onBorrarVacio()
     } else if (e.key === 'Escape') {
       el.blur()
+    } else if (marcado && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+      e.preventDefault()
+      const [inicio, fin] = seleccionEn(el)
+      const r = alternarNegritas(el.textContent ?? '', inicio, fin)
+      el.textContent = r.texto
+      seleccionar(el, r.inicio, r.fin)
+      onCambio(r.texto)
     }
   }
 
@@ -67,6 +106,7 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
       suppressContentEditableWarning
       role="textbox"
       aria-label={placeholder}
+      title={marcado ? 'Ctrl+B / ⌘B: negritas' : undefined}
       data-placeholder={placeholder}
       spellCheck
       onFocus={(e) => {
@@ -80,7 +120,8 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
       }}
       onBlur={(e) => {
         enfocado.current = false
-        e.currentTarget.textContent = ultimo.current.texto
+        if (marcado) e.currentTarget.innerHTML = aHtml(ultimo.current.texto)
+        else e.currentTarget.textContent = ultimo.current.texto
       }}
       onInput={(e) => onCambio((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
       onKeyDown={onKeyDown}
@@ -89,7 +130,7 @@ export function Editable({ valor, onCambio, mostrar, placeholder, id, className,
   )
 }
 
-type Linea = Pick<EditableProps, 'id' | 'valor' | 'mostrar' | 'onCambio' | 'onEnter' | 'onBorrarVacio'>
+type Linea = Pick<EditableProps, 'id' | 'valor' | 'mostrar' | 'onCambio' | 'onEnter' | 'onBorrarVacio' | 'marcado'>
 
 const TITULO = '## '
 const SUB = '- '
@@ -266,6 +307,7 @@ export function LineaEditable({
   vars,
   prefijo = '',
   placeholder,
+  marcado,
 }: {
   items: string[]
   i: number
@@ -274,6 +316,7 @@ export function LineaEditable({
   vars?: Record<string, string>
   prefijo?: string
   placeholder: string
+  marcado?: boolean
 }) {
-  return <Editable {...linea(items, i, (l) => onCambio(l.join('\n')), id, vars, prefijo)} placeholder={placeholder} />
+  return <Editable {...linea(items, i, (l) => onCambio(l.join('\n')), id, vars, prefijo)} placeholder={placeholder} marcado={marcado} />
 }
