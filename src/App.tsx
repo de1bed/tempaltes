@@ -32,7 +32,7 @@ import { Admin } from './auth/Admin'
 import { Salas } from './salas/Salas'
 import { Felicitaciones } from './felicitaciones/Felicitaciones'
 import { TESTIGO_TREVE } from './lib/contratos'
-import { registrar, type Perfil } from './lib/supabase'
+import { filaCotizacionFeedbak, guardarCotizacion, registrar, type Perfil } from './lib/supabase'
 import { MandarCotizacion } from './corridas/MandarCotizacion'
 import { marcarEnvio, NOMBRES_CORRIDA, nominaDesdeCorrida, type EnvioCorrida } from './corridas/envios'
 import { AvisoCorridas } from './ui/BandejaCorridas'
@@ -311,8 +311,10 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   // cambia el tamaño de hoja y agrega márgenes y encabezados).
   const [exportando, setExportando] = useState<{ hoja: number; total: number } | null>(null)
   const [errorPdf, setErrorPdf] = useState('')
+  const [avisoHistorial, setAvisoHistorial] = useState('')
   async function descargarPdf() {
     setErrorPdf('')
+    setAvisoHistorial('')
     setExportando({ hoja: 0, total: 0 })
     try {
       // Completar autor/contacto de Feedbak si faltan, para que salgan en el PDF.
@@ -340,6 +342,11 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
       // Bitácora: quién generó qué, con los datos tal cual para poder revisarlo después.
       registrar('pdf', { plantilla, documento: nombreArchivo(estado), detalle: datos[plantilla] })
       guardarEnHistorial(perfil, { tipo: actual.tipo, plantilla, formato: 'pdf', documento: nombreArchivo(estado), empresa: datos[plantilla].empresa ?? '', datos: datos[plantilla] })
+      if (plantilla === 'feedbak') {
+        void guardarCotizacion(filaCotizacionFeedbak(datos.feedbak, nombreArchivo(estado))).then((aviso) => {
+          if (aviso) setAvisoHistorial(aviso)
+        })
+      }
     } catch (e) {
       console.error(e)
       setErrorPdf('No se pudo generar el PDF. Intenta de nuevo; si sigue fallando, recarga la página.')
@@ -595,6 +602,11 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
         {errorPdf && (
           <div className="alerta" role="alert" style={{ margin: '8px 18px 0' }}>
             {errorPdf}
+          </div>
+        )}
+        {avisoHistorial && (
+          <div className="aviso-historial" role="status">
+            {avisoHistorial}
           </div>
         )}
         {verNumeros && corrida ? (
