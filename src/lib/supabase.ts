@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import type { FeedbakData } from './modelo'
+import { entradaFeedbak } from './pagos'
 import type { Permiso } from './secciones'
+import { cotizarFeedbak } from './tabuladores'
 
 // La llave publicable está hecha para ir en el navegador: sin sesión no da acceso a nada
 // (la tabla de perfiles solo deja leer el propio y las cuentas se administran en la Edge Function).
@@ -65,6 +68,52 @@ export function registrar(accion: string, extra: { plantilla?: string; documento
     .then(({ error }) => {
       if (error) console.warn('No se pudo registrar en la bitácora', error.message)
     })
+}
+
+export interface FilaCotizacion {
+  plantilla: string
+  cliente: string | null
+  folio: string | null
+  total: number | null
+}
+
+/** Fila de historial a partir de una cotización Feedbak (datos de muestra en tests). */
+export function filaCotizacionFeedbak(d: FeedbakData, folio: string): FilaCotizacion {
+  const c = cotizarFeedbak(entradaFeedbak(d))
+  const total = Number.isFinite(c.primeraFactura) ? Math.round(c.primeraFactura * 100) / 100 : null
+  return {
+    plantilla: 'feedbak',
+    cliente: d.empresa.trim() || null,
+    folio: folio.trim().slice(0, 200) || null,
+    total,
+  }
+}
+
+/** Mensaje para el aviso no bloqueante; null si no hay error. */
+export function mensajeErrorCotizacion(error: { message?: string; code?: string; status?: number } | null): string | null {
+  if (!error) return null
+  const t = `${error.message ?? ''} ${error.code ?? ''}`.toLowerCase()
+  if (error.status === 401 || /jwt|expired|session|not authenticated|pgrst301|invalid claim/.test(t)) {
+    return 'Tu sesión expiró. Vuelve a iniciar sesión para guardar el historial.'
+  }
+  return 'No se pudo guardar la cotización en el historial.'
+}
+
+/**
+ * Anota quién hizo la cotización. Nunca lanza: el PDF no debe esperar ni fallar por esto.
+ * Devuelve un aviso si no se pudo guardar.
+ */
+export function guardarCotizacion(fila: FilaCotizacion): Promise<string | null> {
+  return Promise.resolve(
+    supabase.from('cotizaciones').insert({
+      plantilla: fila.plantilla || 'feedbak',
+      cliente: fila.cliente,
+      folio: fila.folio,
+      total: fila.total,
+    }),
+  )
+    .then(({ error }) => mensajeErrorCotizacion(error))
+    .catch(() => 'No se pudo guardar la cotización en el historial.')
 }
 
 export interface Sala {
