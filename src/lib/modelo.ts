@@ -47,6 +47,8 @@ export interface FeedbakData extends Base {
   manual: PreciosManualesTexto
   /** Fecha del primer pago; vacío = la fecha de la cotización. */
   inicioPagos: string
+  /** Mostrar la columna "Fecha de pago" en los planes (apagado: solo montos, sin fechas). */
+  mostrarFechasPago: boolean
   /** Agregar la tabla con todas las fechas y montos de los primeros 12 meses. */
   calendarioPagos: boolean
   /** Mostrar el costo por hora de soporte adicional. */
@@ -737,6 +739,7 @@ export function datosIniciales(): Datos {
       usarTabulador: true,
       manual: { precioUsuario: '', setup: '', adminsIncluidos: '', precioAdminExtra: '', descuentoTrimestral: '', descuentoSemestral: '', descuentoAnual: '' },
       inicioPagos: '',
+      mostrarFechasPago: true,
       calendarioPagos: false,
       mostrarCostoHoraAdicional: true,
       creadoPor: '',

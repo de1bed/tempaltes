@@ -254,9 +254,11 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
                     <th className="green">{t('Precio', 'Price')}</th>
                     <th className="green">{t('Descuento (%)', 'Discount (%)')}</th>
                     <th className="green">{t('Monto', 'Amount')}</th>
-                    <th className="green" style={{ whiteSpace: 'nowrap' }}>
-                      {t('Fecha de pago', 'Payment date')}
-                    </th>
+                    {d.mostrarFechasPago && (
+                      <th className="green" style={{ whiteSpace: 'nowrap' }}>
+                        {t('Fecha de pago', 'Payment date')}
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -275,9 +277,11 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
                         <td className="r">{dinero(base)}</td>
                         <td className="r">{pct(desc)}</td>
                         <td className="r strong">{dinero(total)}</td>
-                        <td className="r" style={{ whiteSpace: 'nowrap' }}>
-                          {fechaCorta(inicioPagos, es)}
-                        </td>
+                        {d.mostrarFechasPago && (
+                          <td className="r" style={{ whiteSpace: 'nowrap' }}>
+                            {fechaCorta(inicioPagos, es)}
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -287,7 +291,7 @@ export function Feedbak({ d, set }: { d: FeedbakData; set: (p: Partial<FeedbakDa
           },
         ]
       : []),
-    ...(d.calendarioPagos && planes.length > 0
+    ...(d.mostrarFechasPago && d.calendarioPagos && planes.length > 0
       ? [
           {
             key: 'calendario-pagos',

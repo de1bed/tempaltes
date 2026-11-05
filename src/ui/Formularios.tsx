@@ -175,13 +175,23 @@ export function FormFeedbak({ d, set }: Props<FeedbakData>) {
           opciones={PLANES_PAGO_OPCIONES}
           ayuda="Selecciona los planes de pago que se mostrarán en la cotización."
         />
-        <Fecha label="Fecha del primer pago" value={d.inicioPagos || d.fecha} onChange={(v) => set({ inicioPagos: v })} ayuda="Cada plan muestra su fecha y monto a pagar." />
         <Checkbox
-          label="Agregar calendario de pagos"
-          checked={d.calendarioPagos}
-          onChange={(v) => set({ calendarioPagos: v })}
-          ayuda="Tabla con todas las fechas y montos de los primeros 12 meses de cada plan."
+          label="Mostrar fechas de pago"
+          checked={d.mostrarFechasPago}
+          onChange={(v) => set({ mostrarFechasPago: v })}
+          ayuda="Apagado: los planes muestran solo los montos, sin la columna “Fecha de pago” ni el calendario."
         />
+        {d.mostrarFechasPago && (
+          <>
+            <Fecha label="Fecha del primer pago" value={d.inicioPagos || d.fecha} onChange={(v) => set({ inicioPagos: v })} ayuda="Cada plan muestra su fecha y monto a pagar." />
+            <Checkbox
+              label="Agregar calendario de pagos"
+              checked={d.calendarioPagos}
+              onChange={(v) => set({ calendarioPagos: v })}
+              ayuda="Tabla con todas las fechas y montos de los primeros 12 meses de cada plan."
+            />
+          </>
+        )}
       </Seccion>
 
       <Seccion titulo="Alcance" abierta={false}>
