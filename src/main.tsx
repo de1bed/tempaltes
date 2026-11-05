@@ -19,12 +19,15 @@ import './index.css'
 import App from './App.tsx'
 import { Acceso } from './auth/Acceso'
 import { Externo } from './salas/Externo'
+import { Participante } from './induccion/Participante'
 
-// Externos (sin cuenta) llegan con el QR de una sala: esa página no pide iniciar sesión.
+// Externos (sin cuenta) llegan con el QR de una sala y los nuevos ingresos con el código de su
+// inducción: esas páginas no piden iniciar sesión.
 const ruta = window.location.hash.slice(1)
+const publica = ruta.startsWith('externo/') ? <Externo ruta={ruta} /> : ruta === 'induccion' || ruta.startsWith('induccion/') ? <Participante ruta={ruta} /> : null
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {ruta.startsWith('externo/') ? <Externo ruta={ruta} /> : <Acceso>{(perfil, salir) => <App perfil={perfil} salir={salir} />}</Acceso>}
+    {publica ?? <Acceso>{(perfil, salir) => <App perfil={perfil} salir={salir} />}</Acceso>}
   </StrictMode>,
 )

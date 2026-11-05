@@ -31,6 +31,7 @@ import { Inicio } from './ui/Inicio'
 import { Admin } from './auth/Admin'
 import { Salas } from './salas/Salas'
 import { Felicitaciones } from './felicitaciones/Felicitaciones'
+import { Capacitacion } from './induccion/Capacitacion'
 import { TESTIGO_TREVE } from './lib/contratos'
 import { filaCotizacionFeedbak, guardarCotizacion, registrar, type Perfil } from './lib/supabase'
 import { MandarCotizacion } from './corridas/MandarCotizacion'
@@ -45,7 +46,7 @@ const CLAVE = 'cotizador:v1'
 const RUTAS: Record<TipoDocumento, string> = { cotizacion: 'cotizaciones', contrato: 'contratos', corrida: 'corridas' }
 const RUTA_BONOS = 'bonos-33-hilos'
 /** Pantallas fuera de los documentos. */
-type Pantalla = 'admin' | 'salas' | 'felicitaciones' | 'bonos' | 'historial'
+type Pantalla = 'admin' | 'salas' | 'felicitaciones' | 'bonos' | 'historial' | 'capacitacion'
 const ruta = () => window.location.hash.replace(/^#\/?/, '')
 /** Solo abre por dirección las secciones a las que la persona tiene acceso. */
 function seccionDeRuta(permitidas: TipoDocumento[]): TipoDocumento | null {
@@ -158,6 +159,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   )
   const puedeSalas = perfil.es_admin || perfil.secciones.includes('salas') || perfil.secciones.includes('salas_admin')
   const puedeFelicitaciones = perfil.es_admin || perfil.secciones.includes('felicitaciones')
+  const puedeCapacitacion = perfil.es_admin || perfil.secciones.includes('capacitacion')
   // Bonos de 33 Hilos: quien tiene Corridas.
   const puedeBonos = perfil.es_admin || perfil.secciones.includes('corrida')
   // Historial: quien hace cotizaciones, contratos o corridas.
@@ -168,9 +170,10 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     if (r === 'admin' && perfil.es_admin) return 'admin'
     if (r === 'salas' && puedeSalas) return 'salas'
     if (r === 'felicitaciones' && puedeFelicitaciones) return 'felicitaciones'
+    if (r === 'capacitacion' && puedeCapacitacion) return 'capacitacion'
     if (r === RUTA_BONOS && puedeBonos) return 'bonos'
     return null
-  }, [perfil.es_admin, puedeSalas, puedeFelicitaciones, puedeBonos, puedeHistorial])
+  }, [perfil.es_admin, puedeSalas, puedeFelicitaciones, puedeCapacitacion, puedeBonos, puedeHistorial])
   const [estado, setEstado] = useState<Estado>(() => enSeccion(cargar(), seccionDeRuta(permitidas)))
   const [seccion, setSeccion] = useState<TipoDocumento | null>(() => seccionDeRuta(permitidas))
   const [pantalla, setPantalla] = useState<Pantalla | null>(pantallaDeRuta)
@@ -391,6 +394,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
   if (pantalla === 'admin') return <Admin perfil={perfil} irAInicio={irAInicio} salir={salir} abrirDocumento={abrirDocumento} />
   if (pantalla === 'salas') return <Salas perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'felicitaciones') return <Felicitaciones perfil={perfil} irAInicio={irAInicio} salir={salir} />
+  if (pantalla === 'capacitacion') return <Capacitacion perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'bonos') return <Bonos33 perfil={perfil} irAInicio={irAInicio} salir={salir} />
   if (pantalla === 'historial')
     return <Historial perfil={perfil} irAInicio={irAInicio} salir={salir} abrirDocumento={abrirDocumento} convertirCorrida={convertirCorrida} />
@@ -406,7 +410,7 @@ export default function App({ perfil, salir }: { perfil: Perfil; salir: () => vo
     abrir('cotizacion', 'payroll')
   }
 
-  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} abrirBonos={puedeBonos ? () => abrirPantalla('bonos') : undefined} bandeja={permitidas.includes('cotizacion') ? <AvisoCorridas abrir={() => abrirPantalla('historial')} /> : undefined} abrirHistorial={puedeHistorial ? () => abrirPantalla('historial') : undefined} salir={salir} />
+  if (!seccion) return <Inicio abrir={abrir} permitidas={permitidas} perfil={perfil} abrirAdmin={() => abrirPantalla('admin')} abrirSalas={puedeSalas ? () => abrirPantalla('salas') : undefined} abrirFelicitaciones={puedeFelicitaciones ? () => abrirPantalla('felicitaciones') : undefined} abrirCapacitacion={puedeCapacitacion ? () => abrirPantalla('capacitacion') : undefined} abrirBonos={puedeBonos ? () => abrirPantalla('bonos') : undefined} bandeja={permitidas.includes('cotizacion') ? <AvisoCorridas abrir={() => abrirPantalla('historial')} /> : undefined} abrirHistorial={puedeHistorial ? () => abrirPantalla('historial') : undefined} salir={salir} />
   const datosSeccion = SECCIONES.find((s) => s.tipo === seccion)!
   const lista = PLANTILLAS.filter((p) => p.tipo === seccion)
 
