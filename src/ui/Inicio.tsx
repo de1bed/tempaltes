@@ -40,6 +40,8 @@ interface Props {
   abrirSalas?: () => void
   /** Solo si la persona tiene permiso de Felicitaciones. */
   abrirFelicitaciones?: () => void
+  /** Inducción de nuevos ingresos (permiso de Capacitación). */
+  abrirCapacitacion?: () => void
   /** Bonos de 33 Hilos (permiso de Corridas). */
   abrirBonos?: () => void
   /** Corridas recibidas (solo para quien hace cotizaciones). */
@@ -50,7 +52,7 @@ interface Props {
 }
 
 /** Pantalla de inicio: elegir qué hacer entre las secciones a las que tiene acceso la persona. */
-export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, abrirBonos, bandeja, abrirHistorial, salir }: Props) {
+export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abrirFelicitaciones, abrirCapacitacion, abrirBonos, bandeja, abrirHistorial, salir }: Props) {
   const secciones = SECCIONES.filter((s) => permitidas.includes(s.tipo))
   return (
     <div className="inicio">
@@ -70,7 +72,7 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abri
         {bandeja}
 
         <div className="inicio-tarjetas">
-          {secciones.length === 0 && !abrirSalas && !abrirFelicitaciones && !abrirBonos && !perfil.es_admin && (
+          {secciones.length === 0 && !abrirSalas && !abrirFelicitaciones && !abrirCapacitacion && !abrirBonos && !perfil.es_admin && (
             <p className="inicio-vacio">Todavía no tienes acceso a ninguna sección. Pídele al administrador que te lo active.</p>
           )}
           {secciones.map((s) => {
@@ -156,6 +158,23 @@ export function Inicio({ abrir, permitidas, perfil, abrirAdmin, abrirSalas, abri
                 <span className="tarjeta-titulo">Felicitaciones</span>
                 <span className="tarjeta-desc">Cumpleaños, aniversarios, bienvenidas y despedidas con foto y datos del directorio.</span>
                 <span className="tarjeta-pie">Crear imagen →</span>
+              </button>
+            </section>
+          )}
+          {abrirCapacitacion && (
+            <section className="tarjeta" style={{ borderTopColor: '#2E8B7A' }}>
+              <button type="button" className="tarjeta-cab" onClick={abrirCapacitacion}>
+                <span className="tarjeta-icono" style={{ color: '#2E8B7A' }}>
+                  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2.5 9 12 4.5 21.5 9 12 13.5z" />
+                      <path d="M6.5 11v5c1.5 1.6 3.5 2.4 5.5 2.4s4-.8 5.5-2.4v-5M21.5 9v5" />
+                    </g>
+                  </svg>
+                </span>
+                <span className="tarjeta-titulo">Capacitación</span>
+                <span className="tarjeta-desc">Inducción de nuevos ingresos: presentación, videos y cuestionario, con QR para grupos y resultados de cada persona.</span>
+                <span className="tarjeta-pie">Inducción →</span>
               </button>
             </section>
           )}

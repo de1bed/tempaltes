@@ -50,9 +50,30 @@ Imágenes de **cumpleaños, aniversario, bienvenida y despedida** con las planti
 
 Cómo está hecho: tabla `colaboradores` (migración `20261015000000_felicitaciones.sql`, RLS: la ve y edita quien tiene el permiso). Las plantillas se dibujan en HTML con las medidas de las diapositivas originales (`src/felicitaciones/plantillas.tsx`) sobre los fondos extraídos de los PowerPoint (`src/felicitaciones/fondos/`).
 
+## Capacitación (inducción de nuevos ingresos)
+
+Curso de inducción con presentación, videos y cuestionario (permiso "Capacitación" en Administración, dirección `#capacitacion`). Quien toma la inducción **no necesita cuenta**: entra con un código o QR en `#induccion/<CÓDIGO>` (o escribe el código en `#induccion`).
+
+- **Sesiones**:
+  - **Una persona**: se crea con su nombre (y correo opcional). El código vale 30 días por omisión y la persona avanza a su ritmo desde el celular o la computadora; con el mismo código retoma donde se quedó. Se comparte con **Copiar mensaje con enlace**, WhatsApp o correo.
+  - **Grupo (QR)**: para varias personas a la vez. Por omisión la presentación se **proyecta** desde la app (**Presentar**: diapositivas y videos en grande, con pantalla completa, flechas del teclado o control de presentaciones) y al final se muestra el QR para que cada quien conteste el cuestionario en su celular con su nombre. También se puede marcar que cada persona vea la presentación en su celular.
+  - En el detalle de la sesión se ve **en vivo** (cada 5 s) quién entró, en qué paso o diapositiva va, su calificación y cuánto tiempo lleva. Una sesión se cierra, se reabre o se borra (con sus resultados).
+- **Curso**: pasos en orden (diapositivas de una presentación, del número X al Y, y videos) y al final el cuestionario. Los videos marcados como obligatorios hay que verlos completos para seguir (YouTube dentro de la página; si no se puede reproducir, se ofrece abrirlo en otra pestaña). Los pasos incompletos (presentación sin PDF, video sin enlace) se saltan hasta que se completen.
+- **Contenido**: cada presentación se sube **en PDF** (PowerPoint → Archivo → Exportar → PDF); la app la convierte en imágenes en el navegador (una por diapositiva, 1600 px) y las guarda en el bucket privado `induccion`. Para actualizarla se sube el PDF nuevo. Videos: enlace de YouTube o archivo MP4/WebM de hasta 50 MB. Aquí también se cambian el nombre del curso (sale en la constancia), la calificación para aprobar (80 por omisión) y si se puede repetir el cuestionario (sí por omisión). **Vista previa** muestra el curso tal como se proyecta.
+- **Cuestionario**: preguntas de opción múltiple (2 a 6 opciones, una correcta), editables y en el orden en que se muestran. Las respuestas correctas **nunca llegan al celular**: califica la Edge Function. Si no aprueba, ve qué preguntas falló (sin la respuesta correcta), puede repasar la presentación y volver a intentar.
+- **Resultados**: todas las personas con sesión, fecha, tiempo total, intentos, mejor calificación y estado; búsqueda y filtro; detalle de cada intento (qué contestó, cuál era la correcta y cuánto tardó); **constancia en PDF** de quien aprobó (también la descarga la persona al aprobar) y **Descargar Excel (CSV)**.
+
+Contenido inicial (material de RH de noviembre 2026): *Inducción TREVÉ 2026* (diapositivas 1–25, video de hostigamiento y acoso laboral, diapositivas 26–36), extensión *Gastos médicos menores (MMS)* y un lugar para el video de 30 segundos de MMS (pendiente), con 12 preguntas tomadas de las diapositivas. Los PDF se suben una vez desde Contenido.
+
+Cómo está hecho:
+
+- `supabase/migrations/20261105000000_induccion.sql`: permiso `capacitacion`, tablas `induccion_presentaciones`, `induccion_cursos` (pasos y preguntas en JSON), `induccion_sesiones`, `induccion_participantes` (avance de cada persona) e `induccion_intentos` (copia de preguntas y respuestas de cada intento, para que el historial no cambie si se edita el cuestionario), y el bucket privado `induccion`. RLS: quien tiene Capacitación ve todo y mantiene contenido y sesiones; los resultados solo los escribe la Edge Function.
+- `supabase/functions/induccion/`: Edge Function pública (desplegar con `--no-verify-jwt`, como `salas`) para entrar con el código, guardar el avance y calificar; da enlaces temporales (6 h) a las diapositivas y limita los intentos de código por IP. `logica.ts` (pasos visibles, calificación, validación) se comparte con la app y tiene pruebas en `logica.test.ts`.
+- `src/induccion/`: pantalla de Recursos Humanos (`Capacitacion.tsx` y sus pestañas), página pública (`Participante.tsx`), reproductor de diapositivas y videos (`Reproductor.tsx`), conversión PDF → imágenes (`archivos.ts`) y constancia (`constancia.ts`).
+
 ## Pantalla de inicio
 
-Al abrir la app aparece **¿Qué quieres hacer hoy?** con las secciones **Cotizaciones**, **Contratos** y **Corridas** (más **Salas** y **Felicitaciones** para quien tenga el permiso). Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`, `#corridas`.
+Al abrir la app aparece **¿Qué quieres hacer hoy?** con las secciones **Cotizaciones**, **Contratos** y **Corridas** (más **Salas**, **Felicitaciones** y **Capacitación** para quien tenga el permiso). Se entra a una sección con su tarjeta (abre el último formato usado) o directo a un formato de la lista. Dentro, el menú muestra solo los formatos de esa sección y **‹ Inicio** regresa (también el botón Atrás del navegador). Cada sección tiene su dirección: `#cotizaciones`, `#contratos`, `#corridas`.
 
 ## Tamaño de hoja y reparto en hojas
 
